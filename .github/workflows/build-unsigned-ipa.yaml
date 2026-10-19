@@ -1,1 +1,417 @@
+# =============================================================================
+#  YCam —— 在 GitHub Actions 上构建「未签名 IPA」，再用 Sideloadly 签名安装（不需要 Mac）
+#
+#  文件位置（必须一字不差）： .github/workflows/build-unsigned-ipa.yml
+#
+#  使用：仓库 Actions → 左侧选 "Build YCam for Sideloadly" → Run workflow
+#    成功：运行页面最底部 Artifacts → 下载 YCam-unsigned-IPA → 解压得到 YCam-unsigned.ipa
+#    失败：报错会直接显示在运行页面的 Summary 里；完整日志在 Artifacts → YCam-build-logs（xcodebuild.log）
+#
+#  这份工作流是按项目里的这些事实写的（改了项目，请同步改这里）：
+#    · 工程 YCam.xcodeproj，唯一的 target / scheme 叫 YCam，产物 YCam.app，Bundle ID com.ycam.camera
+#    · 最低系统 iOS 18.0，仅 iPhone；Info.plist 是手写的（GENERATE_INFOPLIST_FILE = NO）
+#    · Glass.swift 用 #if compiler(>=6.2) 包着官方 Liquid Glass，所以必须用 Xcode 26（Swift 6.2）编译
+#    · 9 个 Swift 文件 + Info.plist + Assets.xcassets 必须在仓库根目录（见 UPLOAD_TO_GITHUB_FIRST.md）
+#
+#  费用提示：公开仓库免费；私有仓库的 macOS 分钟按 10 倍扣（免费账户每月 2000 分钟 ≈ 200 分钟 macOS）。
+#  所以只改说明文档（.md）/ docs / tools 的提交不会自动触发构建，新提交会自动取消还在跑的旧构建。
+# =============================================================================
+name: Build YCam for Sideloadly
 
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - "tools/**"
+
+concurrency:
+  group: ycam-build-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build YCam IPA
+    # macos-26 = Apple Silicon + macOS 26 + Xcode 26.x。第 2 步还会再强制确认一次 Xcode / SDK 版本。
+    # 将来如果 macos-26 被下线，把它改成 macos-latest 即可（第 2 步会自动挑最新的 Xcode 26.x，找不到就用默认版并检查 ≥ 26）。
+    runs-on: macos-26
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    env:
+      OUTPUT_DIR: ${{ github.workspace }}/output
+
+    steps:
+      # ---------------------------------------------------------------- 1
+      - name: "1/9 拉取代码 (Checkout)"
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      # ---------------------------------------------------------------- 2
+      - name: "2/9 检查 Xcode ≥ 26（官方 Liquid Glass 需要 Xcode 26 SDK）"
+        run: |
+          set -euo pipefail
+          LOGS="$OUTPUT_DIR/logs"
+          mkdir -p "$LOGS"
+
+          echo "== 镜像里已安装的 Xcode =="
+          ls -d /Applications/Xcode*.app 2>/dev/null || true
+
+          # 只选「稳定版」Xcode 26.x：名字必须严格是 Xcode_26.x[.y].app（beta / RC / 预览版的名字更长，不会匹配）。
+          NEWEST="$(ls -d /Applications/Xcode_26*.app 2>/dev/null | grep -E '^/Applications/Xcode_26(\.[0-9]+){0,2}\.app$' | sort -t. -k2,2n -k3,3n | tail -n 1 || true)"
+          if [ -n "$NEWEST" ]; then
+            echo "选择：$NEWEST"
+            sudo xcode-select -s "$NEWEST/Contents/Developer"
+          else
+            echo "::warning::没找到 /Applications/Xcode_26*.app，改用镜像默认的 Xcode（下面会检查版本）。"
+          fi
+
+          XCODE_OUT="$(xcodebuild -version)"
+          printf '%s\n' "$XCODE_OUT" | tee "$LOGS/xcode-version.txt"
+          XCODE_LINE="$(printf '%s\n' "$XCODE_OUT" | sed -n '1p')"
+          MAJOR="$(printf '%s\n' "$XCODE_LINE" | sed -nE 's/^Xcode ([0-9]+).*/\1/p')"
+          if [ -z "$MAJOR" ] || [ "$MAJOR" -lt 26 ]; then
+            echo "::error::当前 Xcode 是「${XCODE_LINE:-未知}」，版本太旧。官方 Liquid Glass（glassEffect）需要 Xcode 26 的 SDK；Glass.swift 里的 #if compiler(>=6.2) 在旧 Xcode 上会悄悄只编出磨砂降级版。"
+            exit 1
+          fi
+
+          SDK_VER="$(xcrun --sdk iphoneos --show-sdk-version 2>/dev/null || true)"
+          echo "iphoneos SDK: ${SDK_VER:-未找到}" | tee -a "$LOGS/xcode-version.txt"
+          SDK_MAJOR="${SDK_VER%%.*}"
+          case "$SDK_MAJOR" in ''|*[!0-9]*) SDK_MAJOR=0 ;; esac
+          if [ "$SDK_MAJOR" -lt 26 ]; then
+            echo "::error::iphoneos SDK 版本是「${SDK_VER:-未找到}」，需要 ≥ 26。"
+            exit 1
+          fi
+          xcrun swift --version 2>&1 | tee -a "$LOGS/xcode-version.txt"
+          xcodebuild -showsdks
+
+      # ---------------------------------------------------------------- 3
+      - name: "3/9 定位项目并检查必需文件"
+        run: |
+          set -euo pipefail
+          cd "$GITHUB_WORKSPACE"
+          echo "== 仓库根目录 =="
+          ls -la
+
+          # 先看仓库根目录；万一整个文件夹被多包了一层，只要项目唯一就自动使用那一层。
+          if [ -f "YCam.xcodeproj/project.pbxproj" ]; then
+            PROJECT_DIR="."
+          else
+            FOUND="$(find . -maxdepth 4 -type f -path '*/YCam.xcodeproj/project.pbxproj' -not -path './.git/*' 2>/dev/null | sed 's|/YCam\.xcodeproj/project\.pbxproj$||' | sort -u || true)"
+            N="$(printf '%s\n' "$FOUND" | sed '/^$/d' | wc -l | tr -d ' ')"
+            if [ "$N" = "1" ]; then
+              PROJECT_DIR="$FOUND"
+              echo "::warning::项目在子文件夹「$PROJECT_DIR」里，不在仓库根目录。已自动使用它；建议把里面的全部文件移到仓库根目录。"
+            else
+              echo "::error::找不到 YCam.xcodeproj/project.pbxproj（或者找到了多个）。请把压缩包解压后的【全部内容】上传到仓库根目录，YCam.xcodeproj 文件夹要完整。"
+              exit 1
+            fi
+          fi
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+          cd "$PROJECT_DIR"
+          echo "项目目录：$PROJECT_DIR"
+
+          # --- UPLOAD_TO_GITHUB_FIRST.md 里列出的必需文件 ---
+          MISSING=0
+          for f in YCam.xcodeproj/project.pbxproj Info.plist \
+                   FilmStyleCameraApp.swift CameraHomeView.swift CameraModel.swift CameraPreview.swift \
+                   DotPalette.swift FilterEngine.swift Styles.swift VideoRecorder.swift Glass.swift \
+                   Assets.xcassets/Contents.json Assets.xcassets/AppIcon.appiconset/Contents.json; do
+            if [ ! -f "$f" ]; then
+              echo "::error::缺少必需文件：$f"
+              MISSING=1
+            fi
+          done
+          ICONS="$(find Assets.xcassets/AppIcon.appiconset -maxdepth 1 -name '*.png' 2>/dev/null | wc -l | tr -d ' ')"
+          if [ "$ICONS" = "0" ]; then
+            echo "::error::缺少 App 图标：Assets.xcassets/AppIcon.appiconset/ 里没有 .png 文件"
+            MISSING=1
+          fi
+          if [ "$MISSING" -ne 0 ]; then
+            echo "::error::上面列出的文件没有上传到仓库。请上传压缩包里的全部内容（包括所有 .swift 文件和 Assets.xcassets 文件夹），见 UPLOAD_TO_GITHUB_FIRST.md。"
+            exit 1
+          fi
+
+          # --- project.pbxproj 里登记的每个 .swift 都必须真的在仓库里 ---
+          REFS="$(grep -oE 'path = [A-Za-z0-9_.+-]+\.swift;' YCam.xcodeproj/project.pbxproj | sed -E 's/^path = //; s/;$//' | sort -u || true)"
+          if [ -z "$REFS" ]; then
+            echo "::error::project.pbxproj 里没有登记任何 .swift 文件（文件损坏，或被换成了别的版本）。"
+            exit 1
+          fi
+          for f in $REFS; do
+            if [ ! -f "$f" ]; then
+              echo "::error::project.pbxproj 里登记了 $f，但仓库里没有这个文件。"
+              MISSING=1
+            fi
+          done
+          [ "$MISSING" -eq 0 ] || exit 1
+          # 反过来：仓库里有、但 pbxproj 没登记的 .swift 不会被编译（只提醒）。
+          for f in *.swift; do
+            if ! grep -F "path = $f;" YCam.xcodeproj/project.pbxproj > /dev/null; then
+              echo "::warning::$f 没有登记在 project.pbxproj 里，不会被编译。"
+            fi
+          done
+
+          # --- 官方玻璃必须存在于源码里（防止 Glass.swift 被换成旧版）---
+          for sym in glassEffect GlassEffectContainer; do
+            if ! grep -F "$sym" Glass.swift > /dev/null; then
+              echo "::error::Glass.swift 里没有 $sym —— 看起来被换成了旧版（没有官方 Liquid Glass）。"
+              exit 1
+            fi
+          done
+
+          # --- Info.plist：格式合法、权限说明齐全、没有关闭玻璃的开关 ---
+          plutil -lint Info.plist
+          for key in NSCameraUsageDescription NSMicrophoneUsageDescription NSPhotoLibraryAddUsageDescription NSPhotoLibraryUsageDescription; do
+            if ! /usr/libexec/PlistBuddy -c "Print :$key" Info.plist > /dev/null 2>&1; then
+              echo "::error::Info.plist 缺少 $key（缺了的话，App 一用到相机 / 麦克风 / 相册就会闪退）。"
+              exit 1
+            fi
+          done
+          if /usr/libexec/PlistBuddy -c "Print :UIDesignRequiresCompatibility" Info.plist > /dev/null 2>&1; then
+            echo "::error::Info.plist 里有 UIDesignRequiresCompatibility：它会关闭 Liquid Glass，请删除这一项。"
+            exit 1
+          fi
+          echo "文件检查全部通过。"
+
+      # ---------------------------------------------------------------- 4
+      - name: "4/9 检查工程结构（target / scheme）"
+        run: |
+          set -euo pipefail
+          cd "$GITHUB_WORKSPACE/$PROJECT_DIR"
+          LOGS="$OUTPUT_DIR/logs"
+          if ! xcodebuild -list -project YCam.xcodeproj > "$LOGS/xcode-list.txt" 2>&1; then
+            cat "$LOGS/xcode-list.txt"
+            echo "::error::xcodebuild 读不懂 YCam.xcodeproj/project.pbxproj（文件损坏，或没有完整上传）。"
+            exit 1
+          fi
+          cat "$LOGS/xcode-list.txt"
+          # 项目里没有单独保存 scheme 文件，Xcode 会自动生成名为 YCam 的 scheme；万一没有，就退回 -target 构建。
+          if sed -n '/Schemes:/,$p' "$LOGS/xcode-list.txt" | grep -E '^[[:space:]]+YCam[[:space:]]*$' > /dev/null; then
+            BUILD_MODE="scheme"
+          else
+            echo "::warning::工程里没有名为 YCam 的 scheme，改用 -target YCam 构建。"
+            BUILD_MODE="target"
+          fi
+          echo "构建方式：$BUILD_MODE"
+          echo "BUILD_MODE=$BUILD_MODE" >> "$GITHUB_ENV"
+
+      # ---------------------------------------------------------------- 5
+      - name: "5/9 编译未签名的 YCam.app（Release / iphoneos）"
+        run: |
+          set -euo pipefail
+          cd "$GITHUB_WORKSPACE/$PROJECT_DIR"
+          LOGS="$OUTPUT_DIR/logs"
+          COMMON=(
+            -configuration Release
+            -sdk iphoneos
+            CODE_SIGNING_ALLOWED=NO
+            CODE_SIGNING_REQUIRED=NO
+            CODE_SIGN_IDENTITY=
+            ONLY_ACTIVE_ARCH=NO
+            COMPILER_INDEX_STORE_ENABLE=NO
+          )
+          if [ "$BUILD_MODE" = "scheme" ]; then
+            DERIVED="$RUNNER_TEMP/YCamDerivedData"
+            PRODUCTS="$DERIVED/Build/Products/Release-iphoneos"
+            xcodebuild \
+              -project YCam.xcodeproj \
+              -scheme YCam \
+              -destination 'generic/platform=iOS' \
+              -derivedDataPath "$DERIVED" \
+              "${COMMON[@]}" \
+              build 2>&1 | tee "$LOGS/xcodebuild.log"
+          else
+            BUILD_ROOT="$RUNNER_TEMP/YCamBuild"
+            PRODUCTS="$BUILD_ROOT/Products/Release-iphoneos"
+            xcodebuild \
+              -project YCam.xcodeproj \
+              -target YCam \
+              SYMROOT="$BUILD_ROOT/Products" \
+              OBJROOT="$BUILD_ROOT/Intermediates" \
+              "${COMMON[@]}" \
+              build 2>&1 | tee "$LOGS/xcodebuild.log"
+          fi
+          echo "PRODUCTS_DIR=$PRODUCTS" >> "$GITHUB_ENV"
+
+      # ---------------------------------------------------------------- 6
+      - name: "6/9 打包并验证 IPA"
+        run: |
+          set -euo pipefail
+          LOGS="$OUTPUT_DIR/logs"
+          APP="$PRODUCTS_DIR/YCam.app"
+          if [ ! -d "$APP" ]; then
+            echo "::error::编译结束了，但没有生成 YCam.app。"
+            ls -la "$PRODUCTS_DIR" || true
+            exit 1
+          fi
+          if [ ! -f "$APP/YCam" ]; then
+            echo "::error::YCam.app 里没有可执行文件 YCam。"
+            exit 1
+          fi
+
+          # --- 检查「编译出来的」Info.plist ---
+          PLIST="$APP/Info.plist"
+          plutil -p "$PLIST" > "$LOGS/built-Info.plist.txt"
+          for key in CFBundleIdentifier CFBundleExecutable CFBundleShortVersionString CFBundleVersion MinimumOSVersion \
+                     NSCameraUsageDescription NSMicrophoneUsageDescription NSPhotoLibraryAddUsageDescription NSPhotoLibraryUsageDescription \
+                     UILaunchScreen; do
+            if ! VAL="$(/usr/libexec/PlistBuddy -c "Print :$key" "$PLIST" 2>/dev/null)"; then
+              echo "::error::编译出来的 Info.plist 缺少 $key。"
+              exit 1
+            fi
+            echo "$key = $(printf '%s\n' "$VAL" | sed -n '1p')"
+          done
+          if /usr/libexec/PlistBuddy -c "Print :UIDesignRequiresCompatibility" "$PLIST" > /dev/null 2>&1; then
+            echo "::error::UIDesignRequiresCompatibility 被设置了：这会关闭 Liquid Glass。"
+            exit 1
+          fi
+          MINOS="$(/usr/libexec/PlistBuddy -c 'Print :MinimumOSVersion' "$PLIST")"
+          if [ "$MINOS" != "18.0" ]; then
+            echo "::warning::MinimumOSVersion 是 $MINOS；这个项目的设计是 iOS 18.0 起（iOS 18–25 磨砂玻璃 / iOS 26 官方玻璃）。"
+          fi
+
+          # --- 检查二进制：必须是 arm64 ---
+          ARCHS="$(lipo -archs "$APP/YCam" 2>/dev/null || true)"
+          echo "架构：${ARCHS:-未知}"
+          case " $ARCHS " in
+            *" arm64 "*) ;;
+            *) echo "::error::YCam 不是 arm64 二进制（lipo 报告：${ARCHS:-未知}）。"; exit 1 ;;
+          esac
+          if [ -f "$APP/Assets.car" ]; then
+            echo "Assets.car 存在（App 图标已编译进去）。"
+          else
+            echo "::warning::App 里没有 Assets.car：主屏幕图标可能不显示。"
+          fi
+
+          # --- 打包 IPA：Payload/YCam.app ---
+          IPA="$OUTPUT_DIR/YCam-unsigned.ipa"
+          WORK="$RUNNER_TEMP/YCam-IPA"
+          rm -rf "$WORK" "$IPA"
+          mkdir -p "$WORK/Payload"
+          ditto "$APP" "$WORK/Payload/YCam.app"
+          (cd "$WORK" && /usr/bin/zip -qry "$IPA" Payload -x '*.DS_Store')
+          if [ ! -s "$IPA" ]; then
+            echo "::error::打出来的 IPA 是空的。"
+            exit 1
+          fi
+          unzip -tq "$IPA"
+          unzip -l "$IPA" > "$LOGS/ipa-contents.txt"
+          if ! grep -E 'Payload/YCam\.app/Info\.plist$' "$LOGS/ipa-contents.txt" > /dev/null; then
+            echo "::error::IPA 里没有 Payload/YCam.app/Info.plist。"
+            exit 1
+          fi
+          if ! grep -E 'Payload/YCam\.app/YCam$' "$LOGS/ipa-contents.txt" > /dev/null; then
+            echo "::error::IPA 里没有 Payload/YCam.app/YCam。"
+            exit 1
+          fi
+          echo "IPA 结构正确：Payload/YCam.app/{Info.plist,YCam}"
+
+      # ---------------------------------------------------------------- 7
+      - name: "7/9 确认官方 Liquid Glass 已编进二进制，并写入摘要"
+        run: |
+          set -uo pipefail
+          LOGS="$OUTPUT_DIR/logs"
+          APP="$PRODUCTS_DIR/YCam.app"
+          BIN="$APP/YCam"
+          IPA="$OUTPUT_DIR/YCam-unsigned.ipa"
+
+          # 二进制里对 SwiftUI 官方玻璃 API 的引用：glassEffect / GlassEffectContainer / Glass 类型
+          nm -u "$BIN" 2>/dev/null | grep -E 'glassEffect|GlassEffectContainer|5GlassV' | sort -u > "$LOGS/liquid-glass-symbols-all.txt" || true
+          COUNT="$(grep -c . "$LOGS/liquid-glass-symbols-all.txt" || true)"
+          COUNT="${COUNT:-0}"
+          sed -n '1,30p' "$LOGS/liquid-glass-symbols-all.txt" | tee "$LOGS/liquid-glass-symbols.txt"
+          echo "Liquid Glass symbol references in the binary: $COUNT"
+
+          # 二进制的构建信息（平台 / 最低系统 / 编译用的 SDK），仅供参考
+          xcrun vtool -show-build "$BIN" > "$LOGS/binary-build-info.txt" 2>&1 || true
+          cat "$LOGS/binary-build-info.txt"
+
+          if [ "$COUNT" -eq 0 ]; then
+            echo "::warning::二进制里没有找到 glassEffect / GlassEffectContainer 符号：这个 IPA 只有磨砂降级版，没有官方 Liquid Glass。请把 xcodebuild.log 发给我。"
+          fi
+
+          pb() { /usr/libexec/PlistBuddy -c "Print :$1" "$APP/Info.plist" 2>/dev/null || echo "?"; }
+          XCODE_LINE="$(sed -n '1p' "$LOGS/xcode-version.txt")"
+          SDK_LINE="$(grep -m1 '^iphoneos SDK' "$LOGS/xcode-version.txt" | sed 's/^iphoneos SDK: //' || true)"
+          IPA_SIZE="$(du -h "$IPA" | awk '{print $1}')"
+          {
+            echo "### ✅ YCam 构建成功"
+            echo
+            echo "| 项目 | 内容 |"
+            echo "|---|---|"
+            echo "| Xcode | $XCODE_LINE |"
+            echo "| iphoneos SDK | $SDK_LINE |"
+            echo "| Bundle ID | $(pb CFBundleIdentifier) |"
+            echo "| 版本 | $(pb CFBundleShortVersionString) ($(pb CFBundleVersion)) |"
+            echo "| 最低系统 | iOS $(pb MinimumOSVersion) |"
+            echo "| IPA 大小 | $IPA_SIZE |"
+            if [ "$COUNT" -gt 0 ]; then
+              echo "| Liquid Glass symbol references in the binary | $COUNT（官方玻璃已编进 App）|"
+            else
+              echo "| Liquid Glass symbol references in the binary | **0 ⚠️ 只有磨砂降级版** |"
+            fi
+            echo
+            echo '**下一步：** 本页最底部 Artifacts → 下载 `YCam-unsigned-IPA` → 解压得到 `YCam-unsigned.ipa` → 用 Sideloadly 签名安装。'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit 0
+
+      # ---------------------------------------------------------------- 8
+      - name: "8/9 上传 IPA（YCam-unsigned-IPA）"
+        if: success()
+        uses: actions/upload-artifact@v6
+        with:
+          name: YCam-unsigned-IPA
+          path: output/YCam-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+
+      # ---------------------------------------------------------------- 失败时
+      - name: "（仅失败时）把报错显示在 Summary 里"
+        if: failure()
+        run: |
+          LOG="$OUTPUT_DIR/logs/xcodebuild.log"
+          {
+            echo "### ❌ YCam 构建失败"
+            echo
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ ! -f "$LOG" ]; then
+            echo "失败发生在编译之前，没有 xcodebuild.log。请看上面标红的那一步里的说明。"
+            echo "失败发生在编译之前（没有 xcodebuild.log），请看标红的那一步里的说明。" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          ERR="$(grep -E 'error:|BUILD FAILED' "$LOG" | sed "s|$GITHUB_WORKSPACE/||g" | awk '!seen[$0]++' | sed -n '1,40p' || true)"
+          if [ -z "$ERR" ]; then
+            echo "xcodebuild.log 里没有 error 行；请看失败的那一步，或下载 YCam-build-logs。"
+            echo "xcodebuild.log 里没有 error 行；请看标红的那一步，或下载 YCam-build-logs。" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          {
+            echo "把下面的报错贴给我（完整日志：Artifacts → YCam-build-logs → xcodebuild.log）："
+            echo
+            echo '```'
+            printf '%s\n' "$ERR"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          printf '%s\n' "$ERR" | sed -n '1,10p' | sed 's/%/%25/g; s/^/::error::/'
+          exit 0
+
+      # ---------------------------------------------------------------- 9
+      - name: "9/9 上传日志（YCam-build-logs）"
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: YCam-build-logs
+          path: output/logs/
+          if-no-files-found: warn
+          retention-days: 7
