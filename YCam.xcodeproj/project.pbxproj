@@ -16,6 +16,7 @@
 		A10000000000000000000206 /* Styles.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000106 /* Styles.swift */; };
 		A10000000000000000000207 /* VideoRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000107 /* VideoRecorder.swift */; };
 		A10000000000000000000208 /* Glass.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000108 /* Glass.swift */; };
+		A10000000000000000000209 /* Diagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000109 /* Diagnostics.swift */; };
 		A10000000000000000000004 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000003 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
@@ -30,6 +31,7 @@
 		A10000000000000000000106 /* Styles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Styles.swift; sourceTree = "<group>"; };
 		A10000000000000000000107 /* VideoRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoRecorder.swift; sourceTree = "<group>"; };
 		A10000000000000000000108 /* Glass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Glass.swift; sourceTree = "<group>"; };
+		A10000000000000000000109 /* Diagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Diagnostics.swift; sourceTree = "<group>"; };
 		A10000000000000000000003 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A10000000000000000000005 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -65,6 +67,7 @@
 				A10000000000000000000106 /* Styles.swift */,
 				A10000000000000000000107 /* VideoRecorder.swift */,
 				A10000000000000000000108 /* Glass.swift */,
+				A10000000000000000000109 /* Diagnostics.swift */,
 				A10000000000000000000003 /* Assets.xcassets */,
 				A10000000000000000000005 /* Info.plist */,
 			);
@@ -156,6 +159,7 @@
 				A10000000000000000000206 /* Styles.swift in Sources */,
 				A10000000000000000000207 /* VideoRecorder.swift in Sources */,
 				A10000000000000000000208 /* Glass.swift in Sources */,
+				A10000000000000000000209 /* Diagnostics.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -212,6 +216,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				ALWAYS_SEARCH_USER_PATHS = NO;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.0;
 			};
@@ -221,6 +226,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				ALWAYS_SEARCH_USER_PATHS = NO;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.0;
 			};
