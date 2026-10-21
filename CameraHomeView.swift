@@ -71,6 +71,7 @@ struct CameraHomeView: View {
     @State private var modeDrag: CGFloat = 0      // 视频 / 照片 切换条里“透镜”的拖动偏移
     @State private var modeDragging = false
     @State private var flashOverlay = false       // 快门反馈（短暂变暗）
+    @State private var showDiagnostics = false    // 长按右上角“⋯”打开诊断日志
 
     var body: some View {
         GeometryReader { geo in
@@ -91,6 +92,7 @@ struct CameraHomeView: View {
         }
         .ignoresSafeArea()
         .statusBarHidden()
+        .sheet(isPresented: $showDiagnostics) { DiagnosticsView() }
         .task { await camera.requestAndStart() }
         .onAppear { UIApplication.shared.isIdleTimerDisabled = true }
         .onDisappear { UIApplication.shared.isIdleTimerDisabled = false }
@@ -205,13 +207,18 @@ struct CameraHomeView: View {
             .buttonStyle(GlassButtonStyle())
             .accessibilityLabel("实况照片")
 
-            Button { go(sheet == .closed ? .drawer : .closed) } label: {
-                DotGrid(dot: 3.4 * m.s, gap: 3.2 * m.s)
-                    .frame(width: 32 * m.s, height: 38 * m.s)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(GlassButtonStyle())
-            .accessibilityLabel("更多控制")
+            DotGrid(dot: 3.4 * m.s, gap: 3.2 * m.s)
+                .frame(width: 32 * m.s, height: 38 * m.s)
+                .contentShape(Rectangle())
+                .onTapGesture { go(sheet == .closed ? .drawer : .closed) }
+                .onLongPressGesture(minimumDuration: 0.8) {
+                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                    showDiagnostics = true
+                }
+                .accessibilityElement()
+                .accessibilityLabel("更多控制")
+                .accessibilityAddTraits(.isButton)
+                .accessibilityHint("长按打开诊断日志")
         }
         .padding(.horizontal, 6 * m.s)
         .frame(width: 108 * m.s, height: 38 * m.s)

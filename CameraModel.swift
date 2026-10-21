@@ -51,7 +51,7 @@ private final class PhotoJob {
 
 // MARK: - CameraModel
 
-final class CameraModel: NSObject, ObservableObject {
+final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
 
     // MARK: Published UI state（只在主线程修改）
 
@@ -70,7 +70,11 @@ final class CameraModel: NSObject, ObservableObject {
     @Published private(set) var recordingStart: Date?
     @Published private(set) var lastThumbnail: UIImage?
     @Published private(set) var shutterPulse = 0
-    @Published var message: String?
+    @Published var message: String? {
+        didSet {
+            if let text = message { DiagnosticsLog.shared.add("提示：\(text)") }
+        }
+    }
 
     /// 唯一的风格状态：名称 / 圆点 / 预览 / 照片 / 视频都读取它。
     @Published var styleSettings = StyleSettings() {
@@ -100,6 +104,9 @@ final class CameraModel: NSObject, ObservableObject {
     private let jobLock = NSLock()
     private var observers: [NSObjectProtocol] = []
     private static let sRGB = CGColorSpace(name: CGColorSpace.sRGB)!
+    private var framesProcessed = 0                                    // 仅 dataQueue
+    private var lastLoggedFrameSize = (width: 0, height: 0)            // 仅 dataQueue
+    private static let maxPreviewLongEdge: CGFloat = 1920
 
     // MARK: Lifecycle
 
@@ -124,8 +131,10 @@ final class CameraModel: NSObject, ObservableObject {
         isStarting = true
         defer { isStarting = false }
 
+        DiagnosticsLog.shared.add("设备：\(UIDevice.current.model)，iOS \(UIDevice.current.systemVersion)")
         let cameraGranted = await authorize(.video)
         permission = cameraGranted ? .granted : .denied
+        DiagnosticsLog.shared.add("相机权限：\(cameraGranted ? "已允许" : "被拒绝")")
         guard cameraGranted else { return }
 
         // 麦克风 / 照片权限被拒绝不会阻止取景，只会让对应功能给出明确提示。
@@ -133,6 +142,7 @@ final class CameraModel: NSObject, ObservableObject {
         if PHPhotoLibrary.authorizationStatus(for: .addOnly) == .notDetermined {
             _ = await PHPhotoLibrary.requestAuthorization(for: .addOnly)
         }
+        DiagnosticsLog.shared.add("麦克风权限：\(micGranted ? "已允许" : "被拒绝")；照片(仅添加)权限状态码：\(PHPhotoLibrary.authorizationStatus(for: .addOnly).rawValue)")
         sessionQueue.async { self.configureAndRun(withAudio: micGranted) }
     }
 
@@ -159,16 +169,19 @@ final class CameraModel: NSObject, ObservableObject {
 
     private func registerSessionObservers() {
         let nc = NotificationCenter.default
-        observers.append(nc.addObserver(forName: AVCaptureSession.runtimeErrorNotification, object: session, queue: .main) { [weak self] _ in
+        observers.append(nc.addObserver(forName: AVCaptureSession.runtimeErrorNotification, object: session, queue: .main) { [weak self] note in
             guard let self else { return }
+            let err = note.userInfo?[AVCaptureSessionErrorKey] as? NSError
+            DiagnosticsLog.shared.add("相机运行错误：\(err?.domain ?? "?") code=\(err?.code ?? 0) \(err?.localizedDescription ?? "")")
             if self.isRecording { self.stopRecording() }
             self.message = "相机发生错误，正在尝试恢复"
             self.sessionQueue.async {
                 if self.isConfigured, !self.session.isRunning { self.session.startRunning() }
             }
         })
-        observers.append(nc.addObserver(forName: AVCaptureSession.wasInterruptedNotification, object: session, queue: .main) { [weak self] _ in
+        observers.append(nc.addObserver(forName: AVCaptureSession.wasInterruptedNotification, object: session, queue: .main) { [weak self] note in
             guard let self else { return }
+            DiagnosticsLog.shared.add("相机被打断，原因码：\((note.userInfo?[AVCaptureSessionInterruptionReasonKey] as? Int) ?? -1)")
             if self.isRecording { self.stopRecording() }
             self.message = "相机被系统暂时占用（如来电或多任务）"
         })
@@ -188,12 +201,35 @@ final class CameraModel: NSObject, ObservableObject {
 
     private func configureAndRun(withAudio: Bool) {
         if !isConfigured {
-            guard configureSession() else { return }
+            guard configureSession() else {
+                DiagnosticsLog.shared.add("相机配置失败（configureSession 返回 false）")
+                return
+            }
             isConfigured = true
         }
         if withAudio { addAudioIfNeeded() }
         if !session.isRunning { session.startRunning() }
         publishCapabilities()
+        DiagnosticsLog.shared.add("相机会话：running=\(session.isRunning)，预设=\(session.sessionPreset.rawValue)，设备=\(videoInput?.device.localizedName ?? "无")，实况照片支持=\(photoOutput.isLivePhotoCaptureSupported)，麦克风输入=\(audioInput != nil)")
+        scheduleFrameWatchdog()
+    }
+
+    /// 看门狗：相机启动 4 秒后检查是否真的收到了画面；没有就明确提示，并写进诊断日志。
+    private func scheduleFrameWatchdog() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 4) { [weak self] in
+            guard let self else { return }
+            self.dataQueue.async {
+                let count = self.framesProcessed
+                if count > 0 {
+                    DiagnosticsLog.shared.add("看门狗：已处理 \(count) 帧，取景正常")
+                } else {
+                    DiagnosticsLog.shared.add("看门狗：4 秒内没有收到任何相机画面")
+                    DispatchQueue.main.async {
+                        self.message = "没有收到相机画面。长按右上角“⋯”打开诊断日志，把内容发给我。"
+                    }
+                }
+            }
+        }
     }
 
     private func configureSession() -> Bool {
@@ -394,6 +430,7 @@ final class CameraModel: NSObject, ObservableObject {
         let wantFlash = flashEnabled
         let wantLive = livePhotoEnabled && style.isIdentity && cropAspect == nil   // 处理过（风格 / 裁剪）的静态图不能与原始实况视频配对
         isCapturingPhoto = true
+        DiagnosticsLog.shared.add("拍照：风格=\(style.style.title)，全屏裁剪=\(cropAspect != nil)，实况=\(wantLive)，闪光=\(wantFlash)")
 
         sessionQueue.async {
             let settings = AVCapturePhotoSettings()
@@ -436,6 +473,8 @@ final class CameraModel: NSObject, ObservableObject {
     }
 
     private func photoFailed(_ error: Error) {
+        let ns = error as NSError
+        DiagnosticsLog.shared.add("拍照/保存失败：\(ns.domain) code=\(ns.code) \(ns.localizedDescription)")
         setJob(nil)
         DispatchQueue.main.async {
             self.isCapturingPhoto = false
@@ -572,6 +611,7 @@ final class CameraModel: NSObject, ObservableObject {
         isRecording = true
         recordingStart = Date()
         if !micAvailable { message = "未获得麦克风权限：本次视频将没有声音" }
+        DiagnosticsLog.shared.add("开始录像：麦克风=\(micAvailable)")
         dataQueue.async { self.recorder.arm(url: url, audioSettings: audioSettings) }
     }
 
@@ -598,8 +638,7 @@ final class CameraModel: NSObject, ObservableObject {
 
     private func makeAudioSettings() -> [String: Any]? {
         guard micAvailable else { return nil }
-        if let raw = audioOutput.recommendedAudioSettingsForAssetWriter(writingTo: .mov),
-           let settings = raw as? [String: Any] {
+        if let settings = audioOutput.recommendedAudioSettingsForAssetWriter(writingTo: .mov) {
             return settings
         }
         return [
@@ -632,15 +671,31 @@ final class CameraModel: NSObject, ObservableObject {
         autoreleasepool {
             guard let source = CMSampleBufferGetImageBuffer(sample) else { return }
             let pts = CMSampleBufferGetPresentationTimeStamp(sample)
-            let width = CVPixelBufferGetWidth(source)
-            let height = CVPixelBufferGetHeight(source)
+            let srcW = CVPixelBufferGetWidth(source)
+            let srcH = CVPixelBufferGetHeight(source)
+
+            // 照片预设下摄像头可能直接给 1200 万像素的整帧：取景 / 录像只需要长边 ≤ 1920，先降采样再处理。
+            let scale = min(1, Self.maxPreviewLongEdge / CGFloat(max(srcW, srcH)))
+            let width = max(2, Int((CGFloat(srcW) * scale).rounded()))
+            let height = max(2, Int((CGFloat(srcH) * scale).rounded()))
             guard let target = makePixelBuffer(width: width, height: height) else { return }
 
+            var image = CIImage(cvPixelBuffer: source)
+            if scale < 1 {
+                image = image.transformed(by: CGAffineTransform(scaleX: CGFloat(width) / CGFloat(srcW),
+                                                                y: CGFloat(height) / CGFloat(srcH)))
+            }
             // 同一帧只处理一次：处理后的画面既用于取景器，也用于录像。
-            let processed = FilterEngine.shared.process(CIImage(cvPixelBuffer: source))
+            let processed = FilterEngine.shared.process(image)
             ciContext.render(processed, to: target,
                              bounds: CGRect(x: 0, y: 0, width: width, height: height),
                              colorSpace: Self.sRGB)
+
+            framesProcessed &+= 1
+            if lastLoggedFrameSize.width != srcW || lastLoggedFrameSize.height != srcH {
+                lastLoggedFrameSize = (srcW, srcH)
+                DiagnosticsLog.shared.add("相机画面尺寸：\(srcW)×\(srcH) → 取景 / 录像 \(width)×\(height)")
+            }
             display(target, pts: pts)
             recorder.appendVideo(target, pts: pts)
         }
@@ -667,8 +722,12 @@ final class CameraModel: NSObject, ObservableObject {
 
     private func display(_ pixelBuffer: CVPixelBuffer, pts: CMTime) {
         guard let layer = displayLayer, let sample = Self.makeSampleBuffer(pixelBuffer, pts: pts) else { return }
-        if layer.status == .failed { layer.flush() }
-        if layer.isReadyForMoreMediaData { layer.enqueue(sample) }
+        let renderer = layer.sampleBufferRenderer      // iOS 18 起的新接口（旧接口已弃用）
+        if renderer.status == .failed {
+            DiagnosticsLog.shared.add("取景显示层状态 = failed，已重置")
+            renderer.flush()
+        }
+        if renderer.isReadyForMoreMediaData { renderer.enqueue(sample) }
     }
 
     private static func makeSampleBuffer(_ pixelBuffer: CVPixelBuffer, pts: CMTime) -> CMSampleBuffer? {
