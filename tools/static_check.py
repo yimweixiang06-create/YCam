@@ -56,7 +56,7 @@ for line in model.splitlines():
         if m.group(1) and "(set)" not in m.group(1):
             private_names.add(m.group(2))
 used = set()
-for name in ("CameraHomeView.swift", "CameraPreview.swift"):
+for name in ("CameraHomeView.swift", "CameraPreview.swift", "ControlPanels.swift"):
     used |= set(re.findall(r"\$?camera\.(\w+)", strip(text[name])))
 for u in sorted(used):
     if u not in declared:
@@ -72,10 +72,13 @@ notes.append(f"交叉引用：视图使用了 {len(used)} 个 camera 成员，�
 
 # 5. 旧实现不应残留
 for name, src in text.items():
-    for bad in ("NativeStyle", "FilmPreset", "ImageLook", "glassBackground", "AVCaptureVideoPreviewLayer",
+    for bad in ("NativeStyle", "FilmPreset", "ImageLook", "glassBackground",
                 "AVCaptureMovieFileOutput", "CITemperatureAndTint"):
         if bad in strip(src):
             problems.append(f"{name}: 仍包含旧实现 {bad}")
+
+if "AVCaptureVideoPreviewLayer" in strip(text["CameraPreview.swift"]):
+    problems.append("CameraPreview.swift: 取景器不应再用 AVCaptureVideoPreviewLayer（那样看不到风格）")
 
 # 6. Liquid Glass 官方性
 glass = text["Glass.swift"]
@@ -111,6 +114,63 @@ groups = {n: s.count("GlassGroup(") for n, s in text.items() if "GlassGroup(" in
 morphs = {n: s.count("GlassMorph(") for n, s in text.items() if "GlassMorph(" in s}
 notes.append(f"GlassGroup(官方 GlassEffectContainer) 使用：{groups}")
 notes.append(f"GlassMorph(iOS26 官方 glassEffectID 形变 / iOS18 matchedGeometry 近似)：{morphs}")
+
+
+# 7. 穷举 switch：新增 case 却漏写分支是最常见的编译错误
+def body_of(src, header_regex):
+    m = re.search(header_regex, src)
+    if not m:
+        return None
+    i = src.index("{", m.end() - 1) if src[m.end() - 1] != "{" else m.end() - 1
+    depth = 0
+    for j in range(i, len(src)):
+        if src[j] == "{":
+            depth += 1
+        elif src[j] == "}":
+            depth -= 1
+            if depth == 0:
+                return src[i:j + 1]
+    return None
+
+def enum_cases(src, enum_name):
+    m = re.search(r"enum %s\b[^{]*\{(.*?)\n    var id" % enum_name, src, re.S) or re.search(r"enum %s\b[^{]*\{(.*?)\n\}" % enum_name, src, re.S)
+    cases = []
+    for line in m.group(1).splitlines():
+        line = line.strip()
+        if line.startswith("case "):
+            head = line[5:].split("=")[0]
+            cases += [c.strip() for c in head.split(",") if c.strip()]
+    return cases
+
+def covers(enum_name, enum_src, func_regex, func_src, label):
+    cases = enum_cases(enum_src, enum_name)
+    body = body_of(func_src, func_regex)
+    if body is None:
+        problems.append(f"找不到函数 {label}")
+        return
+    used = set()
+    for mm in re.finditer(r"case ((?:\.\w+(?:, )?)+)", body):
+        used |= set(re.findall(r"\.(\w+)", mm.group(1)))
+    missing = set(cases) - used
+    if missing:
+        problems.append(f"{label}: switch 没有覆盖 {enum_name} 的 {sorted(missing)}")
+
+ctrl = text["CameraControls.swift"]
+home = text["CameraHomeView.swift"]
+model = text["CameraModel.swift"]
+covers("ControlID", ctrl, r"var title: String \{", ctrl[ctrl.index("enum ControlID"):], "ControlID.title")
+covers("ControlID", ctrl, r"private func spec\(", home, "CameraHomeView.spec")
+covers("Sheet", ctrl, r"func panelHeight\(", ctrl, "UIMetrics.panelHeight")
+covers("Sheet", ctrl, r"private func sheetPanel\(", home, "CameraHomeView.sheetPanel")
+covers("CaptureMode", ctrl, r"private func performCapture\(", model, "CameraModel.performCapture")
+covers("CaptureMode", ctrl, r"private var shutterLabel", home, "CameraHomeView.shutterLabel")
+covers("FlashSetting", ctrl, r"private func flashIcon\(", home, "CameraHomeView.flashIcon")
+covers("PortraitLighting", st, r"private static func applyLighting\(", text["FilterEngine.swift"], "FilterEngine.applyLighting")
+covers("PortraitLighting", st, r"var title: String \{", st[st.index("enum PortraitLighting"):], "PortraitLighting.title")
+covers("AppleFilter", st, r"var recipe: LookRecipe \{", st[st.index("enum AppleFilter"):], "AppleFilter.recipe")
+covers("AppleFilter", st, r"var title: String \{", st[st.index("enum AppleFilter"):], "AppleFilter.title")
+covers("AspectSetting", ctrl, r"var heightOverWidth", ctrl, "AspectSetting.heightOverWidth")
+notes.append("穷举 switch 检查：ControlID / Sheet / CaptureMode / FlashSetting / PortraitLighting / AppleFilter / AspectSetting")
 
 print("\n".join("· " + n for n in notes))
 if problems:

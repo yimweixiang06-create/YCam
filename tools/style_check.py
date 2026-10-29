@@ -72,14 +72,22 @@ def scaled(r, k):
                 whiteRoll=l(r["whiteRoll"], 0), mono=l(r["mono"], 0), grain=r["grain"] * k, bloom=r["bloom"] * k)
 
 
-def effective(r, point=(0.5, 0.5), intensity=1.0, exposure=0.0):
-    e = scaled(r, min(1, max(0, intensity)))
-    color = (point[0] - 0.5) * 2
+def effective(r, point=(0.8, 0.5), intensity=1.0, exposure=0.0):
+    """与 FilterEngine.effectiveRecipe 对应：横向 = 纯度（左灰 → 右纯），纵向 = 明度（上亮 → 下暗）。"""
+    k = min(1.0, max(0.0, intensity))
+    e = scaled(r, k)
+    purity = max(0.0, min(1.25, point[0] / 0.8))
+    e["temperature"] *= purity
+    e["tint"] *= purity
+    e["vibrance"] *= purity
+    e["shadowTint"] = tuple(x * purity for x in e["shadowTint"])
+    e["highlightTint"] = tuple(x * purity for x in e["highlightTint"])
+    e["midGamma"] = tuple(1 + (x - 1) * purity for x in e["midGamma"])
+    sat_mul = purity if purity <= 1 else 1 + (purity - 1) * 0.8
+    e["saturation"] = max(0.0, e["saturation"]) * sat_mul
     tone = (0.5 - point[1]) * 2
-    e["exposure"] += exposure + 0.45 * tone
-    e["contrast"] -= 0.25 * tone
-    e["temperature"] += 0.35 * color
-    e["saturation"] *= 1 + 0.15 * color
+    e["exposure"] += 0.6 * tone + exposure
+    e["contrast"] -= 0.20 * tone
     return e
 
 
@@ -237,6 +245,21 @@ def main():
     res = check(results["monochrome"]["a"] ** 2 + results["monochrome"]["b"] ** 2 < 1.0, "monochrome 灰阶应无色")
     lines.append(f"| 黑白 灰阶无色 | {res} | a*={results['monochrome']['a']:+.1f}, b*={results['monochrome']['b']:+.1f} |")
 
+    # 色调板“使用公式”：左灰 / 右纯、上亮 / 下暗
+    amber = recipes["amber"]
+    def chroma(point):
+        out = lab(transform(CHECKER, effective(amber, point=point)))
+        return float(np.sqrt(out[:, 1] ** 2 + out[:, 2] ** 2).mean())
+    def lightness(point):
+        return float(lab(transform(CHECKER, effective(amber, point=point)))[:, 0].mean())
+    lines += ["", "## 2b. 色调板公式（按你给的“调色盘使用公式”，以琥珀色为例）", "", "| 检查 | 结果 | 数值 |", "|---|---|---|"]
+    res = check(chroma((0.0, 0.5)) < 3.0, "色调板最左边应是灰（低纯度）")
+    lines.append(f"| 最左边 = 灰（平均彩度 < 3） | {res} | C*={chroma((0.0, 0.5)):.1f} |")
+    res = check(chroma((1.0, 0.5)) > chroma((0.8, 0.5)) > chroma((0.4, 0.5)), "纯度应随横向增加")
+    lines.append(f"| 越往右越纯 | {res} | C*(0.4/0.8/1.0)={chroma((0.4, 0.5)):.1f} / {chroma((0.8, 0.5)):.1f} / {chroma((1.0, 0.5)):.1f} |")
+    res = check(lightness((0.8, 0.0)) > lightness((0.8, 0.5)) > lightness((0.8, 1.0)), "明度应随纵向向下变暗")
+    lines.append(f"| 越往上越亮、越往下越暗 | {res} | L*(上/中/下)={lightness((0.8, 0.0)):.1f} / {lightness((0.8, 0.5)):.1f} / {lightness((0.8, 1.0)):.1f} |")
+
     lines += ["", "## 3. 风格之间是否真的不同（两两平均 ΔE76；阈值 ≥ 4）", "", "| 对比 | ΔE | 结果 |", "|---|---|---|"]
     pairs = [("fuji400", "fujiCyan"), ("kodak800", "kodakWarmYellow"), ("fuji400", "kodak800"),
              ("fujiCyan", "kodakWarmYellow"), ("pearl", "fuji400"), ("pearl", "kodak800"), ("amber", "gold")]
@@ -250,7 +273,7 @@ def main():
     lines += ["", "## 5. 没有被验证的部分（必须明确）", "",
               "- **与真实 FUJI 400 / KODAK 800 / Apple 摄影风格 / Pearl 的 90% 相似度：没有测量。** "
               "需要同一场景的真实参考样张（例如同一张 RAW 用目标胶片 / 风格处理后的成品），再用 ΔE 拟合配方。",
-              "- 柔光（Pearl 等）与胶片颗粒是 Core Image 滤镜，这里只复算了颜色部分，没有复算它们。",
+              "- 柔光 / 柔焦（珠光）、胶片颗粒、人像光效和景深是 Core Image / Vision 滤镜，这里只复算了颜色部分，没有复算它们。",
               "- ColorChecker 数值是常见近似值，显示设备与真实光照也会影响观感。",
               "- 没有找到可验证的 Pearl 开源实现，Pearl 是按“柔和、低对比、微粉青高光”自行设计的。"]
     (ROOT / "STYLE_CHECK_REPORT.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
