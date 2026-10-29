@@ -4,14 +4,18 @@
 #  文件位置（必须一字不差）： .github/workflows/build-unsigned-ipa.yml
 #
 #  使用：仓库 Actions → 左侧选 "Build YCam for Sideloadly" → Run workflow
-#    成功：运行页面最底部 Artifacts → 下载 YCam-unsigned-IPA → 解压得到 YCam-unsigned.ipa
+#    成功：运行页面最底部 Artifacts → 点 YCam-unsigned.ipa 直接下载（不用解压）→ 用 Sideloadly 签名安装
+#          （万一直传失败，会改传 zip 包 YCam-unsigned-IPA：解压后同样是 YCam-unsigned.ipa）
 #    失败：报错会直接显示在运行页面的 Summary 里；完整日志在 Artifacts → YCam-build-logs（xcodebuild.log）
 #
 #  这份工作流是按项目里的这些事实写的（改了项目，请同步改这里）：
 #    · 工程 YCam.xcodeproj，唯一的 target / scheme 叫 YCam，产物 YCam.app，Bundle ID com.ycam.camera
 #    · 最低系统 iOS 18.0，仅 iPhone；Info.plist 是手写的（GENERATE_INFOPLIST_FILE = NO）
 #    · Glass.swift 用 #if compiler(>=6.2) 包着官方 Liquid Glass，所以必须用 Xcode 26（Swift 6.2）编译
-#    · 10 个 Swift 文件 + Info.plist + Assets.xcassets 必须在仓库根目录（见 UPLOAD_TO_GITHUB_FIRST.md）
+#    · 13 个 Swift 文件 + Info.plist + Assets.xcassets 必须在仓库根目录（见 UPLOAD_TO_GITHUB_FIRST.md）
+#
+#  运行环境（2026 年 7 月的镜像信息）：macos-26 自带 Xcode 26.5 / 26.6（默认 26.6）；第 2 步自动选最新的稳定版 26.x。
+#  Action 版本：checkout@v7、upload-artifact@v7（直传 .ipa 的 archive: false 需要 upload-artifact v7）。
 #
 #  费用提示：公开仓库免费；私有仓库的 macOS 分钟按 10 倍扣（免费账户每月 2000 分钟 ≈ 200 分钟 macOS）。
 #  所以只改说明文档（.md）/ docs / tools 的提交不会自动触发构建，新提交会自动取消还在跑的旧构建。
@@ -50,7 +54,7 @@ jobs:
     steps:
       # ---------------------------------------------------------------- 1
       - name: "1/9 拉取代码 (Checkout)"
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 1
           persist-credentials: false
@@ -124,7 +128,7 @@ jobs:
           MISSING=0
           for f in YCam.xcodeproj/project.pbxproj Info.plist \
                    FilmStyleCameraApp.swift CameraHomeView.swift CameraModel.swift CameraPreview.swift \
-                   DotPalette.swift FilterEngine.swift Styles.swift VideoRecorder.swift Glass.swift Diagnostics.swift \
+                   DotPalette.swift FilterEngine.swift Styles.swift VideoRecorder.swift Glass.swift Diagnostics.swift CameraControls.swift ControlPanels.swift LivePhotoStyler.swift \
                    Assets.xcassets/Contents.json Assets.xcassets/AppIcon.appiconset/Contents.json; do
             if [ ! -f "$f" ]; then
               echo "::error::缺少必需文件：$f"
@@ -362,14 +366,26 @@ jobs:
               echo "| Liquid Glass symbol references in the binary | **0 ⚠️ 只有磨砂降级版** |"
             fi
             echo
-            echo '**下一步：** 本页最底部 Artifacts → 下载 `YCam-unsigned-IPA` → 解压得到 `YCam-unsigned.ipa` → 用 Sideloadly 签名安装。'
+            echo '**下一步：** 本页最底部 Artifacts → 点 `YCam-unsigned.ipa` 直接下载（不用解压）→ 用 Sideloadly 签名安装。（如果那里只有 `YCam-unsigned-IPA`，那是备用的 zip 包：解压后就是 `YCam-unsigned.ipa`。）'
           } >> "$GITHUB_STEP_SUMMARY"
           exit 0
 
       # ---------------------------------------------------------------- 8
-      - name: "8/9 上传 IPA（YCam-unsigned-IPA）"
-        if: success()
-        uses: actions/upload-artifact@v6
+      - name: "8/9 上传 IPA（直传 .ipa，不用解压）"
+        id: upload_ipa
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
+        with:
+          # archive: false = 不打 zip，直接上传这一个文件；Artifact 的名字就是文件名 YCam-unsigned.ipa（此时 name 参数会被忽略）。
+          path: output/YCam-unsigned.ipa
+          archive: false
+          if-no-files-found: error
+          retention-days: 14
+
+      # 只有上面的直传失败时才会运行：改传 zip 包，免得白白浪费一次 macOS 构建。
+      - name: "（备用）直传失败时，改传 zip 包 YCam-unsigned-IPA"
+        if: steps.upload_ipa.outcome == 'failure'
+        uses: actions/upload-artifact@v7
         with:
           name: YCam-unsigned-IPA
           path: output/YCam-unsigned.ipa
@@ -410,7 +426,7 @@ jobs:
       # ---------------------------------------------------------------- 9
       - name: "9/9 上传日志（YCam-build-logs）"
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: YCam-build-logs
           path: output/logs/
