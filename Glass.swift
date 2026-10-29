@@ -108,6 +108,27 @@ struct LegacyGlassBackground<S: Shape>: View {
             )
     }
 }
+/// 底部面板用的“高斯磨砂”：更厚的系统模糊 + 压暗 + 渐变高光描边（iOS 18 和 iOS 26 都用它）。
+struct FrostedBackground<S: Shape>: View {
+    let shape: S
+
+    var body: some View {
+        let material: Material = .thick
+        shape
+            .fill(material)
+            .overlay(shape.fill(Color.black.opacity(0.30)))
+            .overlay(
+                shape.stroke(
+                    LinearGradient(colors: [Color.white.opacity(0.42),
+                                            Color.white.opacity(0.06),
+                                            Color.white.opacity(0.18)],
+                                   startPoint: .topLeading,
+                                   endPoint: .bottomTrailing),
+                    lineWidth: 0.8
+                )
+            )
+    }
+}
 // END LEGACY
 
 extension View {
@@ -154,6 +175,20 @@ struct GlassButtonStyle: ButtonStyle {
 
     private static var isLegacy: Bool {
         if #available(iOS 26.0, *) { return false } else { return true }
+    }
+}
+
+extension View {
+    /// 底部面板的玻璃：高斯磨砂（面板之间切换时底板会平滑变形）。
+    func frostedPanel<S: Shape>(_ shape: S, morph: GlassMorph? = nil) -> some View {
+        background {
+            if let morph {
+                FrostedBackground(shape: shape)
+                    .matchedGeometryEffect(id: morph.id, in: morph.namespace)
+            } else {
+                FrostedBackground(shape: shape)
+            }
+        }
     }
 }
 

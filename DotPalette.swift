@@ -23,15 +23,15 @@ struct DotGrid: View {
     }
 }
 
-// MARK: - 风格卡片 + 可横向滑动的轮播（与 iOS 26 相机“风格”面板一致）
+// MARK: - 卡片 + 可横向滑动的轮播（摄影风格 / 滤镜通用）
 
-struct StyleCard: View {
-    let style: CameraStyle
+struct SwatchCard: View {
+    let colors: [Color]
     let selected: Bool
 
     var body: some View {
         RoundedRectangle(cornerRadius: 11, style: .continuous)
-            .fill(LinearGradient(colors: style.cardColors, startPoint: .top, endPoint: .bottom))
+            .fill(LinearGradient(colors: colors, startPoint: .top, endPoint: .bottom))
             .overlay(
                 RoundedRectangle(cornerRadius: 11, style: .continuous)
                     .stroke(Color.white.opacity(selected ? 0.85 : 0.14), lineWidth: selected ? 1.5 : 0.6)
@@ -39,30 +39,32 @@ struct StyleCard: View {
     }
 }
 
-/// 横向滑动选择风格：手指拖动时实时切换（有触感反馈），松手后吸附到最近的卡片；也可以直接点按卡片。
-struct StyleCarousel: View {
-    @Binding var selected: CameraStyle
+/// 横向滑动选择：手指拖动时实时切换（有触感反馈），松手后吸附到最近的卡片；也可以直接点按卡片。
+struct SwatchCarousel<Item: Hashable & Identifiable>: View {
+    let items: [Item]
+    @Binding var selected: Item
     let cardWidth: CGFloat
     let cardHeight: CGFloat
     let spacing: CGFloat
+    let colors: (Item) -> [Color]
+    let name: (Item) -> String
 
-    private let styles = CameraStyle.allCases
     @State private var anchorIndex = 0
     @State private var drag: CGFloat = 0
     @State private var dragging = false
 
-    private var step: CGFloat { cardWidth + spacing }
+    private var step: CGFloat { max(1, cardWidth + spacing) }
 
     var body: some View {
         GeometryReader { geo in
             ZStack {
-                ForEach(Array(styles.enumerated()), id: \.element.id) { index, style in
-                    StyleCard(style: style, selected: style == selected)
+                ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+                    SwatchCard(colors: colors(item), selected: item == selected)
                         .frame(width: cardWidth, height: cardHeight)
                         .position(x: geo.size.width / 2 + CGFloat(index - anchorIndex) * step + drag,
                                   y: geo.size.height / 2)
                         .onTapGesture { choose(index) }
-                        .accessibilityLabel(style.title)
+                        .accessibilityLabel(name(item))
                 }
             }
             .frame(width: geo.size.width, height: geo.size.height)
@@ -86,18 +88,18 @@ struct StyleCarousel: View {
                 dragging = true
                 drag = value.translation.width
                 let raw = CGFloat(anchorIndex) - drag / step
-                let nearest = min(styles.count - 1, max(0, Int(raw.rounded())))
-                if styles[nearest] != selected {
-                    selected = styles[nearest]
+                let nearest = min(items.count - 1, max(0, Int(raw.rounded())))
+                if items[nearest] != selected {
+                    selected = items[nearest]
                     UISelectionFeedbackGenerator().selectionChanged()
                 }
             }
             .onEnded { value in
                 let projected = value.translation.width + 0.3 * (value.predictedEndTranslation.width - value.translation.width)
                 let raw = CGFloat(anchorIndex) - projected / step
-                let target = min(styles.count - 1, max(0, Int(raw.rounded())))
-                if styles[target] != selected {
-                    selected = styles[target]
+                let target = min(items.count - 1, max(0, Int(raw.rounded())))
+                if items[target] != selected {
+                    selected = items[target]
                     UISelectionFeedbackGenerator().selectionChanged()
                 }
                 dragging = false
@@ -109,23 +111,22 @@ struct StyleCarousel: View {
     }
 
     private func choose(_ index: Int) {
-        guard index >= 0, index < styles.count else { return }
-        if styles[index] != selected { UISelectionFeedbackGenerator().selectionChanged() }
-        selected = styles[index]
+        guard index >= 0, index < items.count else { return }
+        if items[index] != selected { UISelectionFeedbackGenerator().selectionChanged() }
+        selected = items[index]
         withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
             anchorIndex = index
             drag = 0
         }
     }
 
-    private func indexOf(_ style: CameraStyle) -> Int {
-        styles.firstIndex(of: style) ?? 0
+    private func indexOf(_ item: Item) -> Int {
+        items.firstIndex(of: item) ?? 0
     }
 }
 
-// MARK: - 色调 / 颜色 点阵（11 × 11）
+// MARK: - 色调板（11 × 11）：横向 = 纯度（左灰 → 右纯），纵向 = 明度（上亮 → 下暗）
 
-/// 横向 = 颜色（冷 → 暖），纵向 = 色调（亮 → 暗）。点按或拖动都会吸附到最近的圆点。
 struct DotPalette: View {
     @Binding var point: CGPoint
     var colors: [Color]
@@ -142,7 +143,8 @@ struct DotPalette: View {
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
                     .fill(LinearGradient(colors: colors, startPoint: .top, endPoint: .bottom))
                     .overlay(
-                        LinearGradient(colors: [Color.blue.opacity(0.20), Color.clear, Color.orange.opacity(0.20)],
+                        // 左边偏灰（低纯度），右边保持风格本色（高纯度）
+                        LinearGradient(colors: [Color(white: 0.55).opacity(0.85), Color(white: 0.55).opacity(0.0)],
                                        startPoint: .leading, endPoint: .trailing)
                             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                     )
@@ -174,9 +176,9 @@ struct DotPalette: View {
                     .onEnded { _ in dragging = false }
             )
             .accessibilityElement()
-            .accessibilityLabel("色调与颜色点阵")
-            .accessibilityValue("颜色第\(selectedColumn + 1)列，色调第\(selectedRow + 1)行")
-            .accessibilityHint("上下调节色调，左右调节颜色")
+            .accessibilityLabel("色调板")
+            .accessibilityValue("纯度第\(selectedColumn + 1)列，明度第\(selectedRow + 1)行")
+            .accessibilityHint("左右调节纯度，上下调节明度")
             .accessibilityAdjustableAction { direction in
                 let delta: CGFloat = direction == .increment ? 1 : -1
                 let next = min(CGFloat(columns - 1), max(0, CGFloat(selectedColumn) + delta))
@@ -210,7 +212,7 @@ struct DotPalette: View {
     }
 }
 
-// MARK: - 刻度滑块（“调色板”强度，− ||||||||| +）
+// MARK: - 刻度滑块（“调色盘浓度”，淡 → 浓：− ||||||||| +）
 
 struct TickSlider: View {
     @Binding var value: Double      // 0...1
@@ -246,7 +248,7 @@ struct TickSlider: View {
         }
         .foregroundStyle(Color.white)
         .accessibilityElement()
-        .accessibilityLabel("调色板强度")
+        .accessibilityLabel("调色盘浓度")
         .accessibilityValue("\(Int((value * 100).rounded()))%")
         .accessibilityAdjustableAction { direction in
             let delta = direction == .increment ? 0.1 : -0.1
