@@ -166,14 +166,14 @@ enum CameraStyle: String, CaseIterable, Identifiable {
     var recipe: LookRecipe {
         switch self {
         case .standard: return LookRecipe()
-        case .pearl: return LookRecipe(exposure: -0.03, contrast: -0.22, saturation: 0.90, vibrance: 0.06, temperature: 0.00, tint: 0.05, shadowTint: rgb(-0.004, 0.006, 0.012), highlightTint: rgb(0.018, 0.006, 0.022), blackLift: 0.035, whiteRoll: 0.20, bloom: 0.22, softness: 0.55)
+        case .pearl: return LookRecipe(exposure: -0.03, contrast: -0.12, saturation: 0.90, vibrance: 0.06, temperature: 0.00, tint: 0.05, shadowTint: rgb(-0.004, 0.006, 0.012), highlightTint: rgb(0.018, 0.006, 0.022), blackLift: 0.025, whiteRoll: 0.14, bloom: 0.05)
         case .amber: return LookRecipe(exposure: -0.02, contrast: 0.10, saturation: 1.10, temperature: 0.34, tint: 0.12, highlightTint: rgb(0.022, 0.002, -0.016))
-        case .gold: return LookRecipe(exposure: 0.10, contrast: 0.02, saturation: 1.00, temperature: 0.30, tint: -0.14, highlightTint: rgb(0.012, 0.020, -0.016), blackLift: 0.010)
-        case .roseGold: return LookRecipe(contrast: 0.02, saturation: 1.00, temperature: 0.18, tint: 0.14, highlightTint: rgb(0.016, 0.000, 0.004))
+        case .gold: return LookRecipe(exposure: 0.12, contrast: 0.03, saturation: 1.06, temperature: 0.30, tint: -0.14, highlightTint: rgb(0.012, 0.020, -0.016), blackLift: 0.010)
+        case .roseGold: return LookRecipe(contrast: -0.04, saturation: 1.00, temperature: 0.18, tint: 0.14, highlightTint: rgb(0.016, 0.000, 0.004), blackLift: 0.020)
         case .coolRose: return LookRecipe(exposure: 0.05, contrast: 0.02, temperature: -0.20, tint: 0.08, highlightTint: rgb(0.006, -0.002, 0.008))
         case .cool: return LookRecipe(contrast: 0.06, saturation: 1.02, temperature: -0.30, tint: -0.04, highlightTint: rgb(-0.004, 0.004, 0.012))
         case .radiant: return LookRecipe(exposure: -0.05, contrast: 0.30, saturation: 1.14, vibrance: 0.20, shadowTint: rgb(-0.012, 0.010, 0.020), highlightTint: rgb(0.014, 0.000, 0.016), whiteRoll: 0.05)
-        case .neutral: return LookRecipe(exposure: 0.10, contrast: -0.05, saturation: 0.92, temperature: -0.16)
+        case .neutral: return LookRecipe(exposure: 0.08, contrast: -0.06, saturation: 0.90, temperature: -0.12)
         case .vibrant: return LookRecipe(contrast: 0.10, saturation: 1.16, vibrance: 0.30)
         case .warm: return LookRecipe(exposure: 0.04, contrast: 0.03, saturation: 1.04, temperature: 0.24, tint: 0.02)
         case .ethereal: return LookRecipe(exposure: 0.15, contrast: -0.20, saturation: 0.92, temperature: -0.04, blackLift: 0.03, whiteRoll: 0.10, bloom: 0.12)

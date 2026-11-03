@@ -742,6 +742,13 @@ struct WhiteBalancePanel: View {
 
 // MARK: - 取景器上的小组件
 
+func zoomLabelText(_ value: CGFloat) -> String {
+    if value < 0.95 { return String(format: "%.1f×", value).replacingOccurrences(of: "0.", with: ".") }
+    if abs(value - value.rounded()) < 0.05 { return "\(Int(value.rounded()))×" }
+    return String(format: "%.1f×", value)
+}
+
+/// 照片 / 视频：取景器底部一排悬浮的倍率（与 iOS 26 一致：选中的在半透明圆里，显示黄色当前倍率）。
 struct ZoomPills: View {
     @ObservedObject var model: ZoomModel
     let m: UIMetrics
@@ -756,29 +763,200 @@ struct ZoomPills: View {
     private var pills: some View {
         let current = model.display
         let nearest = model.stops.min { abs($0.display - current) < abs($1.display - current) }
-        return HStack(spacing: 4 * m.s) {
+        return HStack(spacing: 2 * m.s) {
             ForEach(model.stops) { stop in
                 let isSelected = stop == nearest
                 Button { onSelect(stop) } label: {
-                    Text(isSelected ? zoomText(current) : stop.label)
-                        .font(.system(size: (isSelected ? 13 : 12) * m.s, weight: .semibold))
+                    Text(isSelected ? zoomLabelText(current) : stop.label)
+                        .font(.system(size: (isSelected ? 14 : 13) * m.s, weight: .semibold))
                         .foregroundStyle(isSelected ? Color.yellow : Color.white)
-                        .frame(width: 36 * m.s, height: 36 * m.s)
-                        .background(Circle().fill(isSelected ? Color.white.opacity(0.16) : Color.clear))
+                        .shadow(color: Color.black.opacity(0.45), radius: 2)
+                        .frame(width: 40 * m.s, height: 40 * m.s)
+                        .background(Circle().fill(isSelected ? Color.black.opacity(0.5) : Color.clear))
                         .contentShape(Circle())
                 }
                 .buttonStyle(GlassButtonStyle())
             }
         }
-        .padding(.horizontal, 4 * m.s)
-        .frame(height: 40 * m.s)
-        .glassSurface(Capsule(), interactive: true)
+    }
+}
+
+/// 人像模式：取景器左下角一个圆形倍率按钮，点一下切到下一档（与 iOS 26 人像模式一致）。
+struct ZoomCircle: View {
+    @ObservedObject var model: ZoomModel
+    let m: UIMetrics
+    let onSelect: (ZoomStop) -> Void
+
+    var body: some View {
+        if model.stops.count > 1 {
+            button
+        }
     }
 
-    private func zoomText(_ value: CGFloat) -> String {
-        if value < 0.95 { return String(format: "%.1f×", value).replacingOccurrences(of: "0.", with: ".") }
-        if abs(value - value.rounded()) < 0.05 { return "\(Int(value.rounded()))×" }
-        return String(format: "%.1f×", value)
+    private var button: some View {
+        Button {
+            let current = model.display
+            guard let index = model.stops.indices.min(by: {
+                abs(model.stops[$0].display - current) < abs(model.stops[$1].display - current)
+            }) else { return }
+            onSelect(model.stops[(index + 1) % model.stops.count])
+        } label: {
+            Text(zoomLabelText(model.display))
+                .font(.system(size: 14 * m.s, weight: .semibold))
+                .foregroundStyle(Color.white)
+                .frame(width: 50 * m.s, height: 50 * m.s)
+                .background(Circle().fill(Color.black.opacity(0.5)))
+                .contentShape(Circle())
+        }
+        .buttonStyle(GlassButtonStyle())
+        .accessibilityLabel("变焦倍率")
+    }
+}
+
+/// 人像光效转盘（与 iOS 26 一致）：选中项是黄色六边形，上面一个黄色名称标签，
+/// 其余是沿圆弧排开的小圆珠；左右滑动转动转盘，点按某一颗直接选中。
+struct LightingDial: View {
+    let items: [PortraitLighting]
+    @Binding var selected: PortraitLighting
+    let personFound: Bool
+    let m: UIMetrics
+    let radius: CGFloat
+
+    @State private var anchorIndex = 0
+    @State private var dragAngle: CGFloat = 0      // 度
+    @State private var dragging = false
+
+    private let stepDegrees: CGFloat = 17
+
+    /// 圆弧最高点距离本视图顶部（上面留给名称标签）。
+    private var top: CGFloat { 64 * m.s }
+
+    var body: some View {
+        GeometryReader { geo in
+            let cx = geo.size.width / 2
+            let cy = top + radius
+            ZStack {
+                Circle()
+                    .fill(Color.black.opacity(0.30))
+                    .frame(width: (radius + 30 * m.s) * 2, height: (radius + 30 * m.s) * 2)
+                    .position(x: cx, y: cy)
+                ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+                    let angle = CGFloat(index - anchorIndex) * stepDegrees + dragAngle
+                    dialIcon(angle: angle)
+                        .position(x: cx + radius * sin(angle * .pi / 180),
+                                  y: cy - radius * cos(angle * .pi / 180))
+                        .opacity(abs(angle) > 88 ? 0 : 1)
+                        .accessibilityLabel(item.title)
+                }
+                tag
+                    .position(x: cx, y: top - 40 * m.s)
+            }
+            .frame(width: geo.size.width, height: geo.size.height)
+            .clipped()
+            .contentShape(Rectangle())
+            .gesture(dragGesture(centerX: cx))
+        }
+        .onAppear { anchorIndex = slot(of: selected) }
+        .onChange(of: selected) { _, newValue in
+            guard !dragging else { return }
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                anchorIndex = slot(of: newValue)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func dialIcon(angle: CGFloat) -> some View {
+        if abs(angle) < stepDegrees / 2 {
+            ZStack {
+                Image(systemName: "hexagon")
+                    .font(.system(size: 46 * m.s, weight: .semibold))
+                    .foregroundStyle(Color.yellow)
+                bead(size: 16 * m.s, ring: false)
+            }
+        } else {
+            bead(size: 14 * m.s, ring: true)
+                .scaleEffect(max(0.55, 1 - abs(angle) / 140))
+        }
+    }
+
+    private func bead(size: CGFloat, ring: Bool) -> some View {
+        ZStack {
+            if ring {
+                Circle()
+                    .stroke(Color.white.opacity(0.65), lineWidth: 1)
+                    .frame(width: size * 1.85, height: size * 1.85)
+            }
+            Circle()
+                .fill(RadialGradient(colors: [Color.white, Color(white: 0.45)],
+                                     center: .topLeading, startRadius: 0, endRadius: size))
+                .frame(width: size, height: size)
+        }
+    }
+
+    private var tag: some View {
+        Text(personFound ? selected.title : "\(selected.title) · 未检测到人物")
+            .font(.system(size: 14 * m.s, weight: .semibold))
+            .foregroundStyle(Color.black)
+            .padding(.horizontal, 9 * m.s)
+            .frame(height: 24 * m.s)
+            .background(
+                RoundedRectangle(cornerRadius: 6 * m.s, style: .continuous)
+                    .fill(personFound ? Color.yellow : Color.white.opacity(0.88))
+            )
+    }
+
+    private func slot(of item: PortraitLighting) -> Int {
+        items.firstIndex(of: item) ?? 0
+    }
+
+    private func dragGesture(centerX: CGFloat) -> some Gesture {
+        let degreesPerPoint = 1 / (radius * .pi / 180)
+        return DragGesture(minimumDistance: 0)
+            .onChanged { value in
+                if abs(value.translation.width) > 6 { dragging = true }
+                guard dragging else { return }
+                dragAngle = value.translation.width * degreesPerPoint
+                let raw = CGFloat(anchorIndex) - dragAngle / stepDegrees
+                let nearest = min(items.count - 1, max(0, Int(raw.rounded())))
+                if items[nearest] != selected {
+                    selected = items[nearest]
+                    UISelectionFeedbackGenerator().selectionChanged()
+                }
+            }
+            .onEnded { value in
+                if dragging {
+                    let inertia = (value.predictedEndTranslation.width - value.translation.width) * degreesPerPoint
+                    let raw = CGFloat(anchorIndex) - (dragAngle + 0.25 * inertia) / stepDegrees
+                    let target = min(items.count - 1, max(0, Int(raw.rounded())))
+                    if items[target] != selected {
+                        selected = items[target]
+                        UISelectionFeedbackGenerator().selectionChanged()
+                    }
+                } else {
+                    // 点按：选中离手指最近的那一颗
+                    var best = anchorIndex
+                    var bestDistance = CGFloat.greatestFiniteMagnitude
+                    for i in items.indices {
+                        let angle = CGFloat(i - anchorIndex) * stepDegrees
+                        let x = centerX + radius * sin(angle * .pi / 180)
+                        let distance = abs(x - value.location.x)
+                        if distance < bestDistance {
+                            bestDistance = distance
+                            best = i
+                        }
+                    }
+                    if items[best] != selected {
+                        selected = items[best]
+                        UISelectionFeedbackGenerator().selectionChanged()
+                    }
+                }
+                dragging = false
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                    anchorIndex = slot(of: selected)
+                    dragAngle = 0
+                }
+            }
     }
 }
 
