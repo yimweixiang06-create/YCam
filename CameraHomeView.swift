@@ -947,7 +947,7 @@ private final class ModeStripTrackingView: UIControl, UIGestureRecognizerDelegat
 
     // A long press anywhere except the Photo segment must not delay/cancel
     // mode sliding or tapping.
-    func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+    override func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
         let x = gestureRecognizer.location(in: self).x
         return nearestTapIndex(at: x) == 1
     }
