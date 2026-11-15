@@ -96,9 +96,12 @@ struct CameraHomeView: View {
         guard camera.mode != .video, let ratio = camera.aspect.heightOverWidth else {
             return CGRect(x: 0, y: 0, width: m.W, height: m.H)
         }
-        let width = m.vfWidth(pinned: hasPinned)
+        // 常规尺寸保持相机原生全宽 4:3。仅在特别矮的设备上按可用高度等比缩小，
+        // 避免照片画面盖住快门；固定快捷按钮绝不能触发这一步。
+        let y = m.vfTop(pinned: false)
+        let availableHeight = max(120 * m.s, m.shutterCenterY - 59 * m.s - y)
+        let width = min(m.W, availableHeight / ratio)
         let height = width * ratio
-        let y = min(m.vfTop(pinned: hasPinned), max(m.top, m.H - height))
         return CGRect(x: (m.W - width) / 2, y: y, width: width, height: height)
     }
 
@@ -133,6 +136,8 @@ struct CameraHomeView: View {
     }
 
     private func handleSwipe(_ translation: CGSize) {
+        // 录制期间只允许取景器捏合/对焦，不切换模式或展开抽屉。
+        guard !camera.isRecording && !camera.isFinalizingVideo else { return }
         let dx = translation.width
         let dy = translation.height
         if abs(dx) > 60, abs(dx) > abs(dy) * 1.5 {
@@ -180,26 +185,34 @@ struct CameraHomeView: View {
     private func controlsLayer(_ m: UIMetrics) -> some View {
         let rect = previewFrame(m)
         let rawBase = isFramed ? rect.maxY - 37 * m.s : m.shutterCenterY - 72 * m.s
-        let baseY = min(rawBase, m.shutterCenterY - 72 * m.s)        // 展开按钮中心
-        // The second floating zoom control is intentionally gone. Pinch the preview to zoom.
-        let lightingY = baseY - 94 * m.s
+        let baseY = min(rawBase, m.shutterCenterY - 72 * m.s)
+        // 浮动的第二条 1× / 2× 倍率栏已删除，取景器双指缩放。
         return ZStack {
-            topCapsule(m)
-                .position(x: m.W - 73 * m.s, y: m.capsuleCenterY)
-            if sheet == .closed {
-                if camera.mode == .video {
-                    videoQuickControls(m)
-                        .position(x: 94 * m.s, y: m.capsuleCenterY)
-                } else {
-                    photoQuickControl(m)
-                        .position(x: 64 * m.s, y: m.capsuleCenterY)
+            // 顶部采用左右分区：视频参数在左，相机控制在右；录制计时独占中间。
+            if !camera.isRecording {
+                topCapsule(m)
+                    .position(x: m.W - (camera.mode == .video ? 57 : 73) * m.s,
+                              y: m.capsuleCenterY)
+                if sheet == .closed {
+                    if camera.mode == .video {
+                        videoQuickControls(m)
+                            .position(x: 94 * m.s, y: m.capsuleCenterY)
+                    } else {
+                        photoQuickControl(m)
+                            .position(x: 64 * m.s, y: m.capsuleCenterY)
+                    }
                 }
+            } else {
+                // 录制中规格只读，不开放会中断录制的格式切换。
+                recordingVideoInfo(m)
+                    .position(x: 66 * m.s, y: m.capsuleCenterY)
             }
             if sheet == .drawer || sheet == .edit {
                 editButton(m)
-                    .position(x: 18 * m.s + 33 * m.s, y: m.capsuleCenterY)
+                    .position(x: 51 * m.s, y: m.capsuleCenterY)
             }
-            if hasPinned {
+            // 置顶图标只浮在画面上；录制及弹出面板时隐藏，不挤压预览。
+            if hasPinned && sheet == .closed && !camera.isRecording {
                 PinnedRow(items: layout.pinned, m: m, spec: { spec($0, m) })
                     .position(x: m.W / 2, y: m.pinnedRowCenterY)
             }
@@ -207,15 +220,9 @@ struct CameraHomeView: View {
                 recordingBadge
                     .position(x: m.W / 2, y: m.capsuleCenterY)
             }
-            if sheet == .closed {
-                if camera.mode == .portrait {
-                    lightingStrip(m)
-                        .position(x: m.W / 2, y: lightingY)
-                }
-                if camera.mode != .video {
-                    expandButton(m)
-                        .position(x: m.W / 2, y: baseY)
-                }
+            if sheet == .closed && camera.mode != .video {
+                expandButton(m)
+                    .position(x: m.W / 2, y: baseY)
             }
             bottomControls(m)
             sheetPanel(m)
@@ -224,7 +231,7 @@ struct CameraHomeView: View {
         .foregroundStyle(Color.white)
     }
 
-    // MARK: 右上角胶囊：闪光灯 / 实况 / 更多
+    // MARK: 右上角胶囊：照片 = 闪光灯 / 实况 / 更多；视频 = 闪光灯 / 更多
 
     private var liveEffective: Bool {
         camera.mode == .photo && camera.livePhotoSupported && camera.livePhotoEnabled
@@ -245,13 +252,15 @@ struct CameraHomeView: View {
             .opacity(camera.flashAvailable ? 1 : 0.45)
             .accessibilityLabel("闪光灯")
 
-            Button { liveTapped() } label: {
-                liveGlyph(m, size: 17)
-                    .frame(width: 32 * m.s, height: 38 * m.s)
-                    .contentShape(Rectangle())
+            if camera.mode != .video {
+                Button { liveTapped() } label: {
+                    liveGlyph(m, size: 17)
+                        .frame(width: 32 * m.s, height: 38 * m.s)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(GlassButtonStyle())
+                .accessibilityLabel("实况照片")
             }
-            .buttonStyle(GlassButtonStyle())
-            .accessibilityLabel("实况照片")
 
             // 点按 = 打开 / 关闭控制抽屉；长按约 1 秒 = 打开诊断日志
             Button { go(sheet == .closed ? .drawer : .closed) } label: {
@@ -270,7 +279,7 @@ struct CameraHomeView: View {
                 .accessibilityHint("长按打开诊断日志")
         }
         .padding(.horizontal, 6 * m.s)
-        .frame(width: 108 * m.s, height: 38 * m.s)
+        .frame(width: (camera.mode == .video ? 76 : 108) * m.s, height: 38 * m.s)
         .glassSurface(Capsule(), interactive: true)
     }
 
@@ -308,6 +317,16 @@ struct CameraHomeView: View {
         .buttonStyle(GlassButtonStyle())
         .glassSurface(Capsule(), interactive: true)
         .disabled(camera.isRecording)
+    }
+
+    /// 录制中左上只显示精简规格，计时器在中上方。
+    private func recordingVideoInfo(_ m: UIMetrics) -> some View {
+        Text("\(camera.videoSpec.height >= 2160 ? "4K" : "HD") · \(camera.videoSpec.fps)")
+            .font(.system(size: 12 * m.s, weight: .semibold).monospacedDigit())
+            .foregroundStyle(Color.white.opacity(0.86))
+            .frame(width: 110 * m.s, height: 36 * m.s)
+            .glassSurface(Capsule())
+            .allowsHitTesting(false)
     }
 
     private func photoQuickControl(_ m: UIMetrics) -> some View {
@@ -486,7 +505,7 @@ struct CameraHomeView: View {
         }
     }
 
-    // MARK: 取景器上的“展开”按钮 / 人像光效
+    // MARK: 取景器上的展开按钮（仅照片和人像；不再显示人像光效横条）
 
     private func expandButton(_ m: UIMetrics) -> some View {
         let isFull = camera.aspect == .full
@@ -511,21 +530,6 @@ struct CameraHomeView: View {
         camera.markControlsChanged()
     }
 
-    private func lightingStrip(_ m: UIMetrics) -> some View {
-        PortraitLightingStrip(
-            m: m,
-            selected: camera.styleSettings.lighting,
-            personDetected: camera.personDetected,
-            onSelect: { selectLighting($0) }
-        )
-    }
-
-    private func selectLighting(_ item: PortraitLighting) {
-        guard item != camera.styleSettings.lighting else { return }
-        UISelectionFeedbackGenerator().selectionChanged()
-        camera.styleSettings.lighting = item
-    }
-
     // MARK: 快门 / 缩略图 / 视频·照片·人像 / 翻转
 
     @ViewBuilder
@@ -537,7 +541,8 @@ struct CameraHomeView: View {
             shutterButton(m)
                 .position(x: m.W / 2, y: shutterY)
         }
-        if idle {
+        // 录制中隐藏模式栏、图库和翻转控件，保留中央停止录制按钮。
+        if idle && !camera.isRecording {
             thumbnailButton(m)
                 .position(x: 60 * m.s, y: m.rowCenterY)
             modePill(m)
@@ -709,6 +714,7 @@ struct CameraHomeView: View {
     // MARK: 底部面板（高斯磨砂）
 
     private func go(_ target: Sheet) {
+        guard !camera.isRecording || target == .closed else { return }
         // 面板变形的玻璃层不接管手势；轻量动画可以避免高频反复触发。
         guard target != sheet else { return }
         withAnimation(.easeOut(duration: 0.22)) { sheet = target }
@@ -864,107 +870,5 @@ struct CameraHomeView: View {
                 .padding(32)
             }
         }
-    }
-}
-
-// MARK: - iOS-inspired Portrait Lighting dial
-// Apple's Camera uses a compact drag-select lighting dial near the bottom of the viewfinder.
-// Avoid a full-width black capsule/hexagon grid: only the current effect is highlighted.
-// This is a SwiftUI approximation, not Apple's private camera control implementation.
-private struct PortraitLightingStrip: View {
-    let m: UIMetrics
-    let selected: PortraitLighting
-    let personDetected: Bool
-    let onSelect: (PortraitLighting) -> Void
-
-    // Gesture-local state means dragging never triggers AVFoundation reconfiguration.
-    @GestureState private var translation: CGFloat = 0
-    private let allLights: [PortraitLighting] = [.natural, .studio, .contour, .stage, .stageMono, .highKeyMono]
-
-    private func icon(for light: PortraitLighting) -> String {
-        switch light {
-        case .natural: return "sun.max"
-        case .studio: return "lightbulb.fill"
-        case .contour: return "circle.lefthalf.filled"
-        case .stage: return "moon.fill"
-        case .stageMono: return "moon.stars.fill"
-        case .highKeyMono: return "sun.max.fill"
-        case .off: return "slash.circle"
-        }
-    }
-
-    var body: some View {
-        let cell = 52 * m.s
-        let width = min(m.W - 50 * m.s, 266 * m.s)
-        let current = allLights.firstIndex(of: selected) ?? 0
-        // Constrain the row so it never rubber-bands past the first/last light.
-        let limited = min(CGFloat(current) * cell,
-                          max(-CGFloat(allLights.count - current - 1) * cell, translation))
-        let targetIndex = min(allLights.count - 1,
-                              max(0, current - Int((limited / cell).rounded())))
-        let displayed = allLights[targetIndex]
-        let centered = (CGFloat(allLights.count - 1) / 2 - CGFloat(current)) * cell
-
-        return VStack(spacing: 6 * m.s) {
-            Text(displayed.title)
-                .font(.system(size: 12 * m.s, weight: .medium))
-                .foregroundStyle(.white)
-                .shadow(color: .black.opacity(0.8), radius: 4, y: 1)
-                .frame(height: 20 * m.s)
-                .accessibilityLabel(personDetected ? displayed.title : "\(displayed.title)，等待检测主体")
-
-            ZStack {
-                HStack(spacing: 0) {
-                    ForEach(allLights) { light in
-                        let focused = light == displayed
-                        Button { onSelect(light) } label: {
-                            ZStack {
-                                Circle()
-                                    .fill(.black.opacity(focused ? 0.48 : 0.18))
-                                    .frame(width: (focused ? 42 : 36) * m.s,
-                                           height: (focused ? 42 : 36) * m.s)
-                                Circle()
-                                    .strokeBorder(focused ? Color.yellow : Color.white.opacity(0.45),
-                                                  lineWidth: focused ? 1.8 * m.s : 0.75 * m.s)
-                                    .frame(width: (focused ? 42 : 36) * m.s,
-                                           height: (focused ? 42 : 36) * m.s)
-                                Image(systemName: icon(for: light))
-                                    .font(.system(size: (focused ? 20 : 16) * m.s,
-                                                  weight: .medium))
-                                    .foregroundStyle(focused ? Color.yellow : Color.white.opacity(0.86))
-                            }
-                            .frame(width: cell, height: 52 * m.s)
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(GlassButtonStyle())
-                        .accessibilityLabel(light.title)
-                    }
-                }
-                .fixedSize()
-                .offset(x: centered + limited)
-                .animation(translation == 0 ? .easeOut(duration: 0.18) : nil,
-                           value: selected)
-            }
-            .frame(width: width, height: 52 * m.s)
-            .clipped()
-            .contentShape(Rectangle())
-            .highPriorityGesture(
-                DragGesture(minimumDistance: 5 * m.s)
-                    .updating($translation) { value, state, _ in
-                        state = value.translation.width
-                    }
-                    .onEnded { value in
-                        let offset = min(CGFloat(current) * cell,
-                                         max(-CGFloat(allLights.count - current - 1) * cell,
-                                             value.translation.width))
-                        let newIndex = min(allLights.count - 1,
-                                           max(0, current - Int((offset / cell).rounded())))
-                        if newIndex != current { onSelect(allLights[newIndex]) }
-                    }
-            )
-            .accessibilityElement(children: .contain)
-            .accessibilityHint("左右滑动，选择人像光效")
-        }
-        .frame(width: width, height: 79 * m.s)
     }
 }

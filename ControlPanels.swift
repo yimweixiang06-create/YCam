@@ -159,33 +159,37 @@ struct DrawerPanel: View {
         let rows: [[ControlID]] = stride(from: 0, to: items.count, by: 3).map { start in
             Array(items[start..<min(start + 3, items.count)])
         }
-        VStack(spacing: 14 * m.s) {
-            Capsule()
-                .fill(Color.white.opacity(0.45))
-                .frame(width: 36 * m.s, height: 4 * m.s)
-            if items.isEmpty {
-                Text("抽屉是空的，点左上角“编辑”添加功能")
-                    .font(.system(size: 14 * m.s))
-                    .foregroundStyle(Color.white.opacity(0.8))
-                    .frame(maxHeight: .infinity)
-            } else {
-                ForEach(rows.indices, id: \.self) { r in
-                    HStack(alignment: .top, spacing: 0) {
-                        ForEach(rows[r]) { id in
-                            DrawerCell(spec: spec(id), m: m)
-                        }
-                        if rows[r].count < 3 {
-                            ForEach(0..<(3 - rows[r].count), id: \.self) { _ in
-                                Color.clear.frame(maxWidth: .infinity)
+        // 长抽屉内部滚动；不会越过顶部相机控制或底部 Home 指示条。
+        ScrollView(.vertical, showsIndicators: false) {
+            VStack(spacing: 14 * m.s) {
+                Capsule()
+                    .fill(Color.white.opacity(0.45))
+                    .frame(width: 36 * m.s, height: 4 * m.s)
+                if items.isEmpty {
+                    Text("抽屉是空的，点左上角“编辑”添加功能")
+                        .font(.system(size: 14 * m.s))
+                        .foregroundStyle(Color.white.opacity(0.8))
+                        .frame(maxHeight: .infinity)
+                } else {
+                    ForEach(rows.indices, id: \.self) { r in
+                        HStack(alignment: .top, spacing: 0) {
+                            ForEach(rows[r]) { id in
+                                DrawerCell(spec: spec(id), m: m)
+                            }
+                            if rows[r].count < 3 {
+                                ForEach(0..<(3 - rows[r].count), id: \.self) { _ in
+                                    Color.clear.frame(maxWidth: .infinity)
+                                }
                             }
                         }
                     }
                 }
             }
+            .padding(.horizontal, 10 * m.s)
+            .padding(.top, 10 * m.s)
+            .padding(.bottom, 14 * m.s)
         }
-        .padding(.horizontal, 10 * m.s)
-        .padding(.top, 10 * m.s)
-        .padding(.bottom, 14 * m.s)
+        .frame(maxHeight: .infinity)
     }
 }
 
