@@ -993,7 +993,7 @@ private final class ModeStripTrackingView: UIControl {
         } else if abs(dx) < 9 * scale && abs(dy) < 15 * scale {
             // Taps select exactly the segment under the finger.
             result = min(modes.count - 1,
-                         max(0, Int((end.x / (68 * scale + 0.001)).rounded(.down))))
+                         max(0, Int(((end.x - 4 * scale) / (68 * scale)).rounded(.down))))
         } else {
             // Vertical drags belong to other controls, never to the mode bar.
             result = startingIndex
