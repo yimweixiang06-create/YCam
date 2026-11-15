@@ -120,6 +120,15 @@ enum CameraStyle: String, CaseIterable, Identifiable {
         }
     }
 
+    /// 以下初始值来自用户提供的真实 iPhone 截图，不代表 Apple 官方默认值。
+    var referenceControls: (tone: Int, color: Int, intensity: Double) {
+        switch self {
+        case .pearl: return (45, 90, 1.0)
+        case .coolRose: return (35, -20, 0.75)
+        default: return (0, 0, 1.0)
+        }
+    }
+
     var isFilm: Bool {
         switch self {
         case .fuji400, .kodak800, .fujiCyan, .kodakWarmYellow: return true
@@ -262,10 +271,9 @@ enum AppleFilter: String, CaseIterable, Identifiable {
 struct StyleSettings: Equatable {
     var style: CameraStyle = .standard
     var filter: AppleFilter = .original
-    /// 色调板（按“调色盘使用公式”）：横向 = 纯度（左灰 → 右纯），纵向 = 明度（上亮 → 下暗）。
-    /// 默认点在第 8 列（x = 0.8）、中间一行：风格的“原味”。
-    var point = CGPoint(x: 0.8, y: 0.5)
-    /// 调色盘浓度 0...1（淡 → 浓，1 = 完整配方）。
+    /// 横向颜色 −100...+100，纵向色调 +100...−100。
+    var point = CGPoint(x: 0.5, y: 0.5)
+    /// 调色盘强度 0...1。
     var intensity: Double = 1.0
     /// 保留字段（曝光现在由相机硬件补偿控制）。
     var exposure: Double = 0
@@ -274,10 +282,19 @@ struct StyleSettings: Equatable {
     /// 景深：背景虚化强度 0...1（0 = 关）。
     var depth: Double = 0
 
-    static let defaultPoint = CGPoint(x: 0.8, y: 0.5)
+    static let defaultPoint = CGPoint(x: 0.5, y: 0.5)
+
+    mutating func restoreStyleControls() {
+        let reference = style.referenceControls
+        point = CGPoint(x: CGFloat(reference.color + 100) / 200,
+                        y: CGFloat(100 - reference.tone) / 200)
+        intensity = reference.intensity
+    }
 
     var isPaletteDefault: Bool {
-        abs(point.x - 0.8) < 0.001 && abs(point.y - 0.5) < 0.001
+        let reference = style.referenceControls
+        return abs(point.x - CGFloat(reference.color + 100) / 200) < 0.001
+            && abs(point.y - CGFloat(100 - reference.tone) / 200) < 0.001
     }
 
     var isIdentity: Bool {

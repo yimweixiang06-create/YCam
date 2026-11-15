@@ -125,7 +125,7 @@ struct SwatchCarousel<Item: Hashable & Identifiable>: View {
     }
 }
 
-// MARK: - 色调板（11 × 11）：横向 = 纯度（左灰 → 右纯），纵向 = 明度（上亮 → 下暗）
+// MARK: - 色调板：横向颜色可正负，纵向色调
 
 struct DotPalette: View {
     @Binding var point: CGPoint
@@ -144,7 +144,7 @@ struct DotPalette: View {
                     .fill(LinearGradient(colors: colors, startPoint: .top, endPoint: .bottom))
                     .overlay(
                         // 左边偏灰（低纯度），右边保持风格本色（高纯度）
-                        LinearGradient(colors: [Color(white: 0.55).opacity(0.85), Color(white: 0.55).opacity(0.0)],
+                        LinearGradient(colors: [Color.blue.opacity(0.20), .clear, Color.orange.opacity(0.16)],
                                        startPoint: .leading, endPoint: .trailing)
                             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                     )
@@ -177,8 +177,8 @@ struct DotPalette: View {
             )
             .accessibilityElement()
             .accessibilityLabel("色调板")
-            .accessibilityValue("纯度第\(selectedColumn + 1)列，明度第\(selectedRow + 1)行")
-            .accessibilityHint("左右调节纯度，上下调节明度")
+            .accessibilityValue("颜色\(Int(((point.x - 0.5) * 200).rounded()))，色调\(Int(((0.5 - point.y) * 200).rounded()))")
+            .accessibilityHint("左右调节颜色，上下调节色调")
             .accessibilityAdjustableAction { direction in
                 let delta: CGFloat = direction == .increment ? 1 : -1
                 let next = min(CGFloat(columns - 1), max(0, CGFloat(selectedColumn) + delta))
@@ -235,7 +235,7 @@ struct TickSlider: View {
                 .gesture(
                     DragGesture(minimumDistance: 0).onChanged { drag in
                         let t = min(1, max(0, drag.location.x / max(1, geo.size.width)))
-                        let snapped = (t * Double(ticks - 1)).rounded() / Double(ticks - 1)
+                        let snapped = (t * 20).rounded() / 20
                         if snapped != value {
                             value = snapped
                             UISelectionFeedbackGenerator().selectionChanged()

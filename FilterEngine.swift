@@ -85,23 +85,18 @@ final class FilterEngine {
 
     /// 风格配方 × 调色盘浓度 + Apple 滤镜 + 色调板。
     /// 色调板按“调色盘使用公式”：横向 = 纯度（左灰 → 右纯），纵向 = 明度（上亮 → 下暗）。
+    /// Apple 官方公开了调节方式，而非内部色彩系数。只处理相对参考值的偏移。
     static func effectiveRecipe(for s: StyleSettings) -> LookRecipe {
         let k = Float(min(1, max(0, s.intensity)))
         var r = s.style.recipe.scaled(by: k).combined(with: s.filter.recipe)
-
-        let purity = Float(max(0, min(1.25, s.point.x / 0.8)))        // x = 0.8 是风格的“原味”，0 = 灰
-        r.temperature *= purity
-        r.tint *= purity
-        r.vibrance *= purity
-        r.shadowTint = rgb(r.shadowTint.r * purity, r.shadowTint.g * purity, r.shadowTint.b * purity)
-        r.highlightTint = rgb(r.highlightTint.r * purity, r.highlightTint.g * purity, r.highlightTint.b * purity)
-        r.midGamma = rgb(1 + (r.midGamma.r - 1) * purity, 1 + (r.midGamma.g - 1) * purity, 1 + (r.midGamma.b - 1) * purity)
-        let satMul: Float = purity <= 1 ? purity : 1 + (purity - 1) * 0.8
-        r.saturation = max(0, r.saturation) * satMul
-
-        let tone = Float((0.5 - s.point.y) * 2)                       // +1 最亮 … -1 最暗
-        r.exposure += 0.6 * tone + Float(s.exposure)
-        r.contrast -= 0.20 * tone
+        let defaults = s.style.referenceControls
+        let color = Float((s.point.x - 0.5) * 2) - Float(defaults.color) / 100
+        let tone = Float((0.5 - s.point.y) * 2) - Float(defaults.tone) / 100
+        r.temperature += 0.22 * color * k
+        r.tint += 0.08 * color * k
+        r.saturation = max(0, r.saturation * (1 + 0.10 * color * k))
+        r.exposure += 0.36 * tone * k + Float(s.exposure)
+        r.contrast -= 0.12 * tone * k
         return r
     }
 

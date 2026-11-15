@@ -422,7 +422,15 @@ struct StylesPanel: View {
                 .fill(Color.white)
                 .frame(width: 5 * m.s, height: 5 * m.s)
             SwatchCarousel(items: CameraStyle.allCases,
-                           selected: $camera.styleSettings.style,
+                           selected: Binding(
+                               get: { camera.styleSettings.style },
+                               set: { newStyle in
+                                   guard camera.styleSettings.style != newStyle else { return }
+                                   var next = camera.styleSettings
+                                   next.style = newStyle
+                                   next.restoreStyleControls()
+                                   camera.styleSettings = next
+                               }),
                            cardWidth: 41 * m.s,
                            cardHeight: 52 * m.s,
                            spacing: 8 * m.s,
@@ -445,7 +453,7 @@ struct StylesPanel: View {
     }
 }
 
-/// 自定义（按“调色盘使用公式”）：纵向 = 明度（上亮 → 下暗），横向 = 纯度（左灰 → 右纯），下面的刻度条 = 调色盘浓度（淡 → 浓）。
+/// 摄影风格：色调/颜色/强度，支持颜色负值。
 struct CustomPalettePanel: View {
     @ObservedObject var camera: CameraModel
     let m: UIMetrics
@@ -454,16 +462,17 @@ struct CustomPalettePanel: View {
     var body: some View {
         let settings = camera.styleSettings
         let tone = Int(((0.5 - settings.point.y) * 200).rounded())
-        let purity = Int(min(125, settings.point.x / 0.8 * 100).rounded())
+        let color = Int(((settings.point.x - 0.5) * 200).rounded())
         let palette = Int((settings.intensity * 100).rounded())
         VStack(spacing: 10 * m.s) {
             PanelHeader(m, onBack: onBack, onReset: {
-                camera.styleSettings.point = StyleSettings.defaultPoint
-                camera.styleSettings.intensity = 1
+                var next = camera.styleSettings
+                next.restoreStyleControls()
+                camera.styleSettings = next
             }) {
                 HStack(spacing: 12 * m.s) {
-                    valueLabel("明度", tone == 0 ? "00" : "\(tone)")
-                    valueLabel("纯度", "\(purity)")
+                    valueLabel("色调", tone == 0 ? "00" : "\(tone)")
+                    valueLabel("颜色", color == 0 ? "00" : "\(color)")
                     valueLabel("调色盘", "\(palette)")
                 }
             }
