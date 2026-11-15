@@ -96,7 +96,7 @@ struct CameraHomeView: View {
         if m.isLandscape {
             let top = m.vfTop(pinned: false)
             let availableWidth = max(160 * m.s, m.W - 175 * m.s)
-            let availableHeight = max(125 * m.s, m.H - top - 70 * m.s)
+            let availableHeight = max(125 * m.s, m.H - top - 102 * m.s)
             let width = min(availableWidth, availableHeight * 4 / 3)
             let height = width * 3 / 4
             return CGRect(x: max(8 * m.s, (m.W - 145 * m.s - width) / 2),
