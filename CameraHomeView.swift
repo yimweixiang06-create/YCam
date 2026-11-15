@@ -141,7 +141,7 @@ struct CameraHomeView: View {
         let dx = translation.width
         let dy = translation.height
         if abs(dx) >= 42, abs(dx) > abs(dy) * 1.2 {
-            stepMode(dx > 0 ? -1 : 1)          // 向右滑 = 上一个模式（与系统相机一致）
+            stepMode(dx > 0 ? 1 : -1)          // 右滑 = 人像，左滑 = 视频；与底部模式栏一致
         } else if dy < -60, abs(dy) > abs(dx) * 1.5, sheet == .closed {
             go(.drawer)
         } else if dy > 60, abs(dy) > abs(dx) * 1.5, sheet != .closed {
@@ -910,7 +910,7 @@ private final class ModeStripTrackingView: UIControl {
         isAccessibilityElement = true
         accessibilityTraits = [.adjustable]
         accessibilityLabel = "拍摄模式"
-        accessibilityHint = "向上或向下滑动切换视频、照片、人像"
+        accessibilityHint = "向右滑动选择人像，向左滑动选择视频"
     }
 
     required init?(coder: NSCoder) {
@@ -968,7 +968,7 @@ private final class ModeStripTrackingView: UIControl {
         let dy = point.y - touchStart.y
         if abs(dx) > abs(dy) * 0.75 {
             // Follows the finger directly, with no animation or SwiftUI state changes.
-            show(position: CGFloat(startingIndex) - dx / (68 * scale))
+            show(position: CGFloat(startingIndex) + dx / (68 * scale))
         }
         return true
     }
@@ -989,7 +989,7 @@ private final class ModeStripTrackingView: UIControl {
             // cross two. This is independent of the starting label.
             let steps = max(1, Int((abs(dx) / (68 * scale) + 0.25).rounded(.down)))
             result = min(modes.count - 1,
-                         max(0, startingIndex + (dx < 0 ? steps : -steps)))
+                         max(0, startingIndex + (dx > 0 ? steps : -steps)))
         } else if abs(dx) < 9 * scale && abs(dy) < 15 * scale {
             // Taps select exactly the segment under the finger.
             result = min(modes.count - 1,
