@@ -139,50 +139,66 @@ struct DotPalette: View {
     var body: some View {
         GeometryReader { geo in
             let size = geo.size
+            let marker = position(col: selectedColumn, row: selectedRow, in: size)
             ZStack {
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
                     .fill(LinearGradient(colors: colors, startPoint: .top, endPoint: .bottom))
                     .overlay(
-                        // 色彩轴提供冷暖视觉提示，不会把负值错误地显示成灰度。
                         LinearGradient(colors: [Color.blue.opacity(0.20), .clear, Color.orange.opacity(0.16)],
                                        startPoint: .leading, endPoint: .trailing)
                             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                     )
+                    .allowsHitTesting(false)
                 Canvas { context, canvasSize in
                     for row in 0..<rows {
                         for col in 0..<columns {
                             let p = position(col: col, row: row, in: canvasSize)
-                            let rect = CGRect(x: p.x - 1.4, y: p.y - 1.4, width: 2.8, height: 2.8)
-                            context.fill(Path(ellipseIn: rect), with: .color(Color.white.opacity(0.75)))
+                            let dot = CGRect(x: p.x - 1.4, y: p.y - 1.4, width: 2.8, height: 2.8)
+                            context.fill(Path(ellipseIn: dot), with: .color(Color.white.opacity(0.75)))
                         }
                     }
                 }
+                .allowsHitTesting(false)
+
                 Circle()
                     .fill(Color.white)
-                    .frame(width: dragging ? 15 : 12, height: dragging ? 15 : 12)
-                    .shadow(color: Color.black.opacity(0.35), radius: 3, x: 0, y: 1)
-                    .position(x: inset + point.x * max(0, size.width - inset * 2),
-                              y: inset + point.y * max(0, size.height - inset * 2))
-                    .animation(.spring(response: 0.22, dampingFraction: 0.75), value: point)
-                    .animation(.spring(response: 0.25, dampingFraction: 0.7), value: dragging)
+                    .frame(width: dragging ? 16 : 13, height: dragging ? 16 : 13)
+                    .shadow(color: Color.black.opacity(0.36), radius: 3, x: 0, y: 1)
+                    .position(marker)
+                    .allowsHitTesting(false)
+                    .animation(.easeOut(duration: 0.09), value: dragging)
+
+                // Only grabbing the large dot starts a drag. The extra
+                // invisible touch target is easier to use on an actual phone.
+                Circle()
+                    .fill(Color.white.opacity(0.001))
+                    .frame(width: 44, height: 44)
+                    .contentShape(Circle())
+                    .position(marker)
+                    .gesture(
+                        DragGesture(minimumDistance: 0, coordinateSpace: .named("stylePalette"))
+                            .onChanged { value in
+                                dragging = true
+                                select(at: value.location, in: size)
+                            }
+                            .onEnded { value in
+                                select(at: value.location, in: size)
+                                dragging = false
+                            }
+                    )
             }
             .frame(width: size.width, height: size.height)
-            .contentShape(Rectangle())
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { value in
-                        dragging = true
-                        select(at: value.location, in: size)
-                    }
-                    .onEnded { _ in dragging = false }
-            )
-            .accessibilityElement()
-            .accessibilityLabel("色调板")
+            .coordinateSpace(name: "stylePalette")
+            .onAppear { alignToVisibleDot() }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("摄影风格色调板")
             .accessibilityValue("颜色\(Int(((point.x - 0.5) * 200).rounded()))，色调\(Int(((0.5 - point.y) * 200).rounded()))")
-            .accessibilityHint("左右调节颜色，向上增加色调数值")
+            .accessibilityHint("从大圆点开始拖动，只能吸附到小圆点")
             .accessibilityAdjustableAction { direction in
-                let delta: CGFloat = direction == .increment ? 0.025 : -0.025
-                point = CGPoint(x: min(1, max(0, point.x + delta)), y: point.y)
+                let step = direction == .increment ? 1 : -1
+                let col = min(columns - 1, max(0, selectedColumn + step))
+                point = CGPoint(x: CGFloat(col) / CGFloat(columns - 1),
+                                y: CGFloat(selectedRow) / CGFloat(rows - 1))
             }
         }
     }
@@ -190,24 +206,28 @@ struct DotPalette: View {
     private var selectedColumn: Int {
         min(columns - 1, max(0, Int((point.x * CGFloat(columns - 1)).rounded())))
     }
-
     private var selectedRow: Int {
         min(rows - 1, max(0, Int((point.y * CGFloat(rows - 1)).rounded())))
     }
-
     private func position(col: Int, row: Int, in size: CGSize) -> CGPoint {
         CGPoint(x: inset + CGFloat(col) * max(0, size.width - inset * 2) / CGFloat(columns - 1),
                 y: inset + CGFloat(row) * max(0, size.height - inset * 2) / CGFloat(rows - 1))
     }
-
+    private func alignToVisibleDot() {
+        let snapped = CGPoint(x: CGFloat(selectedColumn) / CGFloat(columns - 1),
+                              y: CGFloat(selectedRow) / CGFloat(rows - 1))
+        if point != snapped { point = snapped }
+    }
     private func select(at location: CGPoint, in size: CGSize) {
-        let usableWidth = max(1, size.width - inset * 2)
-        let usableHeight = max(1, size.height - inset * 2)
-        // 每 5 个色调/颜色单位吸附一次；11×11 个背景点只是视觉刻度。
-        // 保留 45、35、90、-20 等参考值的真实光标位置。
-        let x = min(1, max(0, (location.x - inset) / usableWidth))
-        let y = min(1, max(0, (location.y - inset) / usableHeight))
-        let next = CGPoint(x: (x * 40).rounded() / 40, y: (y * 40).rounded() / 40)
+        let w = max(1, size.width - inset * 2)
+        let h = max(1, size.height - inset * 2)
+        let x = min(1, max(0, (location.x - inset) / w))
+        let y = min(1, max(0, (location.y - inset) / h))
+        // The visible 11x11 points are the only reachable positions.
+        let col = min(columns - 1, max(0, Int((x * CGFloat(columns - 1)).rounded())))
+        let row = min(rows - 1, max(0, Int((y * CGFloat(rows - 1)).rounded())))
+        let next = CGPoint(x: CGFloat(col) / CGFloat(columns - 1),
+                           y: CGFloat(row) / CGFloat(rows - 1))
         guard next != point else { return }
         point = next
         UISelectionFeedbackGenerator().selectionChanged()

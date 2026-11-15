@@ -896,6 +896,7 @@ private final class ModeStripTrackingView: UIControl {
     private var startingIndex = 1
     private var touchStart = CGPoint.zero
     private var trackingTouch = false
+    private var visualIndex: Int?
     private var onSelect: ((CaptureMode) -> Void)?
 
     override init(frame: CGRect) {
@@ -919,13 +920,17 @@ private final class ModeStripTrackingView: UIControl {
 
     func configure(selected: CaptureMode, scale: CGFloat,
                    onSelect: @escaping (CaptureMode) -> Void) {
+        let scaleChanged = abs(self.scale - scale) > 0.001
         self.scale = scale
         self.onSelect = onSelect
         if !trackingTouch {
-            selectedIndex = modes.firstIndex(of: selected) ?? 1
-            show(position: CGFloat(selectedIndex))
+            let nextIndex = modes.firstIndex(of: selected) ?? 1
+            if nextIndex != selectedIndex || scaleChanged {
+                selectedIndex = nextIndex
+                show(position: CGFloat(nextIndex))
+            }
         }
-        setNeedsLayout()
+        if scaleChanged { setNeedsLayout() }
     }
 
     override func layoutSubviews() {
@@ -939,20 +944,28 @@ private final class ModeStripTrackingView: UIControl {
         if !trackingTouch { show(position: CGFloat(selectedIndex)) }
     }
 
-    private func show(position: CGFloat) {
-        let position = min(CGFloat(modes.count - 1), max(0, position))
+    private func show(position rawPosition: CGFloat, animated: Bool = false) {
+        let position = min(CGFloat(modes.count - 1), max(0, rawPosition))
         let nearest = min(modes.count - 1, max(0, Int(position.rounded())))
         CATransaction.begin()
-        CATransaction.setDisableActions(true)
+        CATransaction.setDisableActions(!animated)
+        if animated {
+            CATransaction.setAnimationDuration(0.17)
+            CATransaction.setAnimationTimingFunction(CAMediaTimingFunction(name: .easeOut))
+        }
         highlight.frame = CGRect(x: (4 + position * 68) * scale,
                                  y: 4 * scale, width: 68 * scale, height: 40 * scale)
         highlight.cornerRadius = 20 * scale
         CATransaction.commit()
-        for (index, label) in labels.enumerated() {
-            let active = index == nearest
-            label.textColor = active ? .systemYellow : .white
+        // Touch can update at display refresh rate; avoid re-coloring labels
+        // unless the highlighted segment actually changes.
+        if visualIndex != nearest {
+            visualIndex = nearest
+            for (i, label) in labels.enumerated() {
+                label.textColor = i == nearest ? .systemYellow : .white
+            }
+            accessibilityValue = modes[nearest].rawValue
         }
-        accessibilityValue = modes[nearest].rawValue
     }
 
     override func beginTracking(_ touch: UITouch, with event: UIEvent?) -> Bool {
@@ -1000,13 +1013,13 @@ private final class ModeStripTrackingView: UIControl {
         }
 
         selectedIndex = result
-        show(position: CGFloat(result))
+        show(position: CGFloat(result), animated: true)
         if result != startingIndex { onSelect?(modes[result]) }
     }
 
     override func cancelTracking(with event: UIEvent?) {
         trackingTouch = false
-        show(position: CGFloat(selectedIndex))
+        show(position: CGFloat(selectedIndex), animated: true)
     }
 
     override func accessibilityIncrement() {

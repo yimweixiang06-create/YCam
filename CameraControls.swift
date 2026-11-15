@@ -212,8 +212,8 @@ struct UIMetrics {
     var pinnedRowCenterY: CGFloat { capsuleCenterY + 47 * s }
     func vfTop(pinned: Bool) -> CGFloat { top + 69 * s }
     func vfWidth(pinned: Bool) -> CGFloat { W }
-    var shutterCenterY: CGFloat { H - (max(bottomInset, 24 * s) + 119 * s) }
-    var rowCenterY: CGFloat { H - (max(bottomInset, 24 * s) + 22 * s) }
+    var shutterCenterY: CGFloat { H - (max(bottomInset, 24 * s) + 128 * s) }
+    var rowCenterY: CGFloat { H - (max(bottomInset, 24 * s) + 44 * s) }
 
     /// 顶部状态栏与底部控件各自保有独立空间；弹出菜单不能遮挡最上方的相机控制。
     var panelMaximumHeight: CGFloat {

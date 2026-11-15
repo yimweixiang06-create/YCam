@@ -60,3 +60,17 @@ assert ".frostedPanel(Capsule())" in home
 assert "无需选择，始终请求最高分辨率" in panel
 assert "recordingBadge" in home and "camera.isRecording" in home
 print("PASS: max-only photos; pinch zoom; no old lighting overlay; low-latency UIKit mode bar with verified swipe directions; top controls do not resize preview")
+
+# Motion and safe-area regressions (v1.1.7)
+metrics = (root / "CameraControls.swift").read_text(encoding="utf-8")
+palette_src = (root / "DotPalette.swift").read_text(encoding="utf-8")
+engine = (root / "FilterEngine.swift").read_text(encoding="utf-8")
+assert "rowCenterY: CGFloat { H - (max(bottomInset, 24 * s) + 44 * s) }" in metrics
+assert "shutterCenterY: CGFloat { H - (max(bottomInset, 24 * s) + 128 * s) }" in metrics
+assert "CATransaction.setAnimationDuration(0.17)" in home
+assert "if visualIndex != nearest" in home
+assert 'coordinateSpace: .named("stylePalette")' in palette_src
+assert "let columns = 11" in palette_src
+assert "CGFloat(col) / CGFloat(columns - 1)" in palette_src
+assert "CGFloat(row) / CGFloat(rows - 1)" in palette_src
+assert "pendingBuild?.cancel()" in engine and "milliseconds(32)" in engine

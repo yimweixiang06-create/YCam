@@ -33,6 +33,7 @@ final class FilterEngine {
     private var current: Snapshot
     private var desired = StyleSettings()
     private var version = 0
+    private var pendingBuild: DispatchWorkItem?
     private let buildQueue = DispatchQueue(label: "ycam.style.build", qos: .userInitiated)
 
     private init() {
@@ -47,9 +48,9 @@ final class FilterEngine {
         desired = settings
         version += 1
         let v = version
-        lock.unlock()
-
-        buildQueue.async { [weak self] in
+        pendingBuild?.cancel()
+        // Coalesce rapid touch changes: bake only the latest LUT, off main thread.
+        let work = DispatchWorkItem { [weak self] in
             guard let self else { return }
             self.lock.lock()
             let latest = self.version
@@ -61,6 +62,9 @@ final class FilterEngine {
             if self.version == v { self.current = snap }
             self.lock.unlock()
         }
+        pendingBuild = work
+        lock.unlock()
+        buildQueue.asyncAfter(deadline: .now() + .milliseconds(32), execute: work)
     }
 
     func snapshot() -> Snapshot {
