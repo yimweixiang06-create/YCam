@@ -1,0 +1,82 @@
+name: Publish YCam 1.1 (11) IPA to Releases
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/publish-release.yml"
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: ycam-release-1-1-11
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish verified unsigned IPA
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout README and release notes
+        uses: actions/checkout@v4
+
+      - name: Download the already successful YCam 1.1 (11) IPA
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p release
+          # Use the exact successful iPhoneOS build, not an unrelated or
+          # unverified IPA, and do not rerun compilation in this workflow.
+          gh run download 43732391839 --name YCam-unsigned-IPA --dir release
+          test -s release/YCam-unsigned.ipa
+          mv release/YCam-unsigned.ipa release/YCam-v1.1-build11-unsigned.ipa
+
+      - name: Verify IPA version and integrity
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib
+          import plistlib
+          import zipfile
+          from pathlib import Path
+          ipa = Path("release/YCam-v1.1-build11-unsigned.ipa")
+          with zipfile.ZipFile(ipa) as z:
+              assert z.testzip() is None, "Corrupted IPA archive"
+              info = plistlib.loads(z.read("Payload/YCam.app/Info.plist"))
+              assert info["CFBundleShortVersionString"] == "1.1", info
+              assert info["CFBundleVersion"] == "11", info
+              assert info["CFBundleIdentifier"] == "com.ycam.camera", info
+              assert any(name.endswith("YCam.app/YCam") for name in z.namelist())
+          assert ipa.stat().st_size >= 1_000_000
+          print("Verified YCam", info["CFBundleShortVersionString"], "("+info["CFBundleVersion"]+")")
+          print("IPA bytes:", ipa.stat().st_size)
+          print("SHA-256:", hashlib.sha256(ipa.read_bytes()).hexdigest())
+          PY
+
+      - name: Create GitHub Release with installation package and notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          TAG="v1.1.11"
+          IPA="release/YCam-v1.1-build11-unsigned.ipa"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$IPA" --clobber
+            gh release edit "$TAG" \
+              --title "YCam 1.1 (11)｜iOS 18+ 相机 · 摄影风格与流畅度更新" \
+              --notes-file RELEASE_NOTES_v1.1.11.md --latest
+          else
+            gh release create "$TAG" "$IPA" \
+              --target "$GITHUB_SHA" \
+              --title "YCam 1.1 (11)｜iOS 18+ 相机 · 摄影风格与流畅度更新" \
+              --notes-file RELEASE_NOTES_v1.1.11.md --latest
+          fi
+          echo "### YCam install package published" >> "$GITHUB_STEP_SUMMARY"
+          echo "- [Release v1.1.11](https://github.com/$GITHUB_REPOSITORY/releases/tag/$TAG)" >> "$GITHUB_STEP_SUMMARY"
+          echo "- IPA: YCam-v1.1-build11-unsigned.ipa (unsigned; requires user signing)" >> "$GITHUB_STEP_SUMMARY"
