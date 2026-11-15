@@ -548,14 +548,6 @@ struct CameraHomeView: View {
         let idle = sheet == .closed
         let panelTop = m.H - m.panelBottomGap - m.panelHeight(sheet, drawerCount: layout.drawer.count)
         let shutterY = idle ? m.shutterCenterY : panelTop - 67 * m.s
-        if idle && !camera.isRecording && !m.isLandscape {
-            RoundedRectangle(cornerRadius: 34 * m.s, style: .continuous)
-                .fill(Color.clear)
-                .frame(width: m.W - 12 * m.s, height: 165 * m.s)
-                .frostedPanel(RoundedRectangle(cornerRadius: 34 * m.s, style: .continuous))
-                .position(x: m.W / 2, y: m.H - 82 * m.s)
-                .allowsHitTesting(false)
-        }
         if sheet != .drawer && sheet != .edit {
             shutterButton(m)
                 .position(x: m.isLandscape ? m.W - 74 * m.s : m.W / 2,
@@ -586,7 +578,7 @@ struct CameraHomeView: View {
                 Circle()
                     .fill(Color.clear)
                     .frame(width: outer, height: outer)
-                    .background(Circle().fill(Color.white.opacity(0.10)))
+                    .background(Circle().strokeBorder(Color.white.opacity(0.32), lineWidth: 2 * m.s))
                 RoundedRectangle(cornerRadius: camera.isRecording ? 8 * m.s : inner / 2, style: .continuous)
                     .fill(isVideo ? Color.red : Color.white)
                     .frame(width: camera.isRecording ? 30 * m.s : inner,
@@ -622,7 +614,7 @@ struct CameraHomeView: View {
                 Circle()
                     .fill(Color.clear)
                     .frame(width: 48 * m.s, height: 48 * m.s)
-                    .background(Circle().fill(Color.white.opacity(0.10)))
+                    .frostedPanel(Circle())
                 Group {
                     if let image = camera.lastThumbnail {
                         Image(uiImage: image)
@@ -652,7 +644,7 @@ struct CameraHomeView: View {
                 .font(.system(size: 19 * m.s, weight: .medium))
                 .foregroundStyle(Color.white)
                 .frame(width: 48 * m.s, height: 48 * m.s)
-                .background(Circle().fill(Color.white.opacity(0.10)))
+                .frostedPanel(Circle())
                 .contentShape(Circle())
         }
         .buttonStyle(GlassButtonStyle())
@@ -871,8 +863,9 @@ private struct CaptureModeStrip: View {
         let width = CGFloat(CaptureMode.allCases.count) * 68 * m.s + 8 * m.s
         return ZStack {
             Capsule()
-                .fill(Color.white.opacity(0.095))
+                .fill(Color.clear)
                 .frame(width: width, height: 48 * m.s)
+                .frostedPanel(Capsule())
                 .allowsHitTesting(false)
 
             // UIKit owns this touch surface. No SwiftUI @GestureState or

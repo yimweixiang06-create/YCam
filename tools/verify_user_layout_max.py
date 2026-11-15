@@ -56,7 +56,10 @@ assert swipe(2, -1) == "照片"
 
 # Fixed-size bottom mode bar; frosted, not glossy controls.
 assert ".legacyPressScale" not in home and "modeDragging" not in home
-assert ".frostedPanel(RoundedRectangle(cornerRadius: 34 * m.s, style: .continuous))" in home
+assert ".frostedPanel(Capsule())" in home
+assert home.count(".frostedPanel(Circle())") >= 2
+assert ".frame(width: m.W - 12 * m.s, height: 165 * m.s)" not in home
+assert ".position(x: m.W / 2, y: m.H - 82 * m.s)" not in home
 assert "无需选择，始终请求最高分辨率" in panel
 assert "recordingBadge" in home and "camera.isRecording" in home
 print("PASS: max-only photos; pinch zoom; no old lighting overlay; low-latency UIKit mode bar with verified swipe directions; top controls do not resize preview")

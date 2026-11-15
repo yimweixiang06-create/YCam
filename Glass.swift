@@ -103,10 +103,12 @@ struct LegacyGlassBackground<S: Shape>: View {
 struct FrostedBackground<S: Shape>: View {
     let shape: S
     var body: some View {
+        // Keep the background visibly blurred without an opaque gray slab.
+        // Limit blur to actual controls and compact sheets, not the whole
+        // lower viewfinder area.
         shape
-            .fill(Material.ultraThick)
-            .overlay(shape.fill(Color.white.opacity(0.075)))
-            .overlay(shape.fill(Color.black.opacity(0.11)))
+            .fill(Material.regular)
+            .overlay(shape.fill(Color.black.opacity(0.24)))
             .allowsHitTesting(false)
     }
 }
