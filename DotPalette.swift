@@ -131,106 +131,196 @@ struct DotPalette: View {
     @Binding var point: CGPoint
     var colors: [Color]
 
+    var body: some View {
+        RoundedRectangle(cornerRadius: 18, style: .continuous)
+            .fill(LinearGradient(colors: colors, startPoint: .top, endPoint: .bottom))
+            .overlay(
+                LinearGradient(colors: [Color.blue.opacity(0.20), .clear, Color.orange.opacity(0.16)],
+                               startPoint: .leading, endPoint: .trailing)
+                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            )
+            .overlay {
+                DotPaletteTouchSurface(point: $point)
+                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            }
+    }
+}
+
+/// UIKit owns palette touches so a moving cursor never invalidates the
+/// entire SwiftUI camera view on every screen refresh.
+private struct DotPaletteTouchSurface: UIViewRepresentable {
+    @Binding var point: CGPoint
+
+    func makeUIView(context: Context) -> DotPaletteTrackingView {
+        let view = DotPaletteTrackingView()
+        view.configure(point: point, onChange: { point = $0 })
+        return view
+    }
+
+    func updateUIView(_ uiView: DotPaletteTrackingView, context: Context) {
+        uiView.configure(point: point, onChange: { point = $0 })
+    }
+}
+
+/// Cached 11x11 dot path and one cursor layer. Finger motion runs at native
+/// touch speed; Core Image style updates are limited to about 15 per second.
+/// The final snapped position is committed immediately on finger release.
+@MainActor
+private final class DotPaletteTrackingView: UIControl {
     private let columns = 11
     private let rows = 11
     private let inset: CGFloat = 12
-    @State private var dragging = false
+    private let dotsLayer = CAShapeLayer()
+    private let cursorLayer = CALayer()
+    private let feedback = UISelectionFeedbackGenerator()
+    private var column = 5
+    private var row = 5
+    private var touching = false
+    private var lastCommitted = CGPoint(x: 0.5, y: 0.5)
+    private var lastCommitTime: CFTimeInterval = 0
+    private var lastDrawnSize = CGSize.zero
+    private var onChange: ((CGPoint) -> Void)?
 
-    var body: some View {
-        GeometryReader { geo in
-            let size = geo.size
-            let marker = position(col: selectedColumn, row: selectedRow, in: size)
-            ZStack {
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(LinearGradient(colors: colors, startPoint: .top, endPoint: .bottom))
-                    .overlay(
-                        LinearGradient(colors: [Color.blue.opacity(0.20), .clear, Color.orange.opacity(0.16)],
-                                       startPoint: .leading, endPoint: .trailing)
-                            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                    )
-                    .allowsHitTesting(false)
-                Canvas { context, canvasSize in
-                    for row in 0..<rows {
-                        for col in 0..<columns {
-                            let p = position(col: col, row: row, in: canvasSize)
-                            let dot = CGRect(x: p.x - 1.4, y: p.y - 1.4, width: 2.8, height: 2.8)
-                            context.fill(Path(ellipseIn: dot), with: .color(Color.white.opacity(0.75)))
-                        }
-                    }
-                }
-                .allowsHitTesting(false)
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        backgroundColor = .clear
+        isOpaque = false
+        isMultipleTouchEnabled = false
 
-                Circle()
-                    .fill(Color.white)
-                    .frame(width: dragging ? 16 : 13, height: dragging ? 16 : 13)
-                    .shadow(color: Color.black.opacity(0.36), radius: 3, x: 0, y: 1)
-                    .position(marker)
-                    .allowsHitTesting(false)
-                    .animation(.easeOut(duration: 0.09), value: dragging)
+        dotsLayer.fillColor = UIColor.white.withAlphaComponent(0.76).cgColor
+        layer.addSublayer(dotsLayer)
+        cursorLayer.backgroundColor = UIColor.white.cgColor
+        cursorLayer.bounds = CGRect(x: 0, y: 0, width: 14, height: 14)
+        cursorLayer.cornerRadius = 7
+        cursorLayer.shadowColor = UIColor.black.cgColor
+        cursorLayer.shadowOpacity = 0.32
+        cursorLayer.shadowRadius = 3
+        cursorLayer.shadowOffset = CGSize(width: 0, height: 1)
+        layer.addSublayer(cursorLayer)
 
-                // Make every visible dot tappable, with the same gesture
-                // also following the finger and snapping to the 11x11 grid.
-                // A full-grid hit region prevents taps passing to the
-                // viewfinder behind the settings panel and closing it.
-                Rectangle()
-                    .fill(Color.white.opacity(0.001))
-                    .contentShape(Rectangle())
-                    .gesture(
-                        DragGesture(minimumDistance: 0, coordinateSpace: .named("stylePalette"))
-                            .onChanged { value in
-                                dragging = true
-                                select(at: value.location, in: size)
-                            }
-                            .onEnded { value in
-                                select(at: value.location, in: size)
-                                dragging = false
-                            }
-                    )
+        isAccessibilityElement = true
+        accessibilityTraits = [.adjustable]
+        accessibilityLabel = "摄影风格调色盘"
+        accessibilityHint = "轻点任意小点，或拖动大圆点，吸附到最近的小点"
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    func configure(point: CGPoint, onChange: @escaping (CGPoint) -> Void) {
+        self.onChange = onChange
+        guard !touching else { return }
+        let c = min(columns - 1, max(0, Int((point.x * CGFloat(columns - 1)).rounded())))
+        let r = min(rows - 1, max(0, Int((point.y * CGFloat(rows - 1)).rounded())))
+        if c != column || r != row {
+            column = c
+            row = r
+            updateCursor()
+        }
+        lastCommitted = normalizedPoint
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        guard bounds.size != lastDrawnSize else { return }
+        lastDrawnSize = bounds.size
+        let path = UIBezierPath()
+        for r in 0..<rows {
+            for c in 0..<columns {
+                let p = dotPosition(col: c, row: r)
+                path.append(UIBezierPath(ovalIn:
+                    CGRect(x: p.x - 1.4, y: p.y - 1.4, width: 2.8, height: 2.8)))
             }
-            .frame(width: size.width, height: size.height)
-            .coordinateSpace(name: "stylePalette")
-            .onAppear { alignToVisibleDot() }
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("摄影风格色调板")
-            .accessibilityValue("颜色\(Int(((point.x - 0.5) * 200).rounded()))，色调\(Int(((0.5 - point.y) * 200).rounded()))")
-            .accessibilityHint("点选任意小圆点，或拖动大圆点，只能吸附到小圆点")
-            .accessibilityAdjustableAction { direction in
-                let step = direction == .increment ? 1 : -1
-                let col = min(columns - 1, max(0, selectedColumn + step))
-                point = CGPoint(x: CGFloat(col) / CGFloat(columns - 1),
-                                y: CGFloat(selectedRow) / CGFloat(rows - 1))
-            }
+        }
+        dotsLayer.frame = bounds
+        dotsLayer.path = path.cgPath
+        updateCursor()
+    }
+
+    private var normalizedPoint: CGPoint {
+        CGPoint(x: CGFloat(column) / CGFloat(columns - 1),
+                y: CGFloat(row) / CGFloat(rows - 1))
+    }
+
+    private func dotPosition(col: Int, row: Int) -> CGPoint {
+        let w = max(0, bounds.width - inset * 2)
+        let h = max(0, bounds.height - inset * 2)
+        return CGPoint(x: inset + CGFloat(col) * w / CGFloat(columns - 1),
+                       y: inset + CGFloat(row) * h / CGFloat(rows - 1))
+    }
+
+    private func updateCursor() {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        cursorLayer.position = dotPosition(col: column, row: row)
+        CATransaction.commit()
+        accessibilityValue = "颜色 \(Int((normalizedPoint.x - 0.5) * 200))，色调 \(Int((0.5 - normalizedPoint.y) * 200))"
+    }
+
+    private func moveCursor(to location: CGPoint, forceCommit: Bool) {
+        let w = max(1, bounds.width - inset * 2)
+        let h = max(1, bounds.height - inset * 2)
+        let c = min(columns - 1, max(0,
+            Int((((location.x - inset) / w) * CGFloat(columns - 1)).rounded())))
+        let r = min(rows - 1, max(0,
+            Int((((location.y - inset) / h) * CGFloat(rows - 1)).rounded())))
+        if c != column || r != row {
+            column = c
+            row = r
+            updateCursor()
+        }
+        let now = CACurrentMediaTime()
+        if forceCommit || now - lastCommitTime >= 1.0 / 15.0 {
+            publishSelection(at: now)
         }
     }
 
-    private var selectedColumn: Int {
-        min(columns - 1, max(0, Int((point.x * CGFloat(columns - 1)).rounded())))
+    private func publishSelection(at time: CFTimeInterval = CACurrentMediaTime()) {
+        let next = normalizedPoint
+        guard next != lastCommitted else { return }
+        lastCommitted = next
+        lastCommitTime = time
+        onChange?(next)
     }
-    private var selectedRow: Int {
-        min(rows - 1, max(0, Int((point.y * CGFloat(rows - 1)).rounded())))
+
+    override func beginTracking(_ touch: UITouch, with event: UIEvent?) -> Bool {
+        touching = true
+        feedback.prepare()
+        moveCursor(to: touch.location(in: self), forceCommit: true)
+        return true
     }
-    private func position(col: Int, row: Int, in size: CGSize) -> CGPoint {
-        CGPoint(x: inset + CGFloat(col) * max(0, size.width - inset * 2) / CGFloat(columns - 1),
-                y: inset + CGFloat(row) * max(0, size.height - inset * 2) / CGFloat(rows - 1))
+
+    override func continueTracking(_ touch: UITouch, with event: UIEvent?) -> Bool {
+        moveCursor(to: touch.location(in: self), forceCommit: false)
+        return true
     }
-    private func alignToVisibleDot() {
-        let snapped = CGPoint(x: CGFloat(selectedColumn) / CGFloat(columns - 1),
-                              y: CGFloat(selectedRow) / CGFloat(rows - 1))
-        if point != snapped { point = snapped }
+
+    override func endTracking(_ touch: UITouch?, with event: UIEvent?) {
+        if let touch {
+            moveCursor(to: touch.location(in: self), forceCommit: true)
+        } else {
+            publishSelection()
+        }
+        touching = false
+        feedback.selectionChanged()
     }
-    private func select(at location: CGPoint, in size: CGSize) {
-        let w = max(1, size.width - inset * 2)
-        let h = max(1, size.height - inset * 2)
-        let x = min(1, max(0, (location.x - inset) / w))
-        let y = min(1, max(0, (location.y - inset) / h))
-        // The visible 11x11 points are the only reachable positions.
-        let col = min(columns - 1, max(0, Int((x * CGFloat(columns - 1)).rounded())))
-        let row = min(rows - 1, max(0, Int((y * CGFloat(rows - 1)).rounded())))
-        let next = CGPoint(x: CGFloat(col) / CGFloat(columns - 1),
-                           y: CGFloat(row) / CGFloat(rows - 1))
-        guard next != point else { return }
-        point = next
-        UISelectionFeedbackGenerator().selectionChanged()
+
+    override func cancelTracking(with event: UIEvent?) {
+        touching = false
+        publishSelection()
+    }
+
+    override func accessibilityIncrement() {
+        column = min(columns - 1, column + 1)
+        updateCursor()
+        publishSelection()
+    }
+
+    override func accessibilityDecrement() {
+        column = max(0, column - 1)
+        updateCursor()
+        publishSelection()
     }
 }
 
