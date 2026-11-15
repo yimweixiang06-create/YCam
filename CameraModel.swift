@@ -128,6 +128,10 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
     private let ciContext = CIContext(options: [.cacheIntermediates: false])
     private let recorder = VideoRecorder()                                 // 仅 dataQueue
     private weak var displayLayer: AVSampleBufferDisplayLayer?
+    private weak var previewView: FilteredPreviewView?
+    private let lastFrameLock = NSLock()
+    private var lastDisplaySample: CMSampleBuffer?
+    private var mayResumeHeldPreview = false  // dataQueue
     private var pixelPool: CVPixelBufferPool?                              // 仅 dataQueue
     private var pixelPoolSize = (width: 0, height: 0)                      // 仅 dataQueue
     private var currentJob: PhotoJob?
@@ -172,8 +176,18 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
         for token in observers { NotificationCenter.default.removeObserver(token) }
     }
 
-    func attach(displayLayer layer: AVSampleBufferDisplayLayer) {
-        displayLayer = layer
+    func attach(preview view: FilteredPreviewView) {
+        previewView = view
+        displayLayer = view.displayLayer
+    }
+
+    /// Freeze only when the hardware changes. Keep one retained sample
+    /// for the secondary display layer, without exporting UIImage pixels.
+    private func holdPreviewDuringReconfiguration() {
+        lastFrameLock.lock()
+        let sample = lastDisplaySample
+        lastFrameLock.unlock()
+        previewView?.holdLastFrame(sample)
     }
 
     /// 请求权限并启动相机。可重复调用（回到前台、从设置返回时都会再次调用）。
@@ -584,6 +598,9 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
     func setMode(_ newMode: CaptureMode) {
         guard newMode != mode else { return }
         guard !isRecording, !isCapturingPhoto, !isFinalizingVideo, timerCountdown == nil else { return }
+        if newMode == .video || mode == .video {
+            holdPreviewDuringReconfiguration()
+        }
         mode = newMode
         UserDefaults.standard.set(newMode.rawValue, forKey: "ycam.lastMode")
 
@@ -601,10 +618,14 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
 
         let wantsVideo = newMode == .video
         let spec = videoSpec
-        dataQueue.async { self.dataIsVideoMode = wantsVideo }
+        dataQueue.async {
+            self.dataIsVideoMode = wantsVideo
+            self.mayResumeHeldPreview = false
+        }
         sessionQueue.async {
             self.applyMode(newMode, spec: spec)
             self.publishCapabilities()
+            self.dataQueue.async { self.mayResumeHeldPreview = true }
         }
     }
 
@@ -1460,9 +1481,20 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
 
     private func display(_ pixelBuffer: CVPixelBuffer, pts: CMTime) {
         guard let layer = displayLayer, let sample = Self.makeSampleBuffer(pixelBuffer, pts: pts) else { return }
+        lastFrameLock.lock()
+        lastDisplaySample = sample
+        lastFrameLock.unlock()
         let renderer = layer.sampleBufferRenderer
         if renderer.status == .failed { renderer.flush() }
-        if renderer.isReadyForMoreMediaData { renderer.enqueue(sample) }
+        if renderer.isReadyForMoreMediaData {
+            renderer.enqueue(sample)
+            if mayResumeHeldPreview {
+                mayResumeHeldPreview = false
+                DispatchQueue.main.async { [weak self] in
+                    self?.previewView?.resumeLivePreview()
+                }
+            }
+        }
     }
 
     private static func makeSampleBuffer(_ pixelBuffer: CVPixelBuffer, pts: CMTime) -> CMSampleBuffer? {
