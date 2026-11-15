@@ -131,6 +131,7 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
     private weak var previewView: FilteredPreviewView?
     private let lastFrameLock = NSLock()
     private var lastDisplaySample: CMSampleBuffer?
+    private var previewHoldGeneration: UInt64 = 0
     private var mayResumeHeldPreview = false  // dataQueue
     private var pixelPool: CVPixelBufferPool?                              // 仅 dataQueue
     private var pixelPoolSize = (width: 0, height: 0)                      // 仅 dataQueue
@@ -185,6 +186,7 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
     /// for the secondary display layer, without exporting UIImage pixels.
     private func holdPreviewDuringReconfiguration() {
         lastFrameLock.lock()
+        previewHoldGeneration &+= 1
         let sample = lastDisplaySample
         lastFrameLock.unlock()
         previewView?.holdLastFrame(sample)
@@ -1483,6 +1485,7 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
         guard let layer = displayLayer, let sample = Self.makeSampleBuffer(pixelBuffer, pts: pts) else { return }
         lastFrameLock.lock()
         lastDisplaySample = sample
+        let currentGeneration = previewHoldGeneration
         lastFrameLock.unlock()
         let renderer = layer.sampleBufferRenderer
         if renderer.status == .failed { renderer.flush() }
@@ -1490,8 +1493,17 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
             renderer.enqueue(sample)
             if mayResumeHeldPreview {
                 mayResumeHeldPreview = false
-                DispatchQueue.main.async { [weak self] in
-                    self?.previewView?.resumeLivePreview()
+                // The renderer accepts a frame before the compositor actually
+                // presents it. Keep the held image for one or two display ticks
+                // to avoid exposing a transient unrendered black frame.
+                DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(45)) { [weak self] in
+                    guard let self else { return }
+                    self.lastFrameLock.lock()
+                    let latestGeneration = self.previewHoldGeneration
+                    self.lastFrameLock.unlock()
+                    if currentGeneration == latestGeneration {
+                        self.previewView?.resumeLivePreview()
+                    }
                 }
             }
         }

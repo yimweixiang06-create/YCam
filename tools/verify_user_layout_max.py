@@ -72,13 +72,13 @@ metrics = (root / "CameraControls.swift").read_text(encoding="utf-8")
 palette_src = (root / "DotPalette.swift").read_text(encoding="utf-8")
 engine = (root / "FilterEngine.swift").read_text(encoding="utf-8")
 assert "(isLandscape ? 24 : 33) * s" in metrics
-assert "shutterCenterY: CGFloat { H - (max(bottomInset, 24 * s) + 128 * s) }" in metrics
+assert "var shutterCenterY: CGFloat { isLandscape ? H / 2" in metrics
 assert "CATransaction.setAnimationDuration(0.17)" in home
 assert "if visualIndex != nearest" in home
-assert 'coordinateSpace: .named("stylePalette")' in palette_src
+assert "private final class DotPaletteTrackingView: UIControl" in palette_src
 assert "let columns = 11" in palette_src
-assert "CGFloat(col) / CGFloat(columns - 1)" in palette_src
-assert "CGFloat(row) / CGFloat(rows - 1)" in palette_src
+assert "dotPosition(col: c, row: r)" in palette_src
+assert "dotPosition(col: c, row: r)" in palette_src
 assert "pendingBuild?.cancel()" in engine and "milliseconds(32)" in engine
 
 # v1.1(8) landscape/portrait/video/long-press/thermal smoke assertions
@@ -120,3 +120,21 @@ assert nearest_mode(1, +36) == 2
 assert nearest_mode(1, -20) == 1
 assert nearest_mode(1, -36) == 0
 assert nearest_mode(0, +105) == 2
+
+# Build 11: Core Animation frame hold across photo/video preset changes.
+preview_src = (root / "CameraPreview.swift").read_text(encoding="utf-8")
+assert "private let heldLayer = AVSampleBufferDisplayLayer()" in preview_src
+assert "func holdLastFrame(_ sample: CMSampleBuffer?)" in preview_src
+assert "func resumeLivePreview()" in preview_src
+assert "holdPreviewDuringReconfiguration()" in model
+assert "lastDisplaySample = sample" in model
+assert "previewHoldGeneration" in model
+assert "currentGeneration == latestGeneration" in model
+
+# Style palette draws one cached grid and tracks a single CALayer at finger speed.
+assert "private final class DotPaletteTrackingView: UIControl" in palette_src
+assert "private let dotsLayer = CAShapeLayer()" in palette_src
+assert "private let cursorLayer = CALayer()" in palette_src
+assert "lastCommitTime >= 1.0 / 15.0" in palette_src
+assert "DragGesture(minimumDistance: 0, coordinateSpace: .named" not in palette_src
+print("PASS: held preview during capture preset transition; palette cursor stays on visible dots")

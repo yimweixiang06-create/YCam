@@ -36,10 +36,10 @@ final class FilteredPreviewView: UIView {
         guard let sample else { return }
         let renderer = heldLayer.sampleBufferRenderer
         renderer.flush()
-        if renderer.isReadyForMoreMediaData {
-            renderer.enqueue(sample)
-            heldLayer.isHidden = false
-        }
+        // Only one still frame is submitted per switch. Apple's renderer
+        // permits a single enqueue before the readiness flag is updated.
+        renderer.enqueue(sample)
+        heldLayer.isHidden = false
     }
 
     func resumeLivePreview() {
