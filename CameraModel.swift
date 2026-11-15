@@ -1271,7 +1271,13 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
         recordingStart = Date()
         DiagnosticsLog.shared.add("开始录像：\(spec.title)，麦克风=\(micAvailable)，风格=\(styleSettings.style.title)，滤镜=\(styleSettings.filter.title)")
         if !micAvailable { message = "未获得麦克风权限：本次视频将没有声音" }
-        dataQueue.async { self.recorder.arm(url: url, audioSettings: audioSettings, fps: spec.fps) }
+        let interfaceOrientation = UIApplication.shared.connectedScenes
+            .compactMap { ($0 as? UIWindowScene)?.interfaceOrientation }
+            .first(where: { $0 != .unknown }) ?? .portrait
+        dataQueue.async {
+            self.recorder.arm(url: url, audioSettings: audioSettings,
+                              fps: spec.fps, orientation: interfaceOrientation)
+        }
     }
 
     func stopRecording() {
