@@ -915,3 +915,4 @@ private struct CaptureModeStrip: View {
             }
         }
 }
+}
