@@ -74,9 +74,9 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
     @Published private(set) var personDetected = false
     @Published private(set) var controlsRevision = 0
     @Published var photoFormat: PhotoFormat = .heif
-    @Published var photoResolution: PhotoResolutionChoice = .half
     @Published private(set) var rawSupported = false
-    @Published private(set) var resolutionTitles: [String] = ["最大", "一半"]
+    @Published private(set) var maximumPhotoTitle = "自动最高" // 仅供显示，拍摄以 activeFormat 实测尺寸为准
+    @Published private(set) var maximumPhotoMegapixels = 0
     @Published private(set) var videoSpecs: [VideoSpec] = [VideoSpec(height: 1080, fps: 30)]
     @Published var videoSpec = VideoSpec(height: 1080, fps: 30)
     private var hasSelectedVideoSpec = false
@@ -146,7 +146,6 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
     private var zoomBase: CGFloat = 1                                      // sessionQueue
     private var zoomCurrent: CGFloat = 1                                   // sessionQueue
     private var maxPhotoDims = CMVideoDimensions(width: 0, height: 0)      // sessionQueue
-    private var halfPhotoDims = CMVideoDimensions(width: 0, height: 0)     // sessionQueue
     private var shutterBaseline: (duration: Double, iso: Float)?           // sessionQueue
     private var lastPortraitLighting: PortraitLighting = .natural
     private var portraitDepth: Double = 0.55
@@ -494,22 +493,19 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
         let list = device.activeFormat.supportedMaxPhotoDimensions
         func area(_ d: CMVideoDimensions) -> Int { Int(d.width) * Int(d.height) }
         guard let largest = list.max(by: { area($0) < area($1) }) else { return }
-        let target = area(largest) / 2
-        let half = list.min(by: { abs(area($0) - target) < abs(area($1) - target) }) ?? largest
         maxPhotoDims = largest
-        halfPhotoDims = half
+        // Apple's maxPhotoDimensions must be one of the dimensions supported by the active format.
+        // Avoid reconfiguring on every frame or capture; changing it may stall the capture pipeline.
         if photoOutput.maxPhotoDimensions.width != largest.width || photoOutput.maxPhotoDimensions.height != largest.height {
             photoOutput.maxPhotoDimensions = largest
         }
         let raw = !photoOutput.availableRawPhotoPixelFormatTypes.isEmpty
-        let titles = [
-            "\(Int((Double(area(largest)) / 1_000_000).rounded())) MP",
-            "\(Int((Double(area(half)) / 1_000_000).rounded())) MP"
-        ]
-        DiagnosticsLog.shared.add("照片分辨率：最大 \(largest.width)×\(largest.height)，一半 \(half.width)×\(half.height)，RAW=\(raw)")
+        let megapixels = Int((Double(area(largest)) / 1_000_000).rounded())
+        DiagnosticsLog.shared.add("当前镜头自动最高分辨率：\(largest.width)×\(largest.height) (\(megapixels) MP)，RAW=\(raw)")
         DispatchQueue.main.async {
             self.rawSupported = raw
-            self.resolutionTitles = titles
+            self.maximumPhotoMegapixels = megapixels
+            self.maximumPhotoTitle = "\(megapixels) MP"
             if !raw && self.photoFormat == .raw { self.photoFormat = .heif }
         }
     }
@@ -976,18 +972,21 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
         let style = styleSettings                    // 按下快门这一刻的风格状态
         let flash = flashSetting
         let format = photoFormat
-        let resolution = photoResolution
+        let requestedMaxMP = maximumPhotoMegapixels
         let night = nightEnabled
         let isPortrait = mode == .portrait
         // 实况：摄影风格 / 滤镜 / 色调板都可以用（动态部分会逐帧套同样的风格）；
-        // 人像光效 / 景深、RAW、最大分辨率、非 4:3 裁剪时不能配实况。
-        let wantLive = livePhotoEnabled && livePhotoSupported && format == .heif && resolution == .half
+        // Apple Camera: Live Photo is unavailable in HEIF Max / ProRAW capture.
+        // At 24 MP or below we permit Live when the capture output says supported.
+        // Never silently reduce the only user-visible maximum resolution to make Live work.
+        let wantsCompatibleLive = requestedMaxMP > 0 && requestedMaxMP <= 24
+        let wantLive = livePhotoEnabled && livePhotoSupported && format == .heif && wantsCompatibleLive
             && !isPortrait && cropAspect == nil && style.lighting == .off && style.depth < 0.001
         isCapturingPhoto = true
-        DiagnosticsLog.shared.add("拍照：模式=\(mode.rawValue)，风格=\(style.style.title)，滤镜=\(style.filter.title)，光效=\(style.lighting.title)，景深=\(style.depth)，格式=\(format.rawValue)，分辨率=\(resolution.rawValue)，实况=\(wantLive)")
+        DiagnosticsLog.shared.add("拍照：模式=\(mode.rawValue)，风格=\(style.style.title)，滤镜=\(style.filter.title)，光效=\(style.lighting.title)，景深=\(style.depth)，格式=\(format.rawValue)，自动最高=\(requestedMaxMP)MP，实况=\(wantLive)")
 
         sessionQueue.async {
-            let (settings, hevc) = self.makePhotoSettings(format: format, resolution: resolution, flash: flash, night: night)
+            let (settings, hevc) = self.makePhotoSettings(format: format, flash: flash, night: night)
             var liveURL: URL?
             if wantLive, self.photoOutput.isLivePhotoCaptureSupported, self.photoOutput.isLivePhotoCaptureEnabled {
                 let url = FileManager.default.temporaryDirectory
@@ -1005,7 +1004,7 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
         }
     }
 
-    private func makePhotoSettings(format: PhotoFormat, resolution: PhotoResolutionChoice,
+    private func makePhotoSettings(format: PhotoFormat,
                                    flash: FlashSetting, night: Bool) -> (AVCapturePhotoSettings, Bool) {
         let hevc = photoOutput.availablePhotoCodecTypes.contains(.hevc)
         let processed: [String: Any] = [AVVideoCodecKey: hevc ? AVVideoCodecType.hevc : AVVideoCodecType.jpeg]
@@ -1018,8 +1017,10 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
             settings = AVCapturePhotoSettings(format: processed)
         }
         if !isRaw {
-            let dims = resolution == .max ? maxPhotoDims : halfPhotoDims
-            if dims.width > 0, dims.height > 0 { settings.maxPhotoDimensions = dims }
+            // Request the highest dimensions exposed by the current active capture format.
+            if maxPhotoDims.width > 0, maxPhotoDims.height > 0 {
+                settings.maxPhotoDimensions = maxPhotoDims
+            }
         }
         if let device = videoInput?.device, device.hasFlash {
             switch flash {
@@ -1031,7 +1032,9 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
                 break
             }
         }
-        settings.photoQualityPrioritization = night ? .quality : .balanced
+        // Apple: 18/24 MP multi-frame fusion requires quality priority.
+        // Keep the user's maximum-quality preference even if image processing takes longer.
+        settings.photoQualityPrioritization = .quality
         return (settings, hevc)
     }
 

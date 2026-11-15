@@ -61,12 +61,6 @@ enum PhotoFormat: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
-enum PhotoResolutionChoice: String, CaseIterable, Identifiable {
-    case max = "最大分辨率"
-    case half = "一半分辨率"
-    var id: String { rawValue }
-}
-
 struct VideoSpec: Hashable, Identifiable {
     let height: Int
     let fps: Int
@@ -237,7 +231,7 @@ struct UIMetrics {
         case .depth: return 150 * s
         case .timer: return 245 * s
         case .aspect: return 140 * s
-        case .format: return 300 * s
+        case .format: return 245 * s
         case .focus: return 170 * s
         case .shutter: return 170 * s
         case .whiteBalance: return 230 * s

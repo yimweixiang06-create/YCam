@@ -558,15 +558,13 @@ struct FormatPanel: View {
                         camera.markControlsChanged()
                     }
                 }
-                sectionTitle("分辨率")
-                ChipRow(items: PhotoResolutionChoice.allCases, selected: camera.photoResolution, m: m,
-                        title: { choice in
-                    choice == .max ? "最大 \(camera.resolutionTitles[0])" : "一半 \(camera.resolutionTitles[1])"
-                }) { choice in
-                    camera.photoResolution = choice
-                    camera.markControlsChanged()
-                }
-                hint("RAW 保存 DNG 和处理后的照片；实况照片仅在兼容的 HEIF、分辨率及 4:3 模式下可用。", m)
+                sectionTitle("照片分辨率 · 自动最高")
+                Text("当前镜头：\(camera.maximumPhotoTitle) · 无需选择，始终请求最高分辨率")
+                    .font(.system(size: 13 * m.s, weight: .medium))
+                    .foregroundStyle(Color.white)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 4 * m.s)
+                hint("照片始终使用当前镜头支持的最大尺寸。RAW 的实际像素由设备 RAW 格式决定；苹果不支持 HEIF Max / ProRAW 与实况同时拍摄。", m)
             }
         }
         .padding(.horizontal, 14 * m.s)
@@ -757,74 +755,6 @@ struct WhiteBalancePanel: View {
 }
 
 // MARK: - 取景器上的小组件
-
-/// iOS 26/27 式倍率：点倍率直接跳转；长按倍率打开精细滑动刻度。
-/// 仅移动一块小 UI，录像/预览管线不会被 slider 拖动反复重建。
-struct ZoomPills: View {
-    @ObservedObject var model: ZoomModel
-    let m: UIMetrics
-    let onSelect: (ZoomStop) -> Void
-    let onZoom: (CGFloat) -> Void
-    @State private var expanded = false
-
-    var body: some View {
-        VStack(spacing: 10 * m.s) {
-            if expanded {
-                HStack(spacing: 8 * m.s) {
-                    Text(zoomText(model.display))
-                        .font(.system(size: 15 * m.s, weight: .bold, design: .rounded).monospacedDigit())
-                        .foregroundStyle(Color.yellow)
-                        .frame(width: 54 * m.s)
-                    Slider(value: Binding(
-                        get: { Double(model.display) },
-                        set: { onZoom(CGFloat($0)) }
-                    ), in: Double(model.minimum)...Double(max(model.minimum + 0.01, model.maximum)))
-                    .tint(Color.yellow)
-                    .accessibilityLabel("拖动调整镜头倍率")
-                    Button { withAnimation(.snappy(duration: 0.18)) { expanded = false } } label: {
-                        Image(systemName: "checkmark")
-                            .frame(width: 36 * m.s, height: 36 * m.s)
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(GlassButtonStyle())
-                }
-                .padding(.horizontal, 12 * m.s)
-                .frame(width: min(m.W - 32 * m.s, 330 * m.s), height: 48 * m.s)
-                .glassSurface(Capsule(), interactive: true)
-            } else if model.stops.count > 0 {
-                HStack(spacing: 4 * m.s) {
-                    ForEach(model.stops) { stop in
-                        let active = abs(stop.display - model.display) < 0.1 ||
-                            stop == model.stops.min(by: { abs($0.display - model.display) < abs($1.display - model.display) })
-                        Button { onSelect(stop) } label: {
-                            Text(active ? zoomText(model.display) : stop.label)
-                                .font(.system(size: (active ? 13 : 12) * m.s, weight: .semibold))
-                                .foregroundStyle(active ? Color.yellow : Color.white)
-                                .frame(width: 36 * m.s, height: 36 * m.s)
-                                .background(Circle().fill(active ? Color.white.opacity(0.14) : Color.clear))
-                                .contentShape(Circle())
-                        }
-                        .buttonStyle(GlassButtonStyle())
-                        .simultaneousGesture(LongPressGesture(minimumDuration: 0.32).onEnded { _ in
-                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                            withAnimation(.snappy(duration: 0.18)) { expanded = true }
-                        })
-                        .accessibilityHint("长按可以拖动精细倍率")
-                    }
-                }
-                .padding(.horizontal, 4 * m.s)
-                .frame(height: 40 * m.s)
-                .glassSurface(Capsule(), interactive: true)
-            }
-        }
-    }
-
-    private func zoomText(_ value: CGFloat) -> String {
-        if value < 0.95 { return String(format: "%.1f×", value).replacingOccurrences(of: "0.", with: ".") }
-        if abs(value - value.rounded()) < 0.05 { return "\(Int(value.rounded()))×" }
-        return String(format: "%.1f×", value)
-    }
-}
 
 struct HistogramView: View {
     @ObservedObject var model: HistogramModel

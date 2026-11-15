@@ -80,6 +80,7 @@ struct TouchCatcher: UIViewRepresentable {
     @MainActor
     final class Coordinator: NSObject, UIGestureRecognizerDelegate {
         var parent: TouchCatcher?
+        private var lastZoomUpdate = 0.0
 
         @objc func handleTap(_ gesture: UITapGestureRecognizer) {
             parent?.onTap(gesture.location(in: gesture.view))
@@ -93,9 +94,20 @@ struct TouchCatcher: UIViewRepresentable {
 
         @objc func handlePinch(_ gesture: UIPinchGestureRecognizer) {
             switch gesture.state {
-            case .began: parent?.onPinchBegan()
-            case .changed: parent?.onPinchChanged(gesture.scale)
-            case .ended, .cancelled, .failed: parent?.onPinchEnded()
+            case .began:
+                lastZoomUpdate = 0
+                parent?.onPinchBegan()
+            case .changed:
+                // Limit expensive AVCaptureDevice configuration while keeping gesture responsive.
+                let now = ProcessInfo.processInfo.systemUptime
+                if now - lastZoomUpdate >= (1.0 / 45.0) {
+                    lastZoomUpdate = now
+                    parent?.onPinchChanged(gesture.scale)
+                }
+            case .ended, .cancelled, .failed:
+                // The last position must always be applied, even after coalesced updates.
+                if gesture.state == .ended { parent?.onPinchChanged(gesture.scale) }
+                parent?.onPinchEnded()
             default: break
             }
         }

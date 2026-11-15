@@ -33,8 +33,6 @@ struct CameraHomeView: View {
 
     @State private var sheet: Sheet = .closed
     @State private var gridOn = UserDefaults.standard.object(forKey: "ycam.gridOn") as? Bool ?? true
-    @State private var modeDrag: CGFloat = 0
-    @State private var modeDragging = false
     @State private var flashOverlay = false
     @State private var showDiagnostics = false
     @State private var pinchStart: CGFloat?
@@ -183,8 +181,8 @@ struct CameraHomeView: View {
         let rect = previewFrame(m)
         let rawBase = isFramed ? rect.maxY - 37 * m.s : m.shutterCenterY - 72 * m.s
         let baseY = min(rawBase, m.shutterCenterY - 72 * m.s)        // 展开按钮中心
-        let pillsY = baseY - 52 * m.s
-        let lightingY = pillsY - 70 * m.s
+        // The second floating zoom control is intentionally gone. Pinch the preview to zoom.
+        let lightingY = baseY - 112 * m.s
         return ZStack {
             topCapsule(m)
                 .position(x: m.W - 73 * m.s, y: m.capsuleCenterY)
@@ -210,12 +208,6 @@ struct CameraHomeView: View {
                     .position(x: m.W / 2, y: m.capsuleCenterY)
             }
             if sheet == .closed {
-                ZoomPills(model: camera.zoom, m: m, onSelect: { stop in
-                    camera.setZoom(display: stop.display, ramp: true)
-                }, onZoom: { value in
-                    camera.setZoom(display: value)
-                })
-                .position(x: m.W / 2, y: pillsY)
                 if camera.mode == .portrait {
                     lightingStrip(m)
                         .position(x: m.W / 2, y: lightingY)
@@ -236,7 +228,8 @@ struct CameraHomeView: View {
 
     private var liveEffective: Bool {
         camera.mode == .photo && camera.livePhotoSupported && camera.livePhotoEnabled
-            && camera.photoFormat == .heif && camera.photoResolution == .half
+            && camera.photoFormat == .heif && camera.maximumPhotoMegapixels > 0
+            && camera.maximumPhotoMegapixels <= 24
             && camera.aspect == .fourThree && camera.styleSettings.depth < 0.001
     }
 
@@ -322,7 +315,7 @@ struct CameraHomeView: View {
             VStack(spacing: 1) {
                 Text(camera.photoFormat.rawValue)
                     .font(.system(size: 12 * m.s, weight: .semibold))
-                Text(camera.resolutionTitles[camera.photoResolution == .max ? 0 : 1])
+                Text(camera.maximumPhotoTitle)
                     .font(.system(size: 9 * m.s, weight: .medium))
             }
             .frame(width: 92 * m.s, height: 38 * m.s)
@@ -402,9 +395,9 @@ struct CameraHomeView: View {
             camera.message = "此设备或当前设置不支持实况照片"
             return
         }
-        if camera.photoFormat == .raw || camera.photoResolution == .max
+        if camera.photoFormat == .raw || camera.maximumPhotoMegapixels > 24
             || camera.aspect != .fourThree || camera.styleSettings.depth > 0.001 {
-            camera.message = "RAW、最大分辨率、非 4:3 取景或景深开启时不能拍实况"
+            camera.message = "此镜头的最高分辨率 / RAW / 非 4:3 或景深不兼容实况；照片不会被自动降为一半分辨率"
             return
         }
         camera.livePhotoEnabled.toggle()
@@ -467,7 +460,7 @@ struct CameraHomeView: View {
         case .format:
             let top = camera.mode == .video ? (camera.videoSpec.height >= 2160 ? "4K" : "HD") : camera.photoFormat.rawValue
             let bottom = camera.mode == .video ? "\(camera.videoSpec.fps)"
-                : camera.resolutionTitles[camera.photoResolution == .max ? 0 : 1].replacingOccurrences(of: " MP", with: "")
+                : camera.maximumPhotoTitle.replacingOccurrences(of: " MP", with: "")
             let icon = AnyView(
                 VStack(spacing: 0) {
                     Text(top).font(.system(size: 15 * m.s, weight: .bold))
@@ -519,43 +512,12 @@ struct CameraHomeView: View {
     }
 
     private func lightingStrip(_ m: UIMetrics) -> some View {
-        let items = PortraitLighting.allCases.filter { $0 != .off }
-        let current = camera.styleSettings.lighting
-        let found = camera.personDetected
-        return VStack(spacing: 6 * m.s) {
-            Text(found ? current.title : "\(current.title)（未检测到人物）")
-                .font(.system(size: 12 * m.s, weight: .semibold))
-                .foregroundStyle(Color.black)
-                .padding(.horizontal, 10 * m.s)
-                .frame(height: 22 * m.s)
-                .background(Capsule().fill(found ? Color.yellow : Color.white.opacity(0.85)))
-            HStack(spacing: 6 * m.s) {
-                ForEach(items) { item in
-                    Button { selectLighting(item) } label: {
-                        Image(systemName: item == current ? "hexagon.fill" : "hexagon")
-                            .font(.system(size: 17 * m.s, weight: .semibold))
-                            .foregroundStyle(item == current ? Color.yellow : Color.white)
-                            .frame(width: 38 * m.s, height: 38 * m.s)
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(GlassButtonStyle())
-                    .accessibilityLabel(item.title)
-                }
-            }
-            .padding(.horizontal, 8 * m.s)
-            .frame(height: 42 * m.s)
-            .glassSurface(Capsule(), interactive: true)
-            .gesture(
-                DragGesture(minimumDistance: 14).onEnded { value in
-                    guard let index = items.firstIndex(of: current) else { return }
-                    if value.translation.width > 24, index > 0 {
-                        selectLighting(items[index - 1])
-                    } else if value.translation.width < -24, index < items.count - 1 {
-                        selectLighting(items[index + 1])
-                    }
-                }
-            )
-        }
+        PortraitLightingStrip(
+            m: m,
+            selected: camera.styleSettings.lighting,
+            personDetected: camera.personDetected,
+            onSelect: { selectLighting($0) }
+        )
     }
 
     private func selectLighting(_ item: PortraitLighting) {
@@ -598,7 +560,7 @@ struct CameraHomeView: View {
                 Circle()
                     .fill(Color.clear)
                     .frame(width: outer, height: outer)
-                    .glassSurface(Circle(), interactive: true)
+                    .frostedPanel(Circle())
                 RoundedRectangle(cornerRadius: camera.isRecording ? 8 * m.s : inner / 2, style: .continuous)
                     .fill(isVideo ? Color.red : Color.white)
                     .frame(width: camera.isRecording ? 30 * m.s : inner,
@@ -634,7 +596,7 @@ struct CameraHomeView: View {
                 Circle()
                     .fill(Color.clear)
                     .frame(width: 48 * m.s, height: 48 * m.s)
-                    .glassSurface(Circle(), interactive: true)
+                    .frostedPanel(Circle())
                 Group {
                     if let image = camera.lastThumbnail {
                         Image(uiImage: image)
@@ -664,7 +626,7 @@ struct CameraHomeView: View {
                 .font(.system(size: 19 * m.s, weight: .medium))
                 .foregroundStyle(Color.white)
                 .frame(width: 48 * m.s, height: 48 * m.s)
-                .glassSurface(Circle(), interactive: true)
+                .frostedPanel(Circle())
                 .contentShape(Circle())
         }
         .buttonStyle(GlassButtonStyle())
@@ -673,64 +635,46 @@ struct CameraHomeView: View {
         .accessibilityLabel("切换前后镜头")
     }
 
-    /// 视频 / 照片 / 人像：一条统一手势同时处理点按和滑动，避免按钮与父级拖动竞争。
-    /// 拖动期间透镜实时跟手；松手一次切换，防止重配相机会话造成卡顿。
+    /// Fixed-size iOS-style mode strip; the mode label never scales or zooms.
+    /// Only one change at the end of the gesture, preventing repeated camera reconfiguration.
     private func modePill(_ m: UIMetrics) -> some View {
         let modes = CaptureMode.allCases
-        let count = CGFloat(modes.count)
         let labelW = 68 * m.s
         let index = modes.firstIndex(of: camera.mode) ?? 0
-        let candidate = min(modes.count - 1, max(0, Int((CGFloat(index) + modeDrag / labelW).rounded())))
-        let lensOffset = (CGFloat(index) - (count - 1) / 2) * labelW + modeDrag
-        let pillWidth = labelW * count + 8 * m.s
+        let width = labelW * CGFloat(modes.count) + 8 * m.s
         return ZStack {
             Capsule().fill(Color.clear)
-                .frame(width: pillWidth, height: 48 * m.s)
-                .glassSurface(Capsule())
+                .frame(width: width, height: 48 * m.s)
+                .frostedPanel(Capsule())
             Capsule().fill(Color.clear)
                 .frame(width: labelW, height: 40 * m.s)
-                .glassSurface(Capsule(), interactive: true, lens: true)
-                .legacyPressScale(modeDragging)
-                .offset(x: lensOffset)
+                .frostedPanel(Capsule())
+                .offset(x: (CGFloat(index) - CGFloat(modes.count - 1) / 2) * labelW)
                 .allowsHitTesting(false)
             HStack(spacing: 0) {
                 ForEach(modes.indices, id: \.self) { i in
                     Text(modes[i].rawValue)
                         .font(.system(size: 15 * m.s, weight: .semibold))
-                        .foregroundStyle(i == candidate ? Color.yellow : Color.white)
+                        .foregroundStyle(i == index ? Color.yellow : Color.white)
                         .frame(width: labelW, height: 44 * m.s)
                 }
             }
             .allowsHitTesting(false)
         }
-        .frame(width: pillWidth, height: 48 * m.s)
+        .frame(width: width, height: 48 * m.s)
         .contentShape(Capsule())
-        .gesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { value in
-                    let dx = value.translation.width
-                    if abs(dx) > 4 {
-                        modeDragging = true
-                        let low = -CGFloat(index) * labelW
-                        let high = CGFloat(modes.count - 1 - index) * labelW
-                        modeDrag = min(high, max(low, dx))
-                    }
-                }
-                .onEnded { value in
-                    let distance = value.translation.width
-                    let target: Int
-                    if abs(distance) < 8 {
-                        let tap = Int((value.location.x - 4 * m.s) / labelW)
-                        target = min(modes.count - 1, max(0, tap))
-                    } else {
-                        let projected = distance + 0.2 * (value.predictedEndTranslation.width - distance)
-                        target = min(modes.count - 1, max(0, Int((CGFloat(index) + projected / labelW).rounded())))
-                    }
-                    modeDragging = false
-                    modeDrag = 0
-                    selectMode(modes[target])
-                }
-        )
+        .gesture(DragGesture(minimumDistance: 0).onEnded { value in
+            let distance = value.translation.width
+            let target: Int
+            if abs(distance) < 9 * m.s {
+                let tap = Int((value.location.x - 4 * m.s) / labelW)
+                target = min(modes.count - 1, max(0, tap))
+            } else {
+                let step = Int((abs(distance) / labelW).rounded(.up))
+                target = min(modes.count - 1, max(0, index + (distance < 0 ? step : -step)))
+            }
+            selectMode(modes[target])
+        })
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("拍摄模式：\(camera.mode.rawValue)")
         .accessibilityHint("左右滑动或点按切换视频、照片与人像")
@@ -919,6 +863,75 @@ struct CameraHomeView: View {
                 .glassSurface(RoundedRectangle(cornerRadius: 30, style: .continuous))
                 .padding(32)
             }
+        }
+    }
+}
+
+// MARK: - Isolated real-time portrait-lighting selector
+// The highlight tracks the finger directly; AV processing starts only when the gesture ends.
+private struct PortraitLightingStrip: View {
+    let m: UIMetrics
+    let selected: PortraitLighting
+    let personDetected: Bool
+    let onSelect: (PortraitLighting) -> Void
+    @State private var dragOffset: CGFloat = 0
+    @State private var dragging = false
+
+    private var items: [PortraitLighting] { PortraitLighting.allCases.filter { $0 != .off } }
+
+    var body: some View {
+        let cell = 44 * m.s
+        let index = items.firstIndex(of: selected) ?? 0
+        let lower = -CGFloat(index) * cell
+        let upper = CGFloat(items.count - index - 1) * cell
+        let limited = min(upper, max(lower, dragOffset))
+        let nearest = min(items.count - 1, max(0, index + Int((limited / cell).rounded())))
+        return VStack(spacing: 6 * m.s) {
+            Text(personDetected ? selected.title : "\(selected.title)（未检测到人物）")
+                .font(.system(size: 12 * m.s, weight: .semibold))
+                .foregroundStyle(Color.black)
+                .padding(.horizontal, 10 * m.s)
+                .frame(height: 22 * m.s)
+                .background(Capsule().fill(personDetected ? Color.yellow : Color.white.opacity(0.85)))
+            ZStack {
+                // Small moving spot uses local SwiftUI state only; filter rendering does not update on drag.
+                Circle()
+                    .fill(Color.white.opacity(0.12))
+                    .frame(width: 36 * m.s, height: 36 * m.s)
+                    .offset(x: (CGFloat(index) - CGFloat(items.count - 1) / 2) * cell + limited)
+                    .animation(dragging ? nil : .easeOut(duration: 0.14), value: limited)
+                    .allowsHitTesting(false)
+                HStack(spacing: 0) {
+                    ForEach(items) { item in
+                        Button { onSelect(item) } label: {
+                            Image(systemName: item == items[nearest] ? "hexagon.fill" : "hexagon")
+                                .font(.system(size: 17 * m.s, weight: .semibold))
+                                .foregroundStyle(item == items[nearest] ? Color.yellow : Color.white)
+                                .frame(width: cell, height: 42 * m.s)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(GlassButtonStyle())
+                        .accessibilityLabel(item.title)
+                    }
+                }
+            }
+            .padding(.horizontal, 8 * m.s)
+            .frame(height: 42 * m.s)
+            .glassSurface(Capsule(), interactive: false)
+            .highPriorityGesture(
+                DragGesture(minimumDistance: 6 * m.s)
+                    .onChanged { value in
+                        dragging = true
+                        dragOffset = value.translation.width
+                    }
+                    .onEnded { value in
+                        let step = Int((min(upper, max(lower, value.translation.width)) / cell).rounded())
+                        let target = min(items.count - 1, max(0, index + step))
+                        dragging = false
+                        dragOffset = 0
+                        if target != index { onSelect(items[target]) }
+                    }
+            )
         }
     }
 }
