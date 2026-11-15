@@ -56,7 +56,7 @@ assert swipe(2, -1) == "照片"
 
 # Fixed-size bottom mode bar; frosted, not glossy controls.
 assert ".legacyPressScale" not in home and "modeDragging" not in home
-assert ".frostedPanel(Capsule())" in home
+assert ".frostedPanel(RoundedRectangle(cornerRadius: 34 * m.s, style: .continuous))" in home
 assert "无需选择，始终请求最高分辨率" in panel
 assert "recordingBadge" in home and "camera.isRecording" in home
 print("PASS: max-only photos; pinch zoom; no old lighting overlay; low-latency UIKit mode bar with verified swipe directions; top controls do not resize preview")
@@ -65,7 +65,7 @@ print("PASS: max-only photos; pinch zoom; no old lighting overlay; low-latency U
 metrics = (root / "CameraControls.swift").read_text(encoding="utf-8")
 palette_src = (root / "DotPalette.swift").read_text(encoding="utf-8")
 engine = (root / "FilterEngine.swift").read_text(encoding="utf-8")
-assert "rowCenterY: CGFloat { H - (max(bottomInset, 24 * s) + 44 * s) }" in metrics
+assert "(isLandscape ? 24 : 33) * s" in metrics
 assert "shutterCenterY: CGFloat { H - (max(bottomInset, 24 * s) + 128 * s) }" in metrics
 assert "CATransaction.setAnimationDuration(0.17)" in home
 assert "if visualIndex != nearest" in home
@@ -74,3 +74,15 @@ assert "let columns = 11" in palette_src
 assert "CGFloat(col) / CGFloat(columns - 1)" in palette_src
 assert "CGFloat(row) / CGFloat(rows - 1)" in palette_src
 assert "pendingBuild?.cancel()" in engine and "milliseconds(32)" in engine
+
+# v1.1(8) landscape/portrait/video/long-press/thermal smoke assertions
+info = (root / "Info.plist").read_text(encoding="utf-8")
+recorder = (root / "VideoRecorder.swift").read_text(encoding="utf-8")
+assert "UIInterfaceOrientationLandscapeLeft" in info and "UIInterfaceOrientationLandscapeRight" in info
+assert "case .landscapeLeft:" in recorder and "case .landscapeRight:" in recorder
+assert "m.isLandscape" in home and "camera.mode == .video { ratio = 4.0 / 3.0 }" in home
+assert "onLongPressPhoto" in home and "UILongPressGestureRecognizer" in home
+assert "struct DotPalette: View" in palette_src and "Rectangle()" in palette_src
+assert "let previous = currentHardwareMode" in model
+assert "thermalPreviewLimit" in model and "ProcessInfo.processInfo.thermalState" in model
+assert "self.latestMask = result?.mask" in engine
