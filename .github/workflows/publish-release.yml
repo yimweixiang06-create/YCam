@@ -6,6 +6,7 @@ on:
     branches: [main]
     paths:
       - ".github/workflows/publish-release.yml"
+      - "RELEASE_NOTES_v1.1.11.md"
 
 permissions:
   contents: write
