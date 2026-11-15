@@ -668,7 +668,11 @@ struct CameraHomeView: View {
         CaptureModeStrip(
             m: m,
             selected: camera.mode,
-            onSelect: { selectMode($0) }
+            onSelect: { selectMode($0) },
+            onLongPressPhoto: {
+                if camera.mode != .photo { selectMode(.photo) }
+                go(.drawer)
+            }
         )
     }
 
@@ -861,6 +865,7 @@ private struct CaptureModeStrip: View {
     let m: UIMetrics
     let selected: CaptureMode
     let onSelect: (CaptureMode) -> Void
+    let onLongPressPhoto: () -> Void
 
     var body: some View {
         let width = CGFloat(CaptureMode.allCases.count) * 68 * m.s + 8 * m.s
@@ -872,7 +877,7 @@ private struct CaptureModeStrip: View {
 
             // UIKit owns this touch surface. No SwiftUI @GestureState or
             // nested buttons re-render while the finger is moving.
-            ModeStripTouchSurface(selected: selected, scale: m.s, onSelect: onSelect)
+            ModeStripTouchSurface(selected: selected, scale: m.s, onSelect: onSelect, onLongPressPhoto: onLongPressPhoto)
                 .frame(width: width, height: 48 * m.s)
         }
         .frame(width: width, height: 48 * m.s)
@@ -883,15 +888,16 @@ private struct ModeStripTouchSurface: UIViewRepresentable {
     let selected: CaptureMode
     let scale: CGFloat
     let onSelect: (CaptureMode) -> Void
+    let onLongPressPhoto: () -> Void
 
     func makeUIView(context: Context) -> ModeStripTrackingView {
         let view = ModeStripTrackingView(frame: .zero)
-        view.configure(selected: selected, scale: scale, onSelect: onSelect)
+        view.configure(selected: selected, scale: scale, onSelect: onSelect, onLongPressPhoto: onLongPressPhoto)
         return view
     }
 
     func updateUIView(_ uiView: ModeStripTrackingView, context: Context) {
-        uiView.configure(selected: selected, scale: scale, onSelect: onSelect)
+        uiView.configure(selected: selected, scale: scale, onSelect: onSelect, onLongPressPhoto: onLongPressPhoto)
     }
 }
 
@@ -918,6 +924,7 @@ private final class ModeStripTrackingView: UIControl {
     private var trackingTouch = false
     private var visualIndex: Int?
     private var onSelect: ((CaptureMode) -> Void)?
+    private var onLongPressPhoto: (() -> Void)?
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -927,6 +934,10 @@ private final class ModeStripTrackingView: UIControl {
         highlight.backgroundColor = UIColor.white.withAlphaComponent(0.16).cgColor
         layer.addSublayer(highlight)
         for label in labels { addSubview(label) }
+        let hold = UILongPressGestureRecognizer(target: self, action: #selector(longPressedPhoto(_:)))
+        hold.minimumPressDuration = 0.42
+        hold.cancelsTouchesInView = true
+        addGestureRecognizer(hold)
 
         isAccessibilityElement = true
         accessibilityTraits = [.adjustable]
@@ -938,8 +949,18 @@ private final class ModeStripTrackingView: UIControl {
         fatalError("init(coder:) has not been implemented")
     }
 
+    @objc private func longPressedPhoto(_ gesture: UILongPressGestureRecognizer) {
+        guard gesture.state == .began else { return }
+        let x = gesture.location(in: self).x
+        let index = Int(((x - 4 * scale) / (68 * scale)).rounded(.down))
+        guard index == 1 else { return }
+        onLongPressPhoto?()
+    }
+
     func configure(selected: CaptureMode, scale: CGFloat,
-                   onSelect: @escaping (CaptureMode) -> Void) {
+                   onSelect: @escaping (CaptureMode) -> Void,
+                   onLongPressPhoto: @escaping () -> Void) {
+        self.onLongPressPhoto = onLongPressPhoto
         let scaleChanged = abs(self.scale - scale) > 0.001
         self.scale = scale
         self.onSelect = onSelect
