@@ -426,10 +426,10 @@ final class PersonSegmenter: @unchecked Sendable {
             let result = PersonSegmenter.segment(VNImageRequestHandler(cvPixelBuffer: pixelBuffer, options: [:]), quality: .fast)
             self.lock.lock()
             self.busy = false
-            if let result {
-                self.latestMask = result.mask
-                self.latestCoverage = result.coverage
-            }
+            // Clear the old segmentation when a person leaves the view.
+            // Prevents a stale silhouette from blurring the wrong background.
+            self.latestMask = result?.mask
+            self.latestCoverage = result?.coverage ?? 0
             self.lock.unlock()
         }
     }
