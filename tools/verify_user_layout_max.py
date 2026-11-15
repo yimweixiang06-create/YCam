@@ -38,9 +38,25 @@ assert "DragGesture(minimumDistance: 0).onEnded" not in home
 assert "DragGesture(minimumDistance: 12 * m.s" not in home
 assert "camera.setMode(target)" in home
 assert "withAnimation(.snappy(duration: 0.25))" not in home
+# Swipe direction must match the visible left-to-right order: 视频 / 照片 / 人像.
+# Rightward finger movement selects the next item; leftward selects the previous.
+assert "stepMode(dx > 0 ? 1 : -1)" in home
+assert "show(position: CGFloat(startingIndex) + dx / (68 * scale))" in home
+assert "max(0, startingIndex + (dx > 0 ? steps : -steps)))" in home
+assert "stepMode(dx > 0 ? -1 : 1)" not in home
+assert "show(position: CGFloat(startingIndex) - dx / (68 * scale))" not in home
+assert "max(0, startingIndex + (dx < 0 ? steps : -steps)))" not in home
+modes = ["视频", "照片", "人像"]
+def swipe(index: int, direction: int) -> str:
+    return modes[max(0, min(2, index + direction))]
+assert swipe(1, +1) == "人像"
+assert swipe(1, -1) == "视频"
+assert swipe(0, +1) == "照片"
+assert swipe(2, -1) == "照片"
+
 # Fixed-size bottom mode bar; frosted, not glossy controls.
 assert ".legacyPressScale" not in home and "modeDragging" not in home
 assert ".frostedPanel(Capsule())" in home
 assert "无需选择，始终请求最高分辨率" in panel
 assert "recordingBadge" in home and "camera.isRecording" in home
-print("PASS: max-only photos; pinch zoom; no old lighting overlay; low-latency UIKit mode bar for taps and swipes; top controls do not resize preview")
+print("PASS: max-only photos; pinch zoom; no old lighting overlay; low-latency UIKit mode bar with verified swipe directions; top controls do not resize preview")
