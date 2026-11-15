@@ -196,32 +196,35 @@ struct UIMetrics {
     let top: CGFloat
     let bottomInset: CGFloat
     let s: CGFloat
+    let isLandscape: Bool
 
     init(size: CGSize, topInset: CGFloat, bottomInset: CGFloat) {
-        let scale = min(size.width / 402, size.height / 740)
+        let landscape = size.width > size.height
+        let scale = landscape ? min(1.0, size.height / 390) : min(size.width / 402, size.height / 740)
         self.size = size
         self.s = scale
-        self.top = max(topInset, 54 * scale)
+        self.isLandscape = landscape
+        self.top = landscape ? max(topInset, 15 * scale) : max(topInset, 54 * scale)
         self.bottomInset = bottomInset
     }
 
     var W: CGFloat { size.width }
     var H: CGFloat { size.height }
     // 预览画面不受顶部自定义按钮数量影响。快捷栏使用 overlay 而不是修改图片宽度。
-    var capsuleCenterY: CGFloat { top + 35 * s }
+    var capsuleCenterY: CGFloat { top + (isLandscape ? 22 : 35) * s }
     var pinnedRowCenterY: CGFloat { capsuleCenterY + 47 * s }
-    func vfTop(pinned: Bool) -> CGFloat { top + 69 * s }
+    func vfTop(pinned: Bool) -> CGFloat { top + (isLandscape ? 52 : 69) * s }
     func vfWidth(pinned: Bool) -> CGFloat { W }
-    var shutterCenterY: CGFloat { H - (max(bottomInset, 24 * s) + 128 * s) }
-    var rowCenterY: CGFloat { H - (max(bottomInset, 24 * s) + 44 * s) }
+    var shutterCenterY: CGFloat { isLandscape ? H / 2 : H - (max(bottomInset, 24 * s) + 128 * s) }
+    var rowCenterY: CGFloat { H - (max(bottomInset, 24 * s) + (isLandscape ? 24 : 33) * s) }
 
     /// 顶部状态栏与底部控件各自保有独立空间；弹出菜单不能遮挡最上方的相机控制。
     var panelMaximumHeight: CGFloat {
-        max(140 * s, H - (top + 94 * s) - panelBottomGap)
+        max(90 * s, H - (top + (isLandscape ? 58 : 94) * s) - panelBottomGap)
     }
 
     /// 面板底边停在 Home 指示条上方一点点。
-    var panelBottomGap: CGFloat { max(bottomInset, 30 * s) + 6 * s }
+    var panelBottomGap: CGFloat { max(bottomInset, 24 * s) + (isLandscape ? 3 : 5) * s }
 
     func panelHeight(_ sheet: Sheet, drawerCount: Int) -> CGFloat {
         let requested: CGFloat
