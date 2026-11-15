@@ -26,16 +26,21 @@ assert 'Image(systemName: item == items[nearest] ? "hexagon.fill" : "hexagon")' 
 assert "m.vfTop(pinned: false)" in home
 assert "PinnedRow(items: layout.pinned" in home
 
-# Each mode label must be a working Button; a zero-distance whole-row drag steals taps.
+# The three capture modes are a direct UIKit touch surface, not competing
+# SwiftUI Buttons + DragGesture. Only the lightweight indicator follows touch.
 assert "private struct CaptureModeStrip: View" in home
-assert "ForEach(modes) { mode in" in home
-assert "Button {" in home.split("private struct CaptureModeStrip: View", 1)[1]
-assert "DragGesture(minimumDistance: 12 * m.s" in home
-assert ".simultaneousGesture(" in home
+assert "private struct ModeStripTouchSurface: UIViewRepresentable" in home
+assert "private final class ModeStripTrackingView: UIControl" in home
+assert "override func continueTracking(" in home
+assert "override func endTracking(" in home
+assert "CATransaction.setDisableActions(true)" in home
 assert "DragGesture(minimumDistance: 0).onEnded" not in home
+assert "DragGesture(minimumDistance: 12 * m.s" not in home
+assert "camera.setMode(target)" in home
+assert "withAnimation(.snappy(duration: 0.25))" not in home
 # Fixed-size bottom mode bar; frosted, not glossy controls.
 assert ".legacyPressScale" not in home and "modeDragging" not in home
 assert ".frostedPanel(Capsule())" in home
 assert "无需选择，始终请求最高分辨率" in panel
 assert "recordingBadge" in home and "camera.isRecording" in home
-print("PASS: max-only photos; pinch zoom; no old lighting overlay; fixed mode bar with working taps and swipes; top controls do not resize preview")
+print("PASS: max-only photos; pinch zoom; no old lighting overlay; low-latency UIKit mode bar for taps and swipes; top controls do not resize preview")
