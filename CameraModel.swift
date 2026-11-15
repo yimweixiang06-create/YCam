@@ -90,10 +90,11 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
     /// 唯一的风格状态：名称 / 卡片 / 预览 / 照片 / 视频 / 实况都读取它。
     @Published var styleSettings = StyleSettings() {
         didSet {
+            guard oldValue != styleSettings else { return }
             FilterEngine.shared.update(styleSettings)
-            if styleSettings.lighting == .off && styleSettings.depth < 0.001 {
-                PersonSegmenter.shared.reset()
-            }
+            let oldMask = oldValue.lighting != .off || oldValue.depth > 0.001
+            let newMask = styleSettings.lighting != .off || styleSettings.depth > 0.001
+            if oldMask && !newMask { PersonSegmenter.shared.reset() }
         }
     }
 
@@ -122,6 +123,7 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
     private var audioInput: AVCaptureDeviceInput?                          // sessionQueue
     private var rotationCoordinator: AVCaptureDevice.RotationCoordinator?  // sessionQueue
     private var isConfigured = false                                       // sessionQueue
+    private var currentHardwareMode: CaptureMode?                         // sessionQueue
     private var isStarting = false                                         // 主线程
     private let ciContext = CIContext(options: [.cacheIntermediates: false])
     private let recorder = VideoRecorder()                                 // 仅 dataQueue
@@ -136,7 +138,8 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
 
     private var framesProcessed = 0                                        // 仅 dataQueue
     private var frameCounter = 0
-    private var adaptivePreviewLongEdge: CGFloat = 1050    // dataQueue：按设备实际渲染速度自适应
+    private var adaptivePreviewLongEdge: CGFloat = 900  // adaptive live preview; full-resolution photos unchanged
+    private var thermalPreviewLimit: CGFloat = 1050       // dataQueue
     private var slowPreviewFrames = 0
     private var fastPreviewFrames = 0                                           // 仅 dataQueue
     private var lastLoggedFrameSize = (width: 0, height: 0)                // 仅 dataQueue
@@ -607,16 +610,25 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
 
     private func applyMode(_ mode: CaptureMode, spec: VideoSpec) {
         guard isConfigured, let device = videoInput?.device else { return }
+        // No hardware session rebuild is required when switching photo/portrait.
+        if let previous = currentHardwareMode,
+           previous != .video && mode != .video {
+            currentHardwareMode = mode
+            return
+        }
         switch mode {
         case .photo, .portrait:
             session.beginConfiguration()
-            if session.canSetSessionPreset(.photo) { session.sessionPreset = .photo }
+            if session.canSetSessionPreset(.photo), session.sessionPreset != .photo {
+                session.sessionPreset = .photo
+            }
             session.commitConfiguration()
             setTorch(false)
             configurePhotoOptions(for: device)
         case .video:
             applyVideoSpec(spec)
         }
+        currentHardwareMode = mode
         applyConnectionSettings()
         reapplyDeviceSettings(device)
     }
@@ -1326,6 +1338,18 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
 
             framesProcessed &+= 1
             frameCounter &+= 1
+            // Throttle only preview work under sustained thermal pressure.
+            // User-selected still capture size and recording specs remain intact.
+            if frameCounter % 60 == 0 {
+                switch ProcessInfo.processInfo.thermalState {
+                case .nominal: thermalPreviewLimit = Self.maxPreviewLongEdge
+                case .fair: thermalPreviewLimit = 850
+                case .serious: thermalPreviewLimit = 680
+                case .critical: thermalPreviewLimit = 560
+                @unknown default: thermalPreviewLimit = 680
+                }
+                adaptivePreviewLongEdge = min(adaptivePreviewLongEdge, thermalPreviewLimit)
+            }
             if lastLoggedFrameSize.width != srcW || lastLoggedFrameSize.height != srcH {
                 lastLoggedFrameSize = (srcW, srcH)
                 DiagnosticsLog.shared.add("相机画面尺寸：\(srcW)×\(srcH)，视频模式=\(dataIsVideoMode)")
@@ -1341,7 +1365,7 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
 
             // 照片 / 人像取景只需要较低分辨率；视频按原分辨率处理（要写进文件）。
             let longEdge = CGFloat(max(srcW, srcH))
-            let scale = dataIsVideoMode ? 1 : min(1, adaptivePreviewLongEdge / longEdge)
+            let scale = dataIsVideoMode ? 1 : min(1, min(adaptivePreviewLongEdge, thermalPreviewLimit) / longEdge)
             let start = CACurrentMediaTime()
             let width = max(2, Int((CGFloat(srcW) * scale).rounded()))
             let height = max(2, Int((CGFloat(srcH) * scale).rounded()))
@@ -1374,10 +1398,10 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
                 else if ms < 15 { fastPreviewFrames += 1; slowPreviewFrames = 0 }
                 else { slowPreviewFrames = 0; fastPreviewFrames = 0 }
                 if slowPreviewFrames >= 6 {
-                    adaptivePreviewLongEdge = max(640, adaptivePreviewLongEdge * 0.80)
+                    adaptivePreviewLongEdge = max(560, adaptivePreviewLongEdge * 0.82)
                     slowPreviewFrames = 0
                 } else if fastPreviewFrames >= 70 {
-                    adaptivePreviewLongEdge = min(Self.maxPreviewLongEdge, adaptivePreviewLongEdge * 1.12)
+                    adaptivePreviewLongEdge = min(thermalPreviewLimit, adaptivePreviewLongEdge * 1.10)
                     fastPreviewFrames = 0
                 }
             }
