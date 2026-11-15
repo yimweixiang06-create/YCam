@@ -90,12 +90,23 @@ struct CameraHomeView: View {
     // MARK: 取景器
 
     private var hasPinned: Bool { !layout.pinned.isEmpty }
-    private var isFramed: Bool { camera.mode != .video && camera.aspect != .full }
+    private var isFramed: Bool { camera.mode == .video || camera.aspect != .full }
 
     private func previewFrame(_ m: UIMetrics) -> CGRect {
-        guard camera.mode != .video, let ratio = camera.aspect.heightOverWidth else {
-            return CGRect(x: 0, y: 0, width: m.W, height: m.H)
+        if m.isLandscape {
+            let top = m.vfTop(pinned: false)
+            let availableWidth = max(160 * m.s, m.W - 175 * m.s)
+            let availableHeight = max(125 * m.s, m.H - top - 70 * m.s)
+            let width = min(availableWidth, availableHeight * 4 / 3)
+            let height = width * 3 / 4
+            return CGRect(x: max(8 * m.s, (m.W - 145 * m.s - width) / 2),
+                          y: top + (availableHeight - height) / 2,
+                          width: width, height: height)
         }
+        let ratio: CGFloat
+        if camera.mode == .video { ratio = 4.0 / 3.0 }
+        else if let chosen = camera.aspect.heightOverWidth { ratio = chosen }
+        else { return CGRect(x: 0, y: 0, width: m.W, height: m.H) }
         // 常规尺寸保持相机原生全宽 4:3。仅在特别矮的设备上按可用高度等比缩小，
         // 避免照片画面盖住快门；固定快捷按钮绝不能触发这一步。
         let y = m.vfTop(pinned: false)
@@ -536,19 +547,29 @@ struct CameraHomeView: View {
     private func bottomControls(_ m: UIMetrics) -> some View {
         let idle = sheet == .closed
         let panelTop = m.H - m.panelBottomGap - m.panelHeight(sheet, drawerCount: layout.drawer.count)
-        let shutterY = idle ? m.shutterCenterY : panelTop - 67 * m.s     // 面板打开时快门上移，停在面板上方
+        let shutterY = idle ? m.shutterCenterY : panelTop - 67 * m.s
+        if idle && !camera.isRecording && !m.isLandscape {
+            RoundedRectangle(cornerRadius: 34 * m.s, style: .continuous)
+                .fill(Color.clear)
+                .frame(width: m.W - 12 * m.s, height: 165 * m.s)
+                .frostedPanel(RoundedRectangle(cornerRadius: 34 * m.s, style: .continuous))
+                .position(x: m.W / 2, y: m.H - 82 * m.s)
+                .allowsHitTesting(false)
+        }
         if sheet != .drawer && sheet != .edit {
             shutterButton(m)
-                .position(x: m.W / 2, y: shutterY)
+                .position(x: m.isLandscape ? m.W - 74 * m.s : m.W / 2,
+                          y: m.isLandscape ? m.H / 2 : shutterY)
         }
-        // 录制中隐藏模式栏、图库和翻转控件，保留中央停止录制按钮。
         if idle && !camera.isRecording {
             thumbnailButton(m)
-                .position(x: 60 * m.s, y: m.rowCenterY)
+                .position(x: m.isLandscape ? m.W - 72 * m.s : 60 * m.s,
+                          y: m.isLandscape ? m.H / 2 - 93 * m.s : m.rowCenterY)
             modePill(m)
                 .position(x: m.W / 2, y: m.rowCenterY)
             flipButton(m)
-                .position(x: m.W - 60 * m.s, y: m.rowCenterY)
+                .position(x: m.isLandscape ? m.W - 72 * m.s : m.W - 60 * m.s,
+                          y: m.isLandscape ? m.H / 2 + 93 * m.s : m.rowCenterY)
         }
     }
 
@@ -565,7 +586,7 @@ struct CameraHomeView: View {
                 Circle()
                     .fill(Color.clear)
                     .frame(width: outer, height: outer)
-                    .frostedPanel(Circle())
+                    .background(Circle().fill(Color.white.opacity(0.10)))
                 RoundedRectangle(cornerRadius: camera.isRecording ? 8 * m.s : inner / 2, style: .continuous)
                     .fill(isVideo ? Color.red : Color.white)
                     .frame(width: camera.isRecording ? 30 * m.s : inner,
@@ -601,7 +622,7 @@ struct CameraHomeView: View {
                 Circle()
                     .fill(Color.clear)
                     .frame(width: 48 * m.s, height: 48 * m.s)
-                    .frostedPanel(Circle())
+                    .background(Circle().fill(Color.white.opacity(0.10)))
                 Group {
                     if let image = camera.lastThumbnail {
                         Image(uiImage: image)
@@ -631,7 +652,7 @@ struct CameraHomeView: View {
                 .font(.system(size: 19 * m.s, weight: .medium))
                 .foregroundStyle(Color.white)
                 .frame(width: 48 * m.s, height: 48 * m.s)
-                .frostedPanel(Circle())
+                .background(Circle().fill(Color.white.opacity(0.10)))
                 .contentShape(Circle())
         }
         .buttonStyle(GlassButtonStyle())
@@ -845,9 +866,8 @@ private struct CaptureModeStrip: View {
         let width = CGFloat(CaptureMode.allCases.count) * 68 * m.s + 8 * m.s
         return ZStack {
             Capsule()
-                .fill(Color.clear)
+                .fill(Color.white.opacity(0.095))
                 .frame(width: width, height: 48 * m.s)
-                .frostedPanel(Capsule())
                 .allowsHitTesting(false)
 
             // UIKit owns this touch surface. No SwiftUI @GestureState or
