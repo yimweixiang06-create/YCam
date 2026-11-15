@@ -1,4 +1,5 @@
 import AVFoundation
+import UIKit
 
 /// 把“已套用风格”的画面写成 .mov，所以录出来的视频与取景器里看到的一致。
 /// 注意：所有方法都必须在同一条串行队列（CameraModel.dataQueue，也就是摄像头 / 麦克风回调所在队列）上调用，
@@ -28,13 +29,15 @@ final class VideoRecorder {
     private var videoFrames = 0
     private var failure: Error?
     private var fps = 30
+    private var captureOrientation: UIInterfaceOrientation = .portrait
 
     /// 进入“等待第一帧”状态；真正创建 writer 发生在第一帧到达时（这样能拿到真实分辨率）。
-    func arm(url: URL, audioSettings: [String: Any]?, fps: Int = 30) {
+    func arm(url: URL, audioSettings: [String: Any]?, fps: Int = 30, orientation: UIInterfaceOrientation = .portrait) {
         reset()
         outputURL = url
         self.audioSettings = audioSettings
         self.fps = max(1, fps)
+        captureOrientation = orientation
         armed = true
     }
 
@@ -152,6 +155,18 @@ final class VideoRecorder {
                 }
             }
             let videoInput = AVAssetWriterInput(mediaType: .video, outputSettings: videoSettings)
+            // Rotate with track metadata, not a costly per-frame GPU transform.
+            // The capture sample buffers stay in their hardware portrait layout.
+            switch captureOrientation {
+            case .landscapeLeft:
+                videoInput.transform = CGAffineTransform(a: 0, b: 1, c: -1, d: 0,
+                                                         tx: CGFloat(height), ty: 0)
+            case .landscapeRight:
+                videoInput.transform = CGAffineTransform(a: 0, b: -1, c: 1, d: 0,
+                                                         tx: 0, ty: CGFloat(width))
+            default:
+                videoInput.transform = .identity
+            }
             videoInput.expectsMediaDataInRealTime = true
             let adaptor = AVAssetWriterInputPixelBufferAdaptor(
                 assetWriterInput: videoInput,
@@ -197,6 +212,7 @@ final class VideoRecorder {
         adaptor = nil
         outputURL = nil
         audioSettings = nil
+        captureOrientation = .portrait
         armed = false
         sessionStart = nil
         lastVideoPTS = .invalid
