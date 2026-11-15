@@ -161,8 +161,9 @@ struct DotPalette: View {
                     .fill(Color.white)
                     .frame(width: dragging ? 15 : 12, height: dragging ? 15 : 12)
                     .shadow(color: Color.black.opacity(0.35), radius: 3, x: 0, y: 1)
-                    .position(position(col: selectedColumn, row: selectedRow, in: size))
-                    .animation(.spring(response: 0.22, dampingFraction: 0.75), value: selectedColumn * 100 + selectedRow)
+                    .position(x: inset + point.x * max(0, size.width - inset * 2),
+                              y: inset + point.y * max(0, size.height - inset * 2))
+                    .animation(.spring(response: 0.22, dampingFraction: 0.75), value: point)
                     .animation(.spring(response: 0.25, dampingFraction: 0.7), value: dragging)
             }
             .frame(width: size.width, height: size.height)
@@ -180,9 +181,8 @@ struct DotPalette: View {
             .accessibilityValue("颜色\(Int(((point.x - 0.5) * 200).rounded()))，色调\(Int(((0.5 - point.y) * 200).rounded()))")
             .accessibilityHint("左右调节颜色，向上增加色调数值")
             .accessibilityAdjustableAction { direction in
-                let delta: CGFloat = direction == .increment ? 1 : -1
-                let next = min(CGFloat(columns - 1), max(0, CGFloat(selectedColumn) + delta))
-                point = CGPoint(x: next / CGFloat(columns - 1), y: point.y)
+                let delta: CGFloat = direction == .increment ? 0.025 : -0.025
+                point = CGPoint(x: min(1, max(0, point.x + delta)), y: point.y)
             }
         }
     }
@@ -203,9 +203,11 @@ struct DotPalette: View {
     private func select(at location: CGPoint, in size: CGSize) {
         let usableWidth = max(1, size.width - inset * 2)
         let usableHeight = max(1, size.height - inset * 2)
-        let col = min(columns - 1, max(0, Int(((location.x - inset) / usableWidth * CGFloat(columns - 1)).rounded())))
-        let row = min(rows - 1, max(0, Int(((location.y - inset) / usableHeight * CGFloat(rows - 1)).rounded())))
-        let next = CGPoint(x: CGFloat(col) / CGFloat(columns - 1), y: CGFloat(row) / CGFloat(rows - 1))
+        // 每 5 个色调/颜色单位吸附一次；11×11 个背景点只是视觉刻度。
+        // 保留 45、35、90、-20 等参考值的真实光标位置。
+        let x = min(1, max(0, (location.x - inset) / usableWidth))
+        let y = min(1, max(0, (location.y - inset) / usableHeight))
+        let next = CGPoint(x: (x * 40).rounded() / 40, y: (y * 40).rounded() / 40)
         guard next != point else { return }
         point = next
         UISelectionFeedbackGenerator().selectionChanged()
