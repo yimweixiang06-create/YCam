@@ -33,7 +33,7 @@ assert "private struct ModeStripTouchSurface: UIViewRepresentable" in home
 assert "private final class ModeStripTrackingView: UIControl" in home
 assert "override func continueTracking(" in home
 assert "override func endTracking(" in home
-assert "CATransaction.setDisableActions(true)" in home
+assert "CATransaction.setDisableActions(!animated)" in home
 assert "DragGesture(minimumDistance: 0).onEnded" not in home
 assert "DragGesture(minimumDistance: 12 * m.s" not in home
 assert "camera.setMode(target)" in home
@@ -86,3 +86,14 @@ assert "struct DotPalette: View" in palette_src and "Rectangle()" in palette_src
 assert "let previous = currentHardwareMode" in model
 assert "thermalPreviewLimit" in model and "ProcessInfo.processInfo.thermalState" in model
 assert "self.latestMask = result?.mask" in engine
+
+# v1.1 (8): 4:3 video preview, landscape metadata and safe portrait
+assert "if camera.mode == .video { ratio = 4.0 / 3.0 }" in home
+assert "m.isLandscape" in home
+assert "onLongPressPhoto" in home
+assert "self.latestMask = result?.mask" in engine
+assert "currentHardwareMode" in model
+assert "thermalPreviewLimit" in model
+assert "UIInterfaceOrientationLandscapeLeft" in info
+assert "UIInterfaceOrientationLandscapeRight" in info
+print("PASS: camera mode gestures, palette tap, landscape rotation, 4:3 preview and thermal checks")
