@@ -86,15 +86,14 @@ final class FilterEngine {
         return Snapshot(settings: s, recipe: recipe, cube: cube)
     }
 
-    /// Apple 官方提供色调/颜色/强度调节，但没有公开渲染系数。
-    /// YCam 以每种风格的参考控制点作为原点，只对用户改动的差值施加增量，
-    /// 避免切换到「珠光 45/90/100」时误把 UI 数字再当成曝光/饱和度叠加一次。
+    /// 用户调整始终以 (色调 0, 颜色 0) 为中性原点，强度初始 100。
+    /// 不把历史截图里的 45/90/100 等读数写入任何风格的默认值。
+    /// Apple 摄影风格的专有算法未公开，YCam 的系数是经参考照片校准的独立实现。
     static func effectiveRecipe(for s: StyleSettings) -> LookRecipe {
         let k = Float(min(1, max(0, s.intensity)))
         var r = s.style.recipe.scaled(by: k).combined(with: s.filter.recipe)
-        let defaults = s.style.referenceControls
-        let color = Float((s.point.x - 0.5) * 2) - Float(defaults.color) / 100
-        let tone = Float((0.5 - s.point.y) * 2) - Float(defaults.tone) / 100
+        let color = Float((s.point.x - 0.5) * 2)
+        let tone = Float((0.5 - s.point.y) * 2)
         // 色彩控制为风格配方上的温度/品红变化，而非「左边完全去色」的纯度控制。
         r.temperature += 0.22 * color * k
         r.tint += 0.08 * color * k
@@ -269,9 +268,10 @@ final class FilterEngine {
         if snap.recipe.bloom > 0.001 {
             out = FilterEngine.applyBloom(out, amount: snap.recipe.bloom, extent: extent)
         }
-        // 珠光需要明亮但清晰：不再以柔焦代替珠光，轻量提高清晰度避免比其它风格发糊。
+        // 珠光只做轻度亮度边缘强化，不增加任何空间模糊／磨皮。
+        // 不动景深蒙版，真正的背景虚化只能由用户开启景深。
         if snap.settings.style == .pearl && snap.settings.intensity > 0.01 {
-            out = out.applyingFilter("CISharpenLuminance", parameters: ["inputSharpness": 0.20])
+            out = out.applyingFilter("CISharpenLuminance", parameters: ["inputSharpness": 0.16])
         }
         if snap.recipe.grain > 0.001 {
             out = FilterEngine.applyGrain(out, amount: snap.recipe.grain, scale: grainScale, extent: extent)
@@ -341,7 +341,7 @@ final class FilterEngine {
         }
     }
 
-    /// 柔焦（珠光用）：与一张模糊版本按比例混合，让画面整体更朦胧、不那么锐。
+    /// 可选柔焦实现（当前摄影风格默认均不会启用）；不要用它来制作珠光。
     private static func applySoftness(_ image: CIImage, amount: Float, extent: CGRect) -> CIImage {
         let sigma = max(1.5, Double(extent.width) * 0.0035)
         let blurred = image.clampedToExtent().applyingGaussianBlur(sigma: sigma).cropped(to: extent)
@@ -352,7 +352,7 @@ final class FilterEngine {
             .cropped(to: extent)
     }
 
-    /// 柔光：缩小 → 高斯模糊 → 放大 → 以滤色混合叠回（Pearl / 空灵 / 明亮使用）。
+    /// 可选柔光实现（所有摄影风格初始配方均为 bloom = 0，避免全画面雾化）。
     private static func applyBloom(_ image: CIImage, amount: Float, extent: CGRect) -> CIImage {
         let scale: CGFloat = 0.25
         let small = image.transformed(by: CGAffineTransform(scaleX: scale, y: scale))

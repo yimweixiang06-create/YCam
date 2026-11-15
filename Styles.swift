@@ -106,7 +106,7 @@ enum CameraStyle: String, CaseIterable, Identifiable {
         case .roseGold: return "玫瑰金 Rose Gold"
         case .coolRose: return "冷调玫瑰色 Cool Rose"
         case .cool: return "冷调 Cool"
-        case .radiant: return "耀目 Radiant"
+        case .radiant: return "耀目 Bright"
         case .neutral: return "自然 Neutral"
         case .vibrant: return "鲜明 Vibrant"
         case .warm: return "温馨 Warm"
@@ -130,14 +130,11 @@ enum CameraStyle: String, CaseIterable, Identifiable {
         }
     }
 
-    /// 苹果官方仅说明可调整色调、颜色和强度，没有发布各风格的完整预设数值。
-    /// 下列两组是用户提供的 iPhone 截图读数，不是 Apple 官方标定表；其他风格以中性控制点起步。
+    /// 所有风格的用户调色盘首次进入时都从中性控制点开始。
+    /// 色调 0 / 颜色 0 / 调色盘 100，只是 YCam 的 UI 控件默认位置；
+    /// 风格本身的配方仍然生效，用户可自行拖动圆点并调节强度。
     var referenceControls: (tone: Int, color: Int, intensity: Double) {
-        switch self {
-        case .pearl: return (45, 90, 1.0)
-        case .coolRose: return (35, -20, 0.75)
-        default: return (0, 0, 1.0)
-        }
+        (0, 0, 1.0)
     }
 
     var isFilm: Bool {
@@ -218,19 +215,19 @@ enum CameraStyle: String, CaseIterable, Identifiable {
     var recipe: LookRecipe {
         switch self {
         case .standard: return LookRecipe()
-        case .pearl: return LookRecipe(exposure: 0.06, contrast: 0.06, saturation: 0.98, temperature: -0.02, tint: 0.04, shadowTint: rgb(-0.004, 0.002, 0.004), highlightTint: rgb(0.006, 0.002, 0.010), whiteRoll: 0.04)
+        case .pearl: return LookRecipe(exposure: 0.12, contrast: 0.08, saturation: 1.02, vibrance: 0.08, temperature: 0.02, tint: 0.18, shadowTint: rgb(0.002, 0.000, 0.004), highlightTint: rgb(0.014, 0.002, 0.013), whiteRoll: 0.08)
         case .amber: return LookRecipe(exposure: -0.02, contrast: 0.10, saturation: 1.10, temperature: 0.34, tint: 0.12, highlightTint: rgb(0.022, 0.002, -0.016))
         case .gold: return LookRecipe(exposure: 0.10, contrast: 0.02, saturation: 1.00, temperature: 0.30, tint: -0.14, highlightTint: rgb(0.012, 0.020, -0.016), blackLift: 0.010)
         case .roseGold: return LookRecipe(contrast: 0.02, saturation: 1.00, temperature: 0.18, tint: 0.14, highlightTint: rgb(0.016, 0.000, 0.004))
-        case .coolRose: return LookRecipe(exposure: 0.05, contrast: 0.02, temperature: -0.20, tint: 0.08, highlightTint: rgb(0.006, -0.002, 0.008))
+        case .coolRose: return LookRecipe(exposure: 0.05, contrast: 0.06, saturation: 1.02, temperature: -0.14, tint: 0.10, highlightTint: rgb(0.010, -0.002, 0.010))
         case .cool: return LookRecipe(contrast: 0.06, saturation: 1.02, temperature: -0.30, tint: -0.04, highlightTint: rgb(-0.004, 0.004, 0.012))
-        case .radiant: return LookRecipe(exposure: -0.05, contrast: 0.30, saturation: 1.14, vibrance: 0.20, shadowTint: rgb(-0.012, 0.010, 0.020), highlightTint: rgb(0.014, 0.000, 0.016), whiteRoll: 0.05)
-        case .neutral: return LookRecipe(exposure: 0.10, contrast: -0.05, saturation: 0.92, temperature: -0.16)
+        case .radiant: return LookRecipe(exposure: 0.12, contrast: 0.11, saturation: 1.09, vibrance: 0.17, shadowTint: rgb(-0.008, 0.008, 0.012), highlightTint: rgb(0.010, 0.001, 0.010), whiteRoll: 0.12)
+        case .neutral: return LookRecipe(exposure: 0.02, contrast: 0.00, saturation: 0.99, temperature: -0.04)
         case .vibrant: return LookRecipe(contrast: 0.10, saturation: 1.16, vibrance: 0.30)
         case .warm: return LookRecipe(exposure: 0.04, contrast: 0.03, saturation: 1.04, temperature: 0.24, tint: 0.02)
-        case .ethereal: return LookRecipe(exposure: 0.15, contrast: -0.20, saturation: 0.92, temperature: -0.04, blackLift: 0.03, whiteRoll: 0.10, bloom: 0.12)
+        case .ethereal: return LookRecipe(exposure: 0.10, contrast: -0.09, saturation: 0.96, temperature: -0.04, blackLift: 0.012, whiteRoll: 0.10)
         case .dramatic: return LookRecipe(exposure: -0.12, contrast: 0.60, saturation: 1.06, whiteRoll: 0.06)
-        case .luminous: return LookRecipe(exposure: 0.25, contrast: -0.06, saturation: 1.05, vibrance: 0.12, whiteRoll: 0.14, bloom: 0.06)
+        case .luminous: return LookRecipe(exposure: 0.16, contrast: 0.02, saturation: 1.04, vibrance: 0.10, whiteRoll: 0.14)
         case .monochrome: return LookRecipe(contrast: 0.16, mono: 1)
         case .fuji400: return LookRecipe(contrast: 0.12, saturation: 1.06, vibrance: 0.08, temperature: -0.10, tint: -0.05, shadowTint: rgb(-0.008, 0.010, 0.012), highlightTint: rgb(-0.002, 0.004, 0.002), midGamma: rgb(1.02, 0.97, 1.00), blackLift: 0.025, whiteRoll: 0.08, grain: 0.55)
         case .kodak800: return LookRecipe(exposure: 0.04, contrast: 0.02, saturation: 0.98, temperature: 0.16, tint: 0.03, shadowTint: rgb(0.008, 0.002, -0.004), highlightTint: rgb(0.010, 0.005, -0.012), midGamma: rgb(0.98, 1.00, 1.04), blackLift: 0.035, whiteRoll: 0.10, grain: 0.85)
@@ -337,7 +334,7 @@ struct StyleSettings: Equatable {
 
     static let defaultPoint = CGPoint(x: 0.5, y: 0.5)
 
-    /// 按当前风格恢复对应参考控制点，而不是每次都跳回任意固定位置。
+    /// 每次选风格或点重置，色调和颜色回到零，强度回到 100。
     mutating func restoreStyleControls() {
         let reference = style.referenceControls
         point = CGPoint(x: CGFloat(reference.color + 100) / 200,

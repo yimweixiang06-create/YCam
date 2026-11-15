@@ -73,7 +73,7 @@ def scaled(r, k):
 
 
 def effective(r, point=(0.5, 0.5), intensity=1.0, exposure=0.0, reference=(0, 0)):
-    """镜像 Swift：色调 / 颜色相对所选风格的初始值进行增量调节。"""
+    """镜像 Swift：所有风格共用零点控制，强度默认100。"""
     k = min(1.0, max(0.0, intensity))
     e = scaled(r, k)
     color = (point[0] - 0.5) * 2 - reference[1] / 100
@@ -214,7 +214,7 @@ def main():
     order = list(recipes.keys())
     results, fails = {}, []
     base_lab = lab(CHECKER)
-    refs = {"pearl": (45, 90, 1.0), "coolRose": (35, -20, 0.75)}
+    refs = {}  # 所有摄影风格默认色调=0、颜色=0、强度=100
     def default_controls(style):
         tone, color, intensity = refs.get(style, (0, 0, 1.0))
         return ((color + 100) / 200, (100 - tone) / 200), intensity, (tone, color)
@@ -329,9 +329,9 @@ def main():
     lines += ["", "## 5. 没有被验证的部分（必须明确）", "",
               "- **与真实 FUJI 400 / KODAK 800 / Apple 摄影风格 / Pearl 的 90% 相似度：没有测量。** "
               "需要同一场景的真实参考样张（例如同一张 RAW 用目标胶片 / 风格处理后的成品），再用 ΔE 拟合配方。",
-              "- 柔光 / 柔焦（珠光）、胶片颗粒、人像光效和景深是 Core Image / Vision 滤镜，这里只复算了颜色部分，没有复算它们。",
+              "- 用户主动开启的景深 / 人像光效、胶片颗粒和可选柔光是 Core Image / Vision 滤镜，这里只复算了颜色部分，没有复算它们。",
               "- ColorChecker 数值是常见近似值，显示设备与真实光照也会影响观感。",
-              "- 没有找到可验证的 Pearl 开源实现，Pearl 是按“柔和、低对比、微粉青高光”自行设计的。"]
+              "- 没有找到可验证的 Pearl 开源实现，Pearl 是按“亮透肤色、轻粉紫高光、保留边缘细节”自行设计的。"]
     (ROOT / "STYLE_CHECK_REPORT.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
     # 对比图
