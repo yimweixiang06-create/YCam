@@ -1362,10 +1362,12 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
             }
             if histogramEnabled, frameCounter % 12 == 0 { updateHistogram(from: source) }
 
-            // 视频模式且不需要任何处理：直接用相机原始帧（省掉整条 GPU 流水线，4K / 60 帧也不卡）。
-            if dataIsVideoMode, snap.isPassthroughColor {
+            // No-op style with no depth/lighting: do not render each frame
+            // through Core Image. Most standard photo/video previews take
+            // this zero-copy path, reducing GPU usage and device heating.
+            if snap.isPassthroughColor && !snap.needsMask {
                 display(source, pts: pts)
-                recorder.appendVideo(source, pts: pts)
+                if dataIsVideoMode { recorder.appendVideo(source, pts: pts) }
                 return
             }
 
