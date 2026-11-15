@@ -32,7 +32,7 @@ struct CameraHomeView: View {
     @Namespace private var glassNS
 
     @State private var sheet: Sheet = .closed
-    @State private var gridOn = false
+    @State private var gridOn = UserDefaults.standard.object(forKey: "ycam.gridOn") as? Bool ?? true
     @State private var modeDrag: CGFloat = 0
     @State private var modeDragging = false
     @State private var flashOverlay = false
@@ -71,6 +71,9 @@ struct CameraHomeView: View {
             default:
                 camera.sceneWillResignActive()
             }
+        }
+        .onChange(of: gridOn) { _, value in
+            UserDefaults.standard.set(value, forKey: "ycam.gridOn")
         }
         .onChange(of: camera.shutterPulse) { _, _ in
             flashOverlay = true
@@ -144,11 +147,9 @@ struct CameraHomeView: View {
     }
 
     private func handleTap(_ point: CGPoint, _ m: UIMetrics) {
-        if sheet != .closed {
-            go(.closed)
-            return
-        }
         let rect = previewFrame(m)
+        // 点在取景区域时始终尝试对焦；面板如果打开也只需要点一次。
+        if sheet != .closed { go(.closed) }
         guard rect.contains(point) else { return }
         camera.focus(atViewPoint: CGPoint(x: point.x - rect.minX, y: point.y - rect.minY), viewSize: rect.size)
         let mark = FocusMark(point: point)
@@ -187,6 +188,15 @@ struct CameraHomeView: View {
         return ZStack {
             topCapsule(m)
                 .position(x: m.W - 73 * m.s, y: m.capsuleCenterY)
+            if sheet == .closed {
+                if camera.mode == .video {
+                    videoQuickControls(m)
+                        .position(x: 94 * m.s, y: m.capsuleCenterY)
+                } else {
+                    photoQuickControl(m)
+                        .position(x: 64 * m.s, y: m.capsuleCenterY)
+                }
+            }
             if sheet == .drawer || sheet == .edit {
                 editButton(m)
                     .position(x: 18 * m.s + 33 * m.s, y: m.capsuleCenterY)
@@ -200,9 +210,11 @@ struct CameraHomeView: View {
                     .position(x: m.W / 2, y: m.capsuleCenterY)
             }
             if sheet == .closed {
-                ZoomPills(model: camera.zoom, m: m) { stop in
+                ZoomPills(model: camera.zoom, m: m, onSelect: { stop in
                     camera.setZoom(display: stop.display, ramp: true)
-                }
+                }, onZoom: { value in
+                    camera.setZoom(display: value)
+                })
                 .position(x: m.W / 2, y: pillsY)
                 if camera.mode == .portrait {
                     lightingStrip(m)
@@ -249,14 +261,16 @@ struct CameraHomeView: View {
             .accessibilityLabel("实况照片")
 
             // 点按 = 打开 / 关闭控制抽屉；长按约 1 秒 = 打开诊断日志
-            DotGrid(dot: 3.4 * m.s, gap: 3.2 * m.s)
-                .frame(width: 32 * m.s, height: 38 * m.s)
-                .contentShape(Rectangle())
-                .onTapGesture { go(sheet == .closed ? .drawer : .closed) }
-                .onLongPressGesture(minimumDuration: 0.8) {
+            Button { go(sheet == .closed ? .drawer : .closed) } label: {
+                DotGrid(dot: 3.4 * m.s, gap: 3.2 * m.s)
+                    .frame(width: 32 * m.s, height: 38 * m.s)
+                    .contentShape(Rectangle())
+            }
+                .buttonStyle(GlassButtonStyle())
+                .simultaneousGesture(LongPressGesture(minimumDuration: 0.8).onEnded { _ in
                     UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                     showDiagnostics = true
-                }
+                })
                 .accessibilityElement()
                 .accessibilityLabel("更多控制")
                 .accessibilityAddTraits(.isButton)
@@ -265,6 +279,58 @@ struct CameraHomeView: View {
         .padding(.horizontal, 6 * m.s)
         .frame(width: 108 * m.s, height: 38 * m.s)
         .glassSurface(Capsule(), interactive: true)
+    }
+
+    /// iOS 27 视频规格放在左上角：只轮换当前设备报告支持的 1080p/4K 与 30/60。
+    private func videoQuickControls(_ m: UIMetrics) -> some View {
+        HStack(spacing: 2 * m.s) {
+            Button {
+                let heights = Array(Set(camera.videoSpecs.map(\.height))).sorted()
+                guard heights.count > 1,
+                      let index = heights.firstIndex(of: camera.videoSpec.height) else { return }
+                let next = heights[(index + 1) % heights.count]
+                if let spec = camera.videoSpecs.first(where: { $0.height == next && $0.fps == camera.videoSpec.fps })
+                    ?? camera.videoSpecs.first(where: { $0.height == next }) {
+                    camera.selectVideoSpec(spec)
+                }
+            } label: {
+                Text(camera.videoSpec.height >= 2160 ? "4K" : "HD")
+                    .frame(width: 55 * m.s, height: 38 * m.s)
+                    .contentShape(Rectangle())
+            }
+            .accessibilityLabel("切换 HD 与 4K 分辨率")
+            Button {
+                let options = camera.videoSpecs.filter { $0.height == camera.videoSpec.height }
+                guard options.count > 1,
+                      let index = options.firstIndex(of: camera.videoSpec) else { return }
+                camera.selectVideoSpec(options[(index + 1) % options.count])
+            } label: {
+                Text("\(camera.videoSpec.fps) FPS")
+                    .frame(width: 71 * m.s, height: 38 * m.s)
+                    .contentShape(Rectangle())
+            }
+            .accessibilityLabel("切换每秒帧数")
+        }
+        .font(.system(size: 13 * m.s, weight: .semibold).monospacedDigit())
+        .buttonStyle(GlassButtonStyle())
+        .glassSurface(Capsule(), interactive: true)
+        .disabled(camera.isRecording)
+    }
+
+    private func photoQuickControl(_ m: UIMetrics) -> some View {
+        Button { go(.format) } label: {
+            VStack(spacing: 1) {
+                Text(camera.photoFormat.rawValue)
+                    .font(.system(size: 12 * m.s, weight: .semibold))
+                Text(camera.resolutionTitles[camera.photoResolution == .max ? 0 : 1])
+                    .font(.system(size: 9 * m.s, weight: .medium))
+            }
+            .frame(width: 92 * m.s, height: 38 * m.s)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(GlassButtonStyle())
+        .glassSurface(Capsule(), interactive: true)
+        .accessibilityLabel("照片格式和分辨率")
     }
 
     private func editButton(_ m: UIMetrics) -> some View {
@@ -607,60 +673,74 @@ struct CameraHomeView: View {
         .accessibilityLabel("切换前后镜头")
     }
 
-    /// 视频 | 照片 | 人像：文字固定，官方 Liquid Glass“透镜”跟手指滑动，松手后吸附到最近的一项。
+    /// 视频 / 照片 / 人像：一条统一手势同时处理点按和滑动，避免按钮与父级拖动竞争。
+    /// 拖动期间透镜实时跟手；松手一次切换，防止重配相机会话造成卡顿。
     private func modePill(_ m: UIMetrics) -> some View {
         let modes = CaptureMode.allCases
         let count = CGFloat(modes.count)
-        let labelW = 66 * m.s
+        let labelW = 68 * m.s
         let index = modes.firstIndex(of: camera.mode) ?? 0
+        let candidate = min(modes.count - 1, max(0, Int((CGFloat(index) + modeDrag / labelW).rounded())))
         let lensOffset = (CGFloat(index) - (count - 1) / 2) * labelW + modeDrag
         let pillWidth = labelW * count + 8 * m.s
         return ZStack {
-            Capsule()
-                .fill(Color.clear)
+            Capsule().fill(Color.clear)
                 .frame(width: pillWidth, height: 48 * m.s)
                 .glassSurface(Capsule())
-            Capsule()
-                .fill(Color.clear)
+            Capsule().fill(Color.clear)
                 .frame(width: labelW, height: 40 * m.s)
                 .glassSurface(Capsule(), interactive: true, lens: true)
                 .legacyPressScale(modeDragging)
                 .offset(x: lensOffset)
+                .allowsHitTesting(false)
             HStack(spacing: 0) {
-                ForEach(modes) { item in
-                    Text(item.rawValue)
+                ForEach(modes.indices, id: \.self) { i in
+                    Text(modes[i].rawValue)
                         .font(.system(size: 15 * m.s, weight: .semibold))
-                        .foregroundStyle(item == camera.mode ? Color.yellow : Color.white)
+                        .foregroundStyle(i == candidate ? Color.yellow : Color.white)
                         .frame(width: labelW, height: 44 * m.s)
-                        .contentShape(Rectangle())
-                        .onTapGesture { selectMode(item) }
-                        .accessibilityLabel(item.rawValue)
-                        .accessibilityAddTraits(.isButton)
-                        .accessibilityAddTraits(item == camera.mode ? .isSelected : [])
                 }
             }
+            .allowsHitTesting(false)
         }
         .frame(width: pillWidth, height: 48 * m.s)
         .contentShape(Capsule())
-        .gesture(modeDragGesture(labelW: labelW, index: index, count: modes.count))
-    }
-
-    private func modeDragGesture(labelW: CGFloat, index: Int, count: Int) -> some Gesture {
-        DragGesture(minimumDistance: 4)
-            .onChanged { value in
-                modeDragging = true
-                let low = -CGFloat(index) * labelW
-                let high = CGFloat(count - 1 - index) * labelW
-                modeDrag = min(high, max(low, value.translation.width))
+        .gesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { value in
+                    let dx = value.translation.width
+                    if abs(dx) > 4 {
+                        modeDragging = true
+                        let low = -CGFloat(index) * labelW
+                        let high = CGFloat(modes.count - 1 - index) * labelW
+                        modeDrag = min(high, max(low, dx))
+                    }
+                }
+                .onEnded { value in
+                    let distance = value.translation.width
+                    let target: Int
+                    if abs(distance) < 8 {
+                        let tap = Int((value.location.x - 4 * m.s) / labelW)
+                        target = min(modes.count - 1, max(0, tap))
+                    } else {
+                        let projected = distance + 0.2 * (value.predictedEndTranslation.width - distance)
+                        target = min(modes.count - 1, max(0, Int((CGFloat(index) + projected / labelW).rounded())))
+                    }
+                    modeDragging = false
+                    modeDrag = 0
+                    selectMode(modes[target])
+                }
+        )
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("拍摄模式：\(camera.mode.rawValue)")
+        .accessibilityHint("左右滑动或点按切换视频、照片与人像")
+        .accessibilityAdjustableAction { direction in
+            switch direction {
+            case .increment: stepMode(1)
+            case .decrement: stepMode(-1)
+            @unknown default: break
             }
-            .onEnded { value in
-                modeDragging = false
-                let projected = value.translation.width + 0.3 * (value.predictedEndTranslation.width - value.translation.width)
-                let modes = CaptureMode.allCases
-                let target = min(modes.count - 1, max(0, Int((CGFloat(index) + projected / labelW).rounded())))
-                withAnimation(.snappy(duration: 0.25)) { modeDrag = 0 }
-                selectMode(modes[target])
-            }
+        }
     }
 
     private func stepMode(_ delta: Int) {
@@ -685,7 +765,9 @@ struct CameraHomeView: View {
     // MARK: 底部面板（高斯磨砂）
 
     private func go(_ target: Sheet) {
-        withAnimation(.spring(response: 0.38, dampingFraction: 0.88)) { sheet = target }
+        // 面板变形的玻璃层不接管手势；轻量动画可以避免高频反复触发。
+        guard target != sheet else { return }
+        withAnimation(.easeOut(duration: 0.22)) { sheet = target }
     }
 
     @ViewBuilder

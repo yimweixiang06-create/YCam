@@ -227,9 +227,9 @@ struct EditPanel: View {
             PanelHeader(m, onBack: onBack, onReset: { layout.reset() }) {
                 panelTitle("编辑功能（\(layout.drawer.count) 个在抽屉里）", m)
             }
-            hint("“抽屉”决定是否出现在 ⋯ 抽屉里；“顶部”把它固定到顶部一行（最多 \(ControlLayout.maxPinned) 个）。", m)
+            hint("可以自由增加或减少菜单功能。点“顶部”固定快捷按钮（最多 \(ControlLayout.maxPinned) 个），点“重置”恢复六个常用功能。", m)
             ScrollView {
-                VStack(spacing: 8 * m.s) {
+                LazyVStack(spacing: 8 * m.s) {
                     ForEach(ControlID.allCases) { id in
                         row(id)
                     }
@@ -325,11 +325,18 @@ struct TimerPanel: View {
                 HStack(spacing: 6 * m.s) {
                     PanelIconButton(systemName: "minus", m: m, label: "减少 1 秒") { adjust(-1) }
                     Text("\(camera.timerSeconds) 秒")
-                        .font(.system(size: 22 * m.s, weight: .semibold).monospacedDigit())
+                        .font(.system(size: 19 * m.s, weight: .semibold).monospacedDigit())
                         .foregroundStyle(Color.white)
                         .frame(width: 90 * m.s)
                     PanelIconButton(systemName: "plus", m: m, label: "增加 1 秒") { adjust(1) }
                 }
+                Slider(value: Binding(
+                    get: { Double(max(1, camera.timerSeconds)) },
+                    set: { camera.timerSeconds = Int($0.rounded()) }
+                ), in: 1...180, step: 1)
+                .tint(Color.yellow)
+                .padding(.horizontal, 20 * m.s)
+                .accessibilityLabel("自定义倒计时秒数")
             }
             hint("按快门后倒计时，再按一次快门可以取消；视频是倒计时结束后开始录制。", m)
         }
@@ -338,7 +345,7 @@ struct TimerPanel: View {
     }
 
     private func adjust(_ delta: Int) {
-        camera.timerSeconds = min(60, max(1, camera.timerSeconds + delta))
+        camera.timerSeconds = min(180, max(1, camera.timerSeconds + delta))
         camera.markControlsChanged()
     }
 }
@@ -402,7 +409,7 @@ struct DepthPanel: View {
                 Text("ƒ1.4").font(.system(size: 13, weight: .medium)).foregroundStyle(Color.white.opacity(0.8))
             }
             .padding(.horizontal, 14 * m.s)
-            hint("背景虚化强度（画面里需要有人物）。人像模式默认开启，照片模式默认关闭。", m)
+            hint("景深依赖人物分割；取景画面中检测到人物时，背景虚化才会生效。", m)
         }
         .padding(.horizontal, 14 * m.s)
         .padding(.vertical, 8 * m.s)
@@ -541,7 +548,7 @@ struct FormatPanel: View {
                 hint("4K / 60 帧在使用风格或滤镜时对手机压力较大；不用风格时直接写入相机原始画面。", m)
             } else {
                 sectionTitle("照片格式")
-                ChipRow(items: PhotoFormat.allCases, selected: camera.photoFormat, m: m,
+                ChipRow(items: camera.rawSupported ? PhotoFormat.allCases : [.heif], selected: camera.photoFormat, m: m,
                         title: { $0.rawValue },
                         enabled: { $0 == .heif || camera.rawSupported }) { format in
                     if format == .raw && !camera.rawSupported {
@@ -559,7 +566,7 @@ struct FormatPanel: View {
                     camera.photoResolution = choice
                     camera.markControlsChanged()
                 }
-                hint("RAW 会同时保存一张 DNG；最大分辨率或 RAW 时不能拍实况。", m)
+                hint("RAW 保存 DNG 和处理后的照片；实况照片仅在兼容的 HEIF、分辨率及 4:3 模式下可用。", m)
             }
         }
         .padding(.horizontal, 14 * m.s)
@@ -751,37 +758,65 @@ struct WhiteBalancePanel: View {
 
 // MARK: - 取景器上的小组件
 
+/// iOS 26/27 式倍率：点倍率直接跳转；长按倍率打开精细滑动刻度。
+/// 仅移动一块小 UI，录像/预览管线不会被 slider 拖动反复重建。
 struct ZoomPills: View {
     @ObservedObject var model: ZoomModel
     let m: UIMetrics
     let onSelect: (ZoomStop) -> Void
+    let onZoom: (CGFloat) -> Void
+    @State private var expanded = false
 
     var body: some View {
-        if model.stops.count > 1 {
-            pills
-        }
-    }
-
-    private var pills: some View {
-        let current = model.display
-        let nearest = model.stops.min { abs($0.display - current) < abs($1.display - current) }
-        return HStack(spacing: 4 * m.s) {
-            ForEach(model.stops) { stop in
-                let isSelected = stop == nearest
-                Button { onSelect(stop) } label: {
-                    Text(isSelected ? zoomText(current) : stop.label)
-                        .font(.system(size: (isSelected ? 13 : 12) * m.s, weight: .semibold))
-                        .foregroundStyle(isSelected ? Color.yellow : Color.white)
-                        .frame(width: 36 * m.s, height: 36 * m.s)
-                        .background(Circle().fill(isSelected ? Color.white.opacity(0.16) : Color.clear))
-                        .contentShape(Circle())
+        VStack(spacing: 10 * m.s) {
+            if expanded {
+                HStack(spacing: 8 * m.s) {
+                    Text(zoomText(model.display))
+                        .font(.system(size: 15 * m.s, weight: .bold, design: .rounded).monospacedDigit())
+                        .foregroundStyle(Color.yellow)
+                        .frame(width: 54 * m.s)
+                    Slider(value: Binding(
+                        get: { Double(model.display) },
+                        set: { onZoom(CGFloat($0)) }
+                    ), in: Double(model.minimum)...Double(max(model.minimum + 0.01, model.maximum)))
+                    .tint(Color.yellow)
+                    .accessibilityLabel("拖动调整镜头倍率")
+                    Button { withAnimation(.snappy(duration: 0.18)) { expanded = false } } label: {
+                        Image(systemName: "checkmark")
+                            .frame(width: 36 * m.s, height: 36 * m.s)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(GlassButtonStyle())
                 }
-                .buttonStyle(GlassButtonStyle())
+                .padding(.horizontal, 12 * m.s)
+                .frame(width: min(m.W - 32 * m.s, 330 * m.s), height: 48 * m.s)
+                .glassSurface(Capsule(), interactive: true)
+            } else if model.stops.count > 0 {
+                HStack(spacing: 4 * m.s) {
+                    ForEach(model.stops) { stop in
+                        let active = abs(stop.display - model.display) < 0.1 ||
+                            stop == model.stops.min(by: { abs($0.display - model.display) < abs($1.display - model.display) })
+                        Button { onSelect(stop) } label: {
+                            Text(active ? zoomText(model.display) : stop.label)
+                                .font(.system(size: (active ? 13 : 12) * m.s, weight: .semibold))
+                                .foregroundStyle(active ? Color.yellow : Color.white)
+                                .frame(width: 36 * m.s, height: 36 * m.s)
+                                .background(Circle().fill(active ? Color.white.opacity(0.14) : Color.clear))
+                                .contentShape(Circle())
+                        }
+                        .buttonStyle(GlassButtonStyle())
+                        .simultaneousGesture(LongPressGesture(minimumDuration: 0.32).onEnded { _ in
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                            withAnimation(.snappy(duration: 0.18)) { expanded = true }
+                        })
+                        .accessibilityHint("长按可以拖动精细倍率")
+                    }
+                }
+                .padding(.horizontal, 4 * m.s)
+                .frame(height: 40 * m.s)
+                .glassSurface(Capsule(), interactive: true)
             }
         }
-        .padding(.horizontal, 4 * m.s)
-        .frame(height: 40 * m.s)
-        .glassSurface(Capsule(), interactive: true)
     }
 
     private func zoomText(_ value: CGFloat) -> String {

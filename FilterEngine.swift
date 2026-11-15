@@ -269,6 +269,10 @@ final class FilterEngine {
         if snap.recipe.bloom > 0.001 {
             out = FilterEngine.applyBloom(out, amount: snap.recipe.bloom, extent: extent)
         }
+        // 珠光需要明亮但清晰：不再以柔焦代替珠光，轻量提高清晰度避免比其它风格发糊。
+        if snap.settings.style == .pearl && snap.settings.intensity > 0.01 {
+            out = out.applyingFilter("CISharpenLuminance", parameters: ["inputSharpness": 0.20])
+        }
         if snap.recipe.grain > 0.001 {
             out = FilterEngine.applyGrain(out, amount: snap.recipe.grain, scale: grainScale, extent: extent)
         }

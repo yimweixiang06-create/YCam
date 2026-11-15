@@ -10,7 +10,7 @@ import SwiftUI
 //   • glassEffectID(_:in:)          —— 容器内的形变过渡（收起条 ⇄ 展开面板）
 //   iOS 26 路径里不叠加任何 Material。
 //
-// iOS 18–25：没有 Liquid Glass，自动改用“磨砂模糊玻璃”（系统 Material + 高光描边）。
+// iOS 18–25：没有 Liquid Glass，自动改用不反光的磨砂模糊玻璃（系统 Material）。
 //   布局、手势、滑动切换逻辑与 iOS 26 完全相同（同一份代码），只是玻璃换成磨砂模糊；
 //   点按 / 拖动的反馈用缩放近似 interactive()，面板展开用 matchedGeometryEffect 近似形变。
 //   这是降级效果，不是官方 Liquid Glass（没有折射和实时高光）。
@@ -28,7 +28,7 @@ struct GlassSurface<S: Shape>: ViewModifier {
     let shape: S
     var interactive: Bool = false
     var tint: Color? = nil
-    /// 滑块 / 透镜这类“叠在玻璃上的小玻璃”：iOS 18–25 的磨砂版会更亮一些才看得见。
+    /// 滑块 / 透镜这类“叠在玻璃上的小玻璃”：iOS 18–25 的磨砂版维持柔和的对比度，不增加高光。
     var lens: Bool = false
     var morph: GlassMorph? = nil
 
@@ -81,52 +81,32 @@ struct GlassSurface<S: Shape>: ViewModifier {
 }
 
 // BEGIN LEGACY
-/// iOS 18–25 的磨砂玻璃：系统模糊 Material + 轻微提亮 + 渐变高光描边。
-/// 整个 App 里只有这里允许出现 Material（iOS 26 路径不会走到这里）。
+/// iOS 18–25：纯高斯磨砂，没有高光扫边、白色描边或镜面反射。
+/// iOS 26+ 的普通按钮仍然使用官方 Liquid Glass；底部面板在所有系统使用磨砂。
 struct LegacyGlassBackground<S: Shape>: View {
     let shape: S
     var lens: Bool = false
     var tint: Color? = nil
 
     var body: some View {
-        let material: Material = lens ? .thin : .ultraThin
         shape
-            .fill(material)
-            .overlay(shape.fill(Color.white.opacity(lens ? 0.20 : 0.07)))
+            .fill(lens ? Material.regular : Material.thick)
+            .overlay(shape.fill(Color.black.opacity(lens ? 0.13 : 0.25)))
             .overlay {
-                if let tint { shape.fill(tint.opacity(0.28)) }
+                if let tint { shape.fill(tint.opacity(0.16)) }
             }
-            .overlay(
-                shape.stroke(
-                    LinearGradient(colors: [Color.white.opacity(lens ? 0.70 : 0.50),
-                                            Color.white.opacity(0.08),
-                                            Color.white.opacity(0.26)],
-                                   startPoint: .topLeading,
-                                   endPoint: .bottomTrailing),
-                    lineWidth: 0.8
-                )
-            )
+            .allowsHitTesting(false)
     }
 }
-/// 底部面板用的“高斯磨砂”：更厚的系统模糊 + 压暗 + 渐变高光描边（iOS 18 和 iOS 26 都用它）。
+
+/// 面板统一不反光的高斯磨砂，无渐变白边。
 struct FrostedBackground<S: Shape>: View {
     let shape: S
-
     var body: some View {
-        let material: Material = .thick
         shape
-            .fill(material)
-            .overlay(shape.fill(Color.black.opacity(0.30)))
-            .overlay(
-                shape.stroke(
-                    LinearGradient(colors: [Color.white.opacity(0.42),
-                                            Color.white.opacity(0.06),
-                                            Color.white.opacity(0.18)],
-                                   startPoint: .topLeading,
-                                   endPoint: .bottomTrailing),
-                    lineWidth: 0.8
-                )
-            )
+            .fill(Material.thick)
+            .overlay(shape.fill(Color.black.opacity(0.28)))
+            .allowsHitTesting(false)
     }
 }
 // END LEGACY
@@ -185,8 +165,10 @@ extension View {
             if let morph {
                 FrostedBackground(shape: shape)
                     .matchedGeometryEffect(id: morph.id, in: morph.namespace)
+                    .allowsHitTesting(false)
             } else {
                 FrostedBackground(shape: shape)
+                    .allowsHitTesting(false)
             }
         }
     }

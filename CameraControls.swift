@@ -127,10 +127,11 @@ final class ControlLayout: ObservableObject {
 
     private static let drawerKey = "ycam.layout.drawer"
     private static let pinnedKey = "ycam.layout.pinned"
-    static let maxPinned = 4
+    static let maxPinned = 6
+    static let essentials: [ControlID] = [.flash, .live, .timer, .exposure, .style, .aspect]
 
     init() {
-        drawer = ControlLayout.load(ControlLayout.drawerKey) ?? ControlID.allCases
+        drawer = ControlLayout.load(ControlLayout.drawerKey) ?? ControlLayout.essentials
         pinned = ControlLayout.load(ControlLayout.pinnedKey) ?? []
     }
 
@@ -170,7 +171,7 @@ final class ControlLayout: ObservableObject {
     }
 
     func reset() {
-        drawer = ControlID.allCases
+        drawer = ControlLayout.essentials
         pinned = []
         save()
     }
@@ -181,6 +182,8 @@ final class ControlLayout: ObservableObject {
 final class ZoomModel: ObservableObject {
     @Published var display: CGFloat = 1
     @Published var stops: [ZoomStop] = []
+    @Published var minimum: CGFloat = 1
+    @Published var maximum: CGFloat = 10
 }
 
 final class HistogramModel: ObservableObject {
@@ -218,21 +221,21 @@ struct UIMetrics {
     var rowCenterY: CGFloat { H - 52 * s }
 
     /// 面板底边离屏幕底边的距离：停在 Home 指示条上方一点点（参考 iOS 26 相机）。
-    var panelBottomGap: CGFloat { max(bottomInset, 30 * s) + 18 * s }
+    var panelBottomGap: CGFloat { max(bottomInset, 30 * s) + 6 * s }
 
     func panelHeight(_ sheet: Sheet, drawerCount: Int) -> CGFloat {
         switch sheet {
         case .closed: return 0
         case .drawer:
             let rows = max(1, (drawerCount + 2) / 3)
-            return (CGFloat(rows) * 98 + 62) * s
+            return min((CGFloat(rows) * 98 + 62) * s, (H - top - panelBottomGap - 60 * s))
         case .edit: return 440 * s
         case .styles: return 200 * s
         case .custom: return 250 * s
         case .filters: return 190 * s
         case .exposure: return 150 * s
         case .depth: return 150 * s
-        case .timer: return 210 * s
+        case .timer: return 245 * s
         case .aspect: return 140 * s
         case .format: return 300 * s
         case .focus: return 170 * s

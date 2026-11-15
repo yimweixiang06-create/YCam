@@ -79,6 +79,7 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
     @Published private(set) var resolutionTitles: [String] = ["最大", "一半"]
     @Published private(set) var videoSpecs: [VideoSpec] = [VideoSpec(height: 1080, fps: 30)]
     @Published var videoSpec = VideoSpec(height: 1080, fps: 30)
+    private var hasSelectedVideoSpec = false
 
     @Published var message: String? {
         didSet {
@@ -131,10 +132,13 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
     private let jobLock = NSLock()
     private var observers: [NSObjectProtocol] = []
     private static let sRGB = CGColorSpace(name: CGColorSpace.sRGB)!
-    private static let maxPreviewLongEdge: CGFloat = 1280                  // 照片 / 人像取景的处理分辨率上限
+    private static let maxPreviewLongEdge: CGFloat = 1050                  // 照片 / 人像取景的处理分辨率上限
 
     private var framesProcessed = 0                                        // 仅 dataQueue
-    private var frameCounter = 0                                           // 仅 dataQueue
+    private var frameCounter = 0
+    private var adaptivePreviewLongEdge: CGFloat = 1050    // dataQueue：按设备实际渲染速度自适应
+    private var slowPreviewFrames = 0
+    private var fastPreviewFrames = 0                                           // 仅 dataQueue
     private var lastLoggedFrameSize = (width: 0, height: 0)                // 仅 dataQueue
     private var dataIsVideoMode = false                                    // 仅 dataQueue
     private var lastPersonFlag = false                                     // 仅 dataQueue
@@ -402,8 +406,10 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
         let maxDuration = min(CMTimeGetSeconds(device.activeFormat.maxExposureDuration), 0.5)
         DispatchQueue.main.async {
             self.videoSpecs = specs
-            if !specs.contains(self.videoSpec) {
-                self.videoSpec = specs.first(where: { $0.height == 1080 && $0.fps == 30 }) ?? specs[0]
+            if !specs.contains(self.videoSpec) || !self.hasSelectedVideoSpec {
+                // 使用当前镜头真正支持的最佳常规档位；优先 4K30，不猜设备型号。
+                self.videoSpec = specs.first(where: { $0.height == 2160 && $0.fps == 30 })
+                    ?? specs.first(where: { $0.height == 1080 && $0.fps == 30 }) ?? specs[0]
             }
             self.exposureRange = max(-3, minBias)...max(max(-3, minBias), min(3, maxBias))
             self.shutterRange = minDuration...max(minDuration, maxDuration)
@@ -447,9 +453,13 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
             DiagnosticsLog.shared.add("设置初始变焦失败：\(error.localizedDescription)")
         }
         DiagnosticsLog.shared.add("变焦档位：\(stops.map { $0.label }.joined(separator: " / "))，主摄基准=\(base)")
+        let lower = device.minAvailableVideoZoomFactor / max(zoomBase, 0.01)
+        let upper = min(device.maxAvailableVideoZoomFactor / max(zoomBase, 0.01), 10)
         DispatchQueue.main.async {
             self.zoom.stops = stops
             self.zoom.display = 1
+            self.zoom.minimum = lower
+            self.zoom.maximum = max(lower + 0.01, upper)
         }
     }
 
@@ -558,6 +568,9 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
     }
 
     func selectVideoSpec(_ spec: VideoSpec) {
+        guard videoSpecs.contains(spec) else { message = "当前镜头不支持该视频规格"; return }
+        guard !isRecording && !isFinalizingVideo else { return }
+        hasSelectedVideoSpec = true
         videoSpec = spec
         guard mode == .video, !isRecording, !isFinalizingVideo else { return }
         sessionQueue.async {
@@ -664,7 +677,7 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
         sessionQueue.async {
             if let device = self.videoInput?.device { self.applyNight(on, device) }
         }
-        message = on ? "夜间模式：自动（弱光下自动提亮并多帧合成）" : "夜间模式已关闭"
+        message = on ? "夜间低光增强已开启（仅支持的镜头生效）" : "夜间低光增强已关闭"
         markControlsChanged()
     }
 
@@ -1314,7 +1327,7 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
                 lastLoggedFrameSize = (srcW, srcH)
                 DiagnosticsLog.shared.add("相机画面尺寸：\(srcW)×\(srcH)，视频模式=\(dataIsVideoMode)")
             }
-            if histogramEnabled, frameCounter % 6 == 0 { updateHistogram(from: source) }
+            if histogramEnabled, frameCounter % 12 == 0 { updateHistogram(from: source) }
 
             // 视频模式且不需要任何处理：直接用相机原始帧（省掉整条 GPU 流水线，4K / 60 帧也不卡）。
             if dataIsVideoMode, snap.isPassthroughColor {
@@ -1325,7 +1338,8 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
 
             // 照片 / 人像取景只需要较低分辨率；视频按原分辨率处理（要写进文件）。
             let longEdge = CGFloat(max(srcW, srcH))
-            let scale = dataIsVideoMode ? 1 : min(1, Self.maxPreviewLongEdge / longEdge)
+            let scale = dataIsVideoMode ? 1 : min(1, adaptivePreviewLongEdge / longEdge)
+            let start = CACurrentMediaTime()
             let width = max(2, Int((CGFloat(srcW) * scale).rounded()))
             let height = max(2, Int((CGFloat(srcH) * scale).rounded()))
             guard let target = makePixelBuffer(width: width, height: height) else { return }
@@ -1351,6 +1365,19 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
                              colorSpace: Self.sRGB)
             display(target, pts: pts)
             recorder.appendVideo(target, pts: pts)
+            if !dataIsVideoMode {
+                let ms = (CACurrentMediaTime() - start) * 1000
+                if ms > 32 { slowPreviewFrames += 1; fastPreviewFrames = 0 }
+                else if ms < 15 { fastPreviewFrames += 1; slowPreviewFrames = 0 }
+                else { slowPreviewFrames = 0; fastPreviewFrames = 0 }
+                if slowPreviewFrames >= 6 {
+                    adaptivePreviewLongEdge = max(640, adaptivePreviewLongEdge * 0.80)
+                    slowPreviewFrames = 0
+                } else if fastPreviewFrames >= 70 {
+                    adaptivePreviewLongEdge = min(Self.maxPreviewLongEdge, adaptivePreviewLongEdge * 1.12)
+                    fastPreviewFrames = 0
+                }
+            }
         }
     }
 
