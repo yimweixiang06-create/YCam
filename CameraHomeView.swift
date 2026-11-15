@@ -640,56 +640,15 @@ struct CameraHomeView: View {
         .accessibilityLabel("切换前后镜头")
     }
 
-    /// Fixed-size iOS-style mode strip; the mode label never scales or zooms.
-    /// Only one change at the end of the gesture, preventing repeated camera reconfiguration.
+    /// Camera mode selector uses independent native Buttons for precise taps.
+    /// The horizontal gesture only moves a lightweight local highlight while dragging.
+    /// Actual AVCaptureSession reconfiguration happens once, after release.
     private func modePill(_ m: UIMetrics) -> some View {
-        let modes = CaptureMode.allCases
-        let labelW = 68 * m.s
-        let index = modes.firstIndex(of: camera.mode) ?? 0
-        let width = labelW * CGFloat(modes.count) + 8 * m.s
-        return ZStack {
-            Capsule().fill(Color.clear)
-                .frame(width: width, height: 48 * m.s)
-                .frostedPanel(Capsule())
-            Capsule().fill(Color.clear)
-                .frame(width: labelW, height: 40 * m.s)
-                .frostedPanel(Capsule())
-                .offset(x: (CGFloat(index) - CGFloat(modes.count - 1) / 2) * labelW)
-                .allowsHitTesting(false)
-            HStack(spacing: 0) {
-                ForEach(modes.indices, id: \.self) { i in
-                    Text(modes[i].rawValue)
-                        .font(.system(size: 15 * m.s, weight: .semibold))
-                        .foregroundStyle(i == index ? Color.yellow : Color.white)
-                        .frame(width: labelW, height: 44 * m.s)
-                }
-            }
-            .allowsHitTesting(false)
-        }
-        .frame(width: width, height: 48 * m.s)
-        .contentShape(Capsule())
-        .gesture(DragGesture(minimumDistance: 0).onEnded { value in
-            let distance = value.translation.width
-            let target: Int
-            if abs(distance) < 9 * m.s {
-                let tap = Int((value.location.x - 4 * m.s) / labelW)
-                target = min(modes.count - 1, max(0, tap))
-            } else {
-                let step = Int((abs(distance) / labelW).rounded(.up))
-                target = min(modes.count - 1, max(0, index + (distance < 0 ? step : -step)))
-            }
-            selectMode(modes[target])
-        })
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("拍摄模式：\(camera.mode.rawValue)")
-        .accessibilityHint("左右滑动或点按切换视频、照片与人像")
-        .accessibilityAdjustableAction { direction in
-            switch direction {
-            case .increment: stepMode(1)
-            case .decrement: stepMode(-1)
-            @unknown default: break
-            }
-        }
+        CaptureModeStrip(
+            m: m,
+            selected: camera.mode,
+            onSelect: { selectMode($0) }
+        )
     }
 
     private func stepMode(_ delta: Int) {
@@ -871,4 +830,88 @@ struct CameraHomeView: View {
             }
         }
     }
+}
+
+
+// MARK: - Responsive capture-mode switcher
+// Separate hit targets for 视频 / 照片 / 人像; no full-row zero-distance drag
+// recognizer that can steal taps or conflict with the viewfinder's UIKit gestures.
+private struct CaptureModeStrip: View {
+    let m: UIMetrics
+    let selected: CaptureMode
+    let onSelect: (CaptureMode) -> Void
+
+    @GestureState private var dragOffset: CGFloat = 0
+
+    var body: some View {
+        let modes = CaptureMode.allCases
+        let labelWidth = 68 * m.s
+        let totalWidth = labelWidth * CGFloat(modes.count) + 8 * m.s
+        let selectedIndex = modes.firstIndex(of: selected) ?? 1
+        let visualIndex = min(CGFloat(modes.count - 1),
+                              max(0, CGFloat(selectedIndex) - dragOffset / labelWidth))
+
+        ZStack {
+            Capsule()
+                .fill(Color.clear)
+                .frame(width: totalWidth, height: 48 * m.s)
+                .frostedPanel(Capsule())
+                .allowsHitTesting(false)
+
+            Capsule()
+                .fill(Color.white.opacity(0.08))
+                .frame(width: labelWidth, height: 40 * m.s)
+                .frostedPanel(Capsule())
+                .offset(x: (visualIndex - CGFloat(modes.count - 1) / 2) * labelWidth)
+                .animation(dragOffset == 0 ? .easeOut(duration: 0.18) : nil,
+                           value: selected)
+                .allowsHitTesting(false)
+
+            HStack(spacing: 0) {
+                ForEach(modes) { mode in
+                    Button {
+                        onSelect(mode)
+                    } label: {
+                        Text(mode.rawValue)
+                            .font(.system(size: 15 * m.s, weight: .semibold))
+                            .foregroundStyle(mode == selected ? Color.yellow : Color.white)
+                            .frame(width: labelWidth, height: 48 * m.s)
+                            .background(Color.white.opacity(0.001))
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("\(mode.rawValue)模式")
+                }
+            }
+        }
+        .frame(width: totalWidth, height: 48 * m.s)
+        .contentShape(Rectangle())
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 12 * m.s, coordinateSpace: .local)
+                .updating($dragOffset) { value, state, _ in
+                    if abs(value.translation.width) > abs(value.translation.height) {
+                        state = value.translation.width
+                    }
+                }
+                .onEnded { value in
+                    let dx = value.translation.width
+                    guard abs(dx) >= 22 * m.s,
+                          abs(dx) > abs(value.translation.height) * 1.1 else { return }
+                    let steps = max(1, Int((abs(dx) / labelWidth).rounded()))
+                    let next = min(modes.count - 1,
+                                   max(0, selectedIndex + (dx < 0 ? steps : -steps)))
+                    if next != selectedIndex { onSelect(modes[next]) }
+                }
+        )
+        .accessibilityElement(children: .contain)
+        .accessibilityAdjustableAction { direction in
+            let index = modes.firstIndex(of: selected) ?? 1
+            switch direction {
+            case .increment:
+                onSelect(modes[min(modes.count - 1, index + 1)])
+            case .decrement:
+                onSelect(modes[max(0, index - 1)])
+            @unknown default: break
+            }
+        }
 }
