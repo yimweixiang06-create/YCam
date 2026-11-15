@@ -42,10 +42,13 @@ assert "withAnimation(.snappy(duration: 0.25))" not in home
 # Rightward finger movement selects the next item; leftward selects the previous.
 assert "stepMode(dx > 0 ? 1 : -1)" in home
 assert "show(position: CGFloat(startingIndex) + dx / (68 * scale))" in home
-assert "max(0, startingIndex + (dx > 0 ? steps : -steps)))" in home
+assert "CGFloat(startingIndex) + dx / slot" in home
+assert "Int(rawPosition.rounded())" in home
+assert "hasHorizontalDrag" in home
+assert "nearestTapIndex(at: end.x)" in home
 assert "stepMode(dx > 0 ? -1 : 1)" not in home
 assert "show(position: CGFloat(startingIndex) - dx / (68 * scale))" not in home
-assert "max(0, startingIndex + (dx < 0 ? steps : -steps)))" not in home
+assert "let steps = max(1" not in home
 modes = ["视频", "照片", "人像"]
 def swipe(index: int, direction: int) -> str:
     return modes[max(0, min(2, index + direction))]
@@ -100,3 +103,20 @@ assert "thermalPreviewLimit" in model
 assert "UIInterfaceOrientationLandscapeLeft" in info
 assert "UIInterfaceOrientationLandscapeRight" in info
 print("PASS: camera mode gestures, palette tap, landscape rotation, 4:3 preview and thermal checks")
+
+# Portrait Live Photo is offered on capable HEIF <=24 MP configurations,
+# preserving the current photo dimensions; no RAW or HEIF Max downgrade.
+assert "camera.mode != .video && camera.livePhotoSupported && camera.livePhotoEnabled" in home
+assert "enabled: camera.mode != .video && camera.livePhotoSupported" in home
+assert "&& !isPortrait" not in model
+assert "&& style.lighting == .off && style.depth < 0.001" not in model
+assert "let wantsCompatibleLive = requestedMaxMP > 0 && requestedMaxMP <= 24" in model
+assert "settings.maxPhotoDimensions = maxPhotoDims" in model
+# Choosing a mode releases only at the closest stop (not forced 9pt stepping).
+def nearest_mode(start, translation, slot=68):
+    return min(2, max(0, round(start + translation / slot)))
+assert nearest_mode(1, +20) == 1
+assert nearest_mode(1, +36) == 2
+assert nearest_mode(1, -20) == 1
+assert nearest_mode(1, -36) == 0
+assert nearest_mode(0, +105) == 2

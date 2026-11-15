@@ -245,10 +245,10 @@ struct CameraHomeView: View {
     // MARK: 右上角胶囊：照片 = 闪光灯 / 实况 / 更多；视频 = 闪光灯 / 更多
 
     private var liveEffective: Bool {
-        camera.mode == .photo && camera.livePhotoSupported && camera.livePhotoEnabled
+        camera.mode != .video && camera.livePhotoSupported && camera.livePhotoEnabled
             && camera.photoFormat == .heif && camera.maximumPhotoMegapixels > 0
             && camera.maximumPhotoMegapixels <= 24
-            && camera.aspect == .fourThree && camera.styleSettings.depth < 0.001
+            && camera.aspect == .fourThree
     }
 
     private func topCapsule(_ m: UIMetrics) -> some View {
@@ -417,8 +417,8 @@ struct CameraHomeView: View {
     }
 
     private func liveTapped() {
-        guard camera.mode == .photo else {
-            camera.message = "实况照片只能在照片模式使用"
+        guard camera.mode != .video else {
+            camera.message = "实况照片仅在照片或人像模式使用"
             return
         }
         guard camera.livePhotoSupported else {
@@ -426,12 +426,12 @@ struct CameraHomeView: View {
             return
         }
         if camera.photoFormat == .raw || camera.maximumPhotoMegapixels > 24
-            || camera.aspect != .fourThree || camera.styleSettings.depth > 0.001 {
-            camera.message = "此镜头的最高分辨率 / RAW / 非 4:3 或景深不兼容实况；照片不会被自动降为一半分辨率"
+            || camera.aspect != .fourThree {
+            camera.message = "当前最高分辨率 / RAW / 非 4:3 与实况不兼容；不会自动降低分辨率"
             return
         }
         camera.livePhotoEnabled.toggle()
-        camera.message = camera.livePhotoEnabled ? "实况照片已开启（可以配合摄影风格）" : "实况照片已关闭"
+        camera.message = camera.livePhotoEnabled ? "实况已开启：照片和人像均可使用（以设备支持为准）" : "实况照片已关闭"
         camera.markControlsChanged()
     }
 
@@ -461,7 +461,7 @@ struct CameraHomeView: View {
                                enabled: camera.flashAvailable, action: { camera.cycleFlash() })
         case .live:
             return ControlSpec(title: id.title, icon: liveIcon(m, size: 24), active: liveEffective,
-                               enabled: camera.mode == .photo && camera.livePhotoSupported, action: { liveTapped() })
+                               enabled: camera.mode != .video && camera.livePhotoSupported, action: { liveTapped() })
         case .aspect:
             return ControlSpec(title: id.title, icon: AnyView(Text(camera.aspect.rawValue).font(.system(size: 16 * m.s, weight: .bold))),
                                active: camera.aspect != .fourThree, enabled: photoLike, action: { go(.aspect) })
@@ -898,7 +898,7 @@ private struct ModeStripTouchSurface: UIViewRepresentable {
 /// horizontal movements that begin on the text. Indicator movement updates
 /// only one CALayer; the camera is reconfigured once on touch release.
 @MainActor
-private final class ModeStripTrackingView: UIControl {
+private final class ModeStripTrackingView: UIControl, UIGestureRecognizerDelegate {
     private let modes = CaptureMode.allCases
     private let highlight = CALayer()
     private let labels: [UILabel] = CaptureMode.allCases.map { mode in
@@ -915,6 +915,7 @@ private final class ModeStripTrackingView: UIControl {
     private var startingIndex = 1
     private var touchStart = CGPoint.zero
     private var trackingTouch = false
+    private var hasHorizontalDrag = false
     private var visualIndex: Int?
     private var onSelect: ((CaptureMode) -> Void)?
     private var onLongPressPhoto: (() -> Void)?
@@ -929,7 +930,9 @@ private final class ModeStripTrackingView: UIControl {
         for label in labels { addSubview(label) }
         let hold = UILongPressGestureRecognizer(target: self, action: #selector(longPressedPhoto(_:)))
         hold.minimumPressDuration = 0.42
+        hold.allowableMovement = 12
         hold.cancelsTouchesInView = true
+        hold.delegate = self
         addGestureRecognizer(hold)
 
         isAccessibilityElement = true
@@ -942,11 +945,21 @@ private final class ModeStripTrackingView: UIControl {
         fatalError("init(coder:) has not been implemented")
     }
 
+    // A long press anywhere except the Photo segment must not delay/cancel
+    // mode sliding or tapping.
+    func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        let x = gestureRecognizer.location(in: self).x
+        return nearestTapIndex(at: x) == 1
+    }
+
+    private func nearestTapIndex(at x: CGFloat) -> Int {
+        min(modes.count - 1, max(0,
+            Int(((x - 4 * scale) / (68 * scale)).rounded(.down))))
+    }
+
     @objc private func longPressedPhoto(_ gesture: UILongPressGestureRecognizer) {
         guard gesture.state == .began else { return }
-        let x = gesture.location(in: self).x
-        let index = Int(((x - 4 * scale) / (68 * scale)).rounded(.down))
-        guard index == 1 else { return }
+        guard nearestTapIndex(at: gesture.location(in: self).x) == 1 else { return }
         onLongPressPhoto?()
     }
 
@@ -1005,6 +1018,7 @@ private final class ModeStripTrackingView: UIControl {
     override func beginTracking(_ touch: UITouch, with event: UIEvent?) -> Bool {
         touchStart = touch.location(in: self)
         startingIndex = selectedIndex
+        hasHorizontalDrag = false
         trackingTouch = true
         return true
     }
@@ -1013,39 +1027,47 @@ private final class ModeStripTrackingView: UIControl {
         let point = touch.location(in: self)
         let dx = point.x - touchStart.x
         let dy = point.y - touchStart.y
-        if abs(dx) > abs(dy) * 0.75 {
-            // Follows the finger directly, with no animation or SwiftUI state changes.
+        // Commit to the horizontal axis after a small movement. From that
+        // moment the marker tracks *continuously* even if the finger wobbles
+        // vertically; no SwiftUI re-render or camera mode change mid-drag.
+        if !hasHorizontalDrag && abs(dx) >= 3 * scale && abs(dx) > abs(dy) * 0.7 {
+            hasHorizontalDrag = true
+        }
+        if hasHorizontalDrag {
             show(position: CGFloat(startingIndex) + dx / (68 * scale))
         }
         return true
     }
 
     override func endTracking(_ touch: UITouch?, with event: UIEvent?) {
-        defer { trackingTouch = false }
         guard let touch else {
-            show(position: CGFloat(selectedIndex))
+            trackingTouch = false
+            hasHorizontalDrag = false
+            show(position: CGFloat(selectedIndex), animated: true)
             return
         }
+
         let end = touch.location(in: self)
         let dx = end.x - touchStart.x
         let dy = end.y - touchStart.y
+        let slot = max(1, 68 * scale)
         let result: Int
 
-        if abs(dx) >= 9 * scale && abs(dx) >= abs(dy) * 0.8 {
-            // A short intentional swipe changes one mode; a longer swipe can
-            // cross two. This is independent of the starting label.
-            let steps = max(1, Int((abs(dx) / (68 * scale) + 0.25).rounded(.down)))
-            result = min(modes.count - 1,
-                         max(0, startingIndex + (dx > 0 ? steps : -steps)))
-        } else if abs(dx) < 9 * scale && abs(dy) < 15 * scale {
-            // Taps select exactly the segment under the finger.
-            result = min(modes.count - 1,
-                         max(0, Int(((end.x - 4 * scale) / (68 * scale)).rounded(.down))))
+        if hasHorizontalDrag || (abs(dx) >= 5 * scale && abs(dx) > abs(dy) * 0.8) {
+            // Unlike the former step-based gesture, the finger may stop in
+            // between two modes. Settle to whichever center is nearest.
+            let rawPosition = CGFloat(startingIndex) + dx / slot
+            result = min(modes.count - 1, max(0, Int(rawPosition.rounded())))
+        } else if abs(dy) < 15 * scale {
+            // A tap also chooses the closest visible segment, including
+            // touches landing exactly on the gap between two labels.
+            result = nearestTapIndex(at: end.x)
         } else {
-            // Vertical drags belong to other controls, never to the mode bar.
             result = startingIndex
         }
 
+        trackingTouch = false
+        hasHorizontalDrag = false
         selectedIndex = result
         show(position: CGFloat(result), animated: true)
         if result != startingIndex { onSelect?(modes[result]) }
@@ -1053,6 +1075,7 @@ private final class ModeStripTrackingView: UIControl {
 
     override func cancelTracking(with event: UIEvent?) {
         trackingTouch = false
+        hasHorizontalDrag = false
         show(position: CGFloat(selectedIndex), animated: true)
     }
 

@@ -986,14 +986,14 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
         let format = photoFormat
         let requestedMaxMP = maximumPhotoMegapixels
         let night = nightEnabled
-        let isPortrait = mode == .portrait
-        // 实况：摄影风格 / 滤镜 / 色调板都可以用（动态部分会逐帧套同样的风格）；
-        // Apple Camera: Live Photo is unavailable in HEIF Max / ProRAW capture.
-        // At 24 MP or below we permit Live when the capture output says supported.
-        // Never silently reduce the only user-visible maximum resolution to make Live work.
+        // Photo and portrait can request a Live Photo on compatible hardware.
+        // The still keyframe keeps the portrait background blur / lighting.
+        // The paired short movie retains color styles but is not promised
+        // to contain per-frame, dynamically recomputed depth masks.
+        // Never reduce the user-requested maximum photo resolution to enable Live.
         let wantsCompatibleLive = requestedMaxMP > 0 && requestedMaxMP <= 24
         let wantLive = livePhotoEnabled && livePhotoSupported && format == .heif && wantsCompatibleLive
-            && !isPortrait && cropAspect == nil && style.lighting == .off && style.depth < 0.001
+            && cropAspect == nil
         isCapturingPhoto = true
         DiagnosticsLog.shared.add("拍照：模式=\(mode.rawValue)，风格=\(style.style.title)，滤镜=\(style.filter.title)，光效=\(style.lighting.title)，景深=\(style.depth)，格式=\(format.rawValue)，自动最高=\(requestedMaxMP)MP，实况=\(wantLive)")
 
