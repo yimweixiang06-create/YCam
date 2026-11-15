@@ -1,5 +1,8 @@
 # 📷 YCam — 让 iOS 18 也能体验新一代相机摄影风格
 
+> **📥 下载最新版：** [GitHub Releases — YCam 1.1 (11)](https://github.com/yimweixiang06-create/YCam/releases/latest) · [直接下载未签名 IPA](https://github.com/yimweixiang06-create/YCam/releases/download/v1.1.11/YCam-v1.1-build11-unsigned.ipa)  
+> **📝 更新了什么：** [查看版本更新日志](https://github.com/yimweixiang06-create/YCam/releases/tag/v1.1.11)
+
 > **不必为了体验新式相机界面、摄影风格调色盘和胶片色彩，就一定要换一部支持 iOS 27 的 iPhone。**
 
 **YCam** 是一款面向 iPhone 用户打造的独立相机应用，**最低支持 iOS 18.0**。它参考新一代 iPhone 相机的操作理念，重新设计了简洁的拍摄界面，并将可自由调整的**摄影风格调色盘**带到 iOS 18 设备上，同时加入富士（FUJI）、柯达（KODAK）风格的胶片色彩，让日常随手拍也有更多创作空间。
@@ -112,7 +115,9 @@ YCam 使用苹果公开的 **Core Image** 等图像处理技术，尽可能让�
 
 ## 🛠️ 如何获取并安装？
 
-本项目使用 GitHub Actions 构建未签名 iPhone 安装包，方便开发与测试：
+普通用户可以直接进入仓库右侧的 **Releases（发行版）** 栏目，选择最新版本，在 **Assets** 下载 IPA 并阅读更新日志。
+
+本项目也提供 GitHub Actions 构建未签名 iPhone 安装包，方便开发与测试：
 
 1. 打开本仓库的 **Actions** 页面。
 2. 选择 **Build YCam for Sideloadly**，运行构建工作流。
