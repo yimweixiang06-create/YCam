@@ -168,13 +168,13 @@ struct DotPalette: View {
                     .allowsHitTesting(false)
                     .animation(.easeOut(duration: 0.09), value: dragging)
 
-                // Only grabbing the large dot starts a drag. The extra
-                // invisible touch target is easier to use on an actual phone.
-                Circle()
+                // Make every visible dot tappable, with the same gesture
+                // also following the finger and snapping to the 11x11 grid.
+                // A full-grid hit region prevents taps passing to the
+                // viewfinder behind the settings panel and closing it.
+                Rectangle()
                     .fill(Color.white.opacity(0.001))
-                    .frame(width: 44, height: 44)
-                    .contentShape(Circle())
-                    .position(marker)
+                    .contentShape(Rectangle())
                     .gesture(
                         DragGesture(minimumDistance: 0, coordinateSpace: .named("stylePalette"))
                             .onChanged { value in
@@ -193,7 +193,7 @@ struct DotPalette: View {
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("摄影风格色调板")
             .accessibilityValue("颜色\(Int(((point.x - 0.5) * 200).rounded()))，色调\(Int(((0.5 - point.y) * 200).rounded()))")
-            .accessibilityHint("从大圆点开始拖动，只能吸附到小圆点")
+            .accessibilityHint("点选任意小圆点，或拖动大圆点，只能吸附到小圆点")
             .accessibilityAdjustableAction { direction in
                 let step = direction == .increment ? 1 : -1
                 let col = min(columns - 1, max(0, selectedColumn + step))
