@@ -104,8 +104,9 @@ struct FrostedBackground<S: Shape>: View {
     let shape: S
     var body: some View {
         shape
-            .fill(Material.thick)
-            .overlay(shape.fill(Color.black.opacity(0.28)))
+            .fill(Material.ultraThick)
+            .overlay(shape.fill(Color.white.opacity(0.075)))
+            .overlay(shape.fill(Color.black.opacity(0.11)))
             .allowsHitTesting(false)
     }
 }
