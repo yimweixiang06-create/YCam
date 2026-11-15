@@ -5,27 +5,57 @@ import AVFoundation
 /// 旧版本用 AVCaptureVideoPreviewLayer，只能显示原始画面，所以预览不会随风格变化；
 /// 现在预览、照片、视频都使用 FilterEngine 处理后的同一路画面。
 final class FilteredPreviewView: UIView {
-    override class var layerClass: AnyClass { AVSampleBufferDisplayLayer.self }
-
-    var displayLayer: AVSampleBufferDisplayLayer { layer as! AVSampleBufferDisplayLayer }
+    // Keep the SwiftUI container fixed; rotate only the preview sublayer.
+    // This avoids rotating/re-rendering every 4K frame in software.
+    let displayLayer = AVSampleBufferDisplayLayer()
+    private var mirrored = false
+    private var lastOrientation: UIInterfaceOrientation = .portrait
 
     override init(frame: CGRect) {
         super.init(frame: frame)
         backgroundColor = .black
+        clipsToBounds = true
         displayLayer.videoGravity = .resizeAspectFill
+        layer.addSublayer(displayLayer)
     }
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
 
-    /// 前置镜头的取景画面做镜像（与系统相机一致）；保存的照片 / 视频不镜像。
-    func setMirrored(_ mirrored: Bool) {
-        let target: CGAffineTransform = mirrored ? CGAffineTransform(scaleX: -1, y: 1) : .identity
-        guard displayLayer.affineTransform() != target else { return }
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        updateDisplayGeometry()
+    }
+
+    func setMirrored(_ newValue: Bool) {
+        guard mirrored != newValue else { return }
+        mirrored = newValue
+        updateDisplayGeometry()
+    }
+
+    func setOrientation(_ newValue: UIInterfaceOrientation) {
+        let resolved: UIInterfaceOrientation = newValue == .unknown ? .portrait : newValue
+        guard lastOrientation != resolved else { return }
+        lastOrientation = resolved
+        updateDisplayGeometry()
+    }
+
+    private func updateDisplayGeometry() {
+        let landscape = lastOrientation.isLandscape
+        let rotation: CGFloat
+        switch lastOrientation {
+        case .landscapeLeft: rotation = -.pi / 2
+        case .landscapeRight: rotation = .pi / 2
+        default: rotation = 0
+        }
+        let mirror = CGAffineTransform(scaleX: mirrored ? -1 : 1, y: 1)
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        displayLayer.setAffineTransform(target)
+        displayLayer.bounds = CGRect(origin: .zero,
+            size: landscape ? CGSize(width: bounds.height, height: bounds.width) : bounds.size)
+        displayLayer.position = CGPoint(x: bounds.midX, y: bounds.midY)
+        displayLayer.setAffineTransform(CGAffineTransform(rotationAngle: rotation).concatenating(mirror))
         CATransaction.commit()
     }
 }
@@ -43,6 +73,11 @@ struct FilteredCameraPreview: UIViewRepresentable {
         // 取景框的形状由 SwiftUI 决定（照片 4:3 / 视频与展开状态全屏），这里始终铺满，所见即所得。
         view.displayLayer.videoGravity = .resizeAspectFill
         view.setMirrored(camera.position == .front)
+        let orientation = view.window?.windowScene?.interfaceOrientation
+            ?? UIApplication.shared.connectedScenes.compactMap {
+                ($0 as? UIWindowScene)?.interfaceOrientation
+            }.first ?? .portrait
+        view.setOrientation(orientation)
     }
 }
 
