@@ -172,6 +172,24 @@ covers("AppleFilter", st, r"var title: String \{", st[st.index("enum AppleFilter
 covers("AspectSetting", ctrl, r"var heightOverWidth", ctrl, "AspectSetting.heightOverWidth")
 notes.append("穷举 switch 检查：ControlID / Sheet / CaptureMode / FlashSetting / PortraitLighting / AppleFilter / AspectSetting")
 
+# 富士 LUT：每个 lutName 都要有 Assets.xcassets/LUT_<名>.dataset（Contents.json + 33^3*3*2 字节的 .bin）
+import json as _json
+_blk = st[st.index("var lutName: String? {"):]
+_blk = _blk[:_blk.index("default: return nil")]
+_names = re.findall(r'return "(\w+)"', _blk)
+_root = Path(__file__).resolve().parent.parent
+for _n in _names:
+    _d = _root / "Assets.xcassets" / f"LUT_{_n}.dataset"
+    _bin, _json = _d / f"{_n}.bin", _d / "Contents.json"
+    if not _bin.exists() or not _json.exists():
+        problems.append(f"缺少 LUT 数据集：LUT_{_n}.dataset")
+        continue
+    if _bin.stat().st_size != 33 ** 3 * 3 * 2:
+        problems.append(f"LUT_{_n}.bin 大小不对：{_bin.stat().st_size}")
+    if _json.exists() and _json.read_text() and _json.name and _json.stat().st_size and _bin.name not in _json.read_text():
+        problems.append(f"LUT_{_n}.dataset/Contents.json 没有引用 {_bin.name}")
+notes.append(f"富士 LUT 数据集：{len(_names)} 个（lutName → Assets.xcassets/LUT_<名>.dataset，大小与引用都对）")
+
 print("\n".join("· " + n for n in notes))
 if problems:
     print("\n未通过：")

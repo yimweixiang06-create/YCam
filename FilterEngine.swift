@@ -1,3 +1,4 @@
+import UIKit
 import CoreImage
 import CoreGraphics
 import Foundation
@@ -25,7 +26,7 @@ final class FilterEngine {
         }
     }
 
-    static let cubeDimension = 32
+    static let cubeDimension = 33          // 与 .cube 数据的 33 格对齐，LUT 节点不用再插值
     private static let srgb = CGColorSpace(name: CGColorSpace.sRGB)!
 
     private let lock = NSLock()
@@ -79,22 +80,26 @@ final class FilterEngine {
 
     static func makeSnapshot(_ s: StyleSettings) -> Snapshot {
         let recipe = effectiveRecipe(for: s)
-        let cube: Data? = recipe.isColorIdentity ? nil : buildCube(recipe)
+        let lut: LutTable? = s.style.lutName.flatMap { LutLibrary.shared.table(named: $0) }
+        let strength = Float(min(1, max(0, s.intensity)))
+        let cube: Data? = (recipe.isColorIdentity && lut == nil) ? nil : buildCube(recipe, lut: lut, strength: strength)
         return Snapshot(settings: s, recipe: recipe, cube: cube)
     }
 
-    /// 风格配方 × 调色盘浓度 + Apple 滤镜 + 色调板。
-    /// 色调板按“调色盘使用公式”：横向 = 纯度（左灰 → 右纯），纵向 = 明度（上亮 → 下暗）。
-    /// Apple 官方公开了调节方式，而非内部色彩系数。只处理相对参考值的偏移。
+    /// Apple 官方提供色调/颜色/强度调节，但没有公开渲染系数。
+    /// YCam 以每种风格的参考控制点作为原点，只对用户改动的差值施加增量，
+    /// 避免切换到「珠光 45/90/100」时误把 UI 数字再当成曝光/饱和度叠加一次。
     static func effectiveRecipe(for s: StyleSettings) -> LookRecipe {
         let k = Float(min(1, max(0, s.intensity)))
         var r = s.style.recipe.scaled(by: k).combined(with: s.filter.recipe)
         let defaults = s.style.referenceControls
         let color = Float((s.point.x - 0.5) * 2) - Float(defaults.color) / 100
         let tone = Float((0.5 - s.point.y) * 2) - Float(defaults.tone) / 100
+        // 色彩控制为风格配方上的温度/品红变化，而非「左边完全去色」的纯度控制。
         r.temperature += 0.22 * color * k
         r.tint += 0.08 * color * k
         r.saturation = max(0, r.saturation * (1 + 0.10 * color * k))
+        // 温和的明暗调整，保留肤色与高光，避免先前 ±0.6EV 的大幅过曝。
         r.exposure += 0.36 * tone * k + Float(s.exposure)
         r.contrast -= 0.12 * tone * k
         return r
@@ -205,7 +210,8 @@ final class FilterEngine {
     }
 
     /// 生成 RGBA(float32, 预乘) 的 3D LUT；红色变化最快，蓝色最慢（Core Image 要求的排列）。
-    static func buildCube(_ p: LookRecipe) -> Data {
+    /// lut：.cube 风格的查找表（先过 LUT，按浓度与原色混合，再叠加色调板 / 滤镜这些配方调整）。
+    static func buildCube(_ p: LookRecipe, lut: LutTable? = nil, strength: Float = 1) -> Data {
         let n = cubeDimension
         var floats = [Float](repeating: 0, count: n * n * n * 4)
         let inv = 1 / Float(n - 1)
@@ -216,7 +222,14 @@ final class FilterEngine {
                 let g = Float(gi) * inv
                 for ri in 0..<n {
                     let r = Float(ri) * inv
-                    let o = transform(r, g, b, p)
+                    var cr = r, cg = g, cb = b
+                    if let lut {
+                        let l = lut.sample(r, g, b)
+                        cr = r + (l.0 - r) * strength
+                        cg = g + (l.1 - g) * strength
+                        cb = b + (l.2 - b) * strength
+                    }
+                    let o = transform(cr, cg, cb, p)
                     floats[i] = o.0
                     floats[i + 1] = o.1
                     floats[i + 2] = o.2
@@ -475,5 +488,68 @@ final class PersonSegmenter: @unchecked Sendable {
             y += stepY
         }
         return count == 0 ? 0 : Float(sum) / Float(count * 255)
+    }
+}
+
+// MARK: - .cube 查找表（富士胶片模拟）
+
+/// 33×33×33 的 3D LUT（UInt16 RGB，红色变化最快），三线性插值。输入输出都是 0...1 的 sRGB 伽马值。
+final class LutTable: @unchecked Sendable {
+    let size: Int
+    private let values: [Float]
+
+    init?(data: Data, size: Int = 33) {
+        let count = size * size * size * 3
+        guard data.count == count * 2 else { return nil }
+        let bytes = [UInt8](data)
+        var floats = [Float](repeating: 0, count: count)
+        for i in 0..<count {
+            let v = UInt16(bytes[2 * i]) | (UInt16(bytes[2 * i + 1]) << 8)
+            floats[i] = Float(v) / 65535
+        }
+        self.size = size
+        self.values = floats
+    }
+
+    func sample(_ r: Float, _ g: Float, _ b: Float) -> (Float, Float, Float) {
+        let m = Float(size - 1)
+        let x = min(max(r, 0), 1) * m
+        let y = min(max(g, 0), 1) * m
+        let z = min(max(b, 0), 1) * m
+        let x0 = min(Int(x), size - 2)
+        let y0 = min(Int(y), size - 2)
+        let z0 = min(Int(z), size - 2)
+        let fx = x - Float(x0)
+        let fy = y - Float(y0)
+        let fz = z - Float(z0)
+        var out: (Float, Float, Float) = (0, 0, 0)
+        for dz in 0...1 {
+            for dy in 0...1 {
+                for dx in 0...1 {
+                    let w = (dx == 1 ? fx : 1 - fx) * (dy == 1 ? fy : 1 - fy) * (dz == 1 ? fz : 1 - fz)
+                    let i = (((z0 + dz) * size + (y0 + dy)) * size + (x0 + dx)) * 3
+                    out.0 += w * values[i]
+                    out.1 += w * values[i + 1]
+                    out.2 += w * values[i + 2]
+                }
+            }
+        }
+        return out
+    }
+}
+
+/// 从 Assets.xcassets 里的 LUT_<名字>.dataset 读取并缓存查找表；找不到时返回 nil（风格退回“无处理”，不会崩溃）。
+final class LutLibrary: @unchecked Sendable {
+    static let shared = LutLibrary()
+    private let lock = NSLock()
+    private var cache: [String: LutTable] = [:]
+
+    func table(named name: String) -> LutTable? {
+        lock.lock()
+        defer { lock.unlock() }
+        if let cached = cache[name] { return cached }
+        guard let asset = NSDataAsset(name: "LUT_" + name), let table = LutTable(data: asset.data) else { return nil }
+        cache[name] = table
+        return table
     }
 }

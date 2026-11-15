@@ -121,34 +121,26 @@ struct CameraHomeView: View {
 
     /// 全屏触摸层：点按 = 对焦 / 收起面板；左右滑 = 切换 视频 · 照片 · 人像；向上滑 = 打开抽屉；向下滑 = 收起；双指捏合 = 变焦。
     private func touchLayer(_ m: UIMetrics) -> some View {
-        Color.clear
-            .contentShape(Rectangle())
-            .gesture(
-                DragGesture(minimumDistance: 30).onEnded { value in
-                    let dx = value.translation.width
-                    let dy = value.translation.height
-                    if abs(dx) > 60, abs(dx) > abs(dy) * 1.5 {
-                        stepMode(dx > 0 ? -1 : 1)      // 向右滑 = 上一个模式（与系统相机一致）
-                    } else if dy < -60, abs(dy) > abs(dx) * 1.5, sheet == .closed {
-                        go(.drawer)
-                    } else if dy > 60, abs(dy) > abs(dx) * 1.5, sheet != .closed {
-                        go(.closed)
-                    }
-                }
-            )
-            .simultaneousGesture(
-                SpatialTapGesture().onEnded { value in
-                    handleTap(value.location, m)
-                }
-            )
-            .simultaneousGesture(
-                MagnifyGesture()
-                    .onChanged { value in
-                        if pinchStart == nil { pinchStart = camera.zoom.display }
-                        camera.setZoom(display: (pinchStart ?? 1) * value.magnification)
-                    }
-                    .onEnded { _ in pinchStart = nil }
-            )
+        TouchCatcher(
+            onTap: { point in handleTap(point, m) },
+            onSwipe: { size in handleSwipe(size) },
+            onPinchBegan: { pinchStart = camera.zoom.display },
+            onPinchChanged: { scale in camera.setZoom(display: (pinchStart ?? camera.zoom.display) * scale) },
+            onPinchEnded: { pinchStart = nil }
+        )
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private func handleSwipe(_ translation: CGSize) {
+        let dx = translation.width
+        let dy = translation.height
+        if abs(dx) > 60, abs(dx) > abs(dy) * 1.5 {
+            stepMode(dx > 0 ? -1 : 1)          // 向右滑 = 上一个模式（与系统相机一致）
+        } else if dy < -60, abs(dy) > abs(dx) * 1.5, sheet == .closed {
+            go(.drawer)
+        } else if dy > 60, abs(dy) > abs(dx) * 1.5, sheet != .closed {
+            go(.closed)
+        }
     }
 
     private func handleTap(_ point: CGPoint, _ m: UIMetrics) {
@@ -191,6 +183,7 @@ struct CameraHomeView: View {
         let rawBase = isFramed ? rect.maxY - 37 * m.s : m.shutterCenterY - 72 * m.s
         let baseY = min(rawBase, m.shutterCenterY - 72 * m.s)        // 展开按钮中心
         let pillsY = baseY - 52 * m.s
+        let lightingY = pillsY - 70 * m.s
         return ZStack {
             topCapsule(m)
                 .position(x: m.W - 73 * m.s, y: m.capsuleCenterY)
@@ -207,13 +200,13 @@ struct CameraHomeView: View {
                     .position(x: m.W / 2, y: m.capsuleCenterY)
             }
             if sheet == .closed {
+                ZoomPills(model: camera.zoom, m: m) { stop in
+                    camera.setZoom(display: stop.display, ramp: true)
+                }
+                .position(x: m.W / 2, y: pillsY)
                 if camera.mode == .portrait {
-                    portraitControls(m, rect: rect)
-                } else {
-                    ZoomPills(model: camera.zoom, m: m) { stop in
-                        camera.setZoom(display: stop.display, ramp: true)
-                    }
-                    .position(x: m.W / 2, y: pillsY)
+                    lightingStrip(m)
+                        .position(x: m.W / 2, y: lightingY)
                 }
                 if camera.mode != .video {
                     expandButton(m)
@@ -459,26 +452,50 @@ struct CameraHomeView: View {
         camera.markControlsChanged()
     }
 
-    /// 人像模式（与 iOS 26 一致）：取景器底部是光效转盘，左下角是圆形变焦按钮。
-    @ViewBuilder
-    private func portraitControls(_ m: UIMetrics, rect: CGRect) -> some View {
-        let dialBottom = min(rect.maxY, m.shutterCenterY - 56 * m.s)
-        let radius = 0.437 * rect.width
-        let arcTop = dialBottom - 0.25 * rect.width
-        let regionTop = arcTop - 64 * m.s
-        let regionHeight = max(60, dialBottom - regionTop)
-        LightingDial(items: PortraitLighting.allCases.filter { $0 != .off },
-                     selected: Binding(get: { camera.styleSettings.lighting },
-                                       set: { camera.styleSettings.lighting = $0 }),
-                     personFound: camera.personDetected,
-                     m: m,
-                     radius: radius)
-            .frame(width: rect.width, height: regionHeight)
-            .position(x: rect.midX, y: regionTop + regionHeight / 2)
-        ZoomCircle(model: camera.zoom, m: m) { stop in
-            camera.setZoom(display: stop.display, ramp: true)
+    private func lightingStrip(_ m: UIMetrics) -> some View {
+        let items = PortraitLighting.allCases.filter { $0 != .off }
+        let current = camera.styleSettings.lighting
+        let found = camera.personDetected
+        return VStack(spacing: 6 * m.s) {
+            Text(found ? current.title : "\(current.title)（未检测到人物）")
+                .font(.system(size: 12 * m.s, weight: .semibold))
+                .foregroundStyle(Color.black)
+                .padding(.horizontal, 10 * m.s)
+                .frame(height: 22 * m.s)
+                .background(Capsule().fill(found ? Color.yellow : Color.white.opacity(0.85)))
+            HStack(spacing: 6 * m.s) {
+                ForEach(items) { item in
+                    Button { selectLighting(item) } label: {
+                        Image(systemName: item == current ? "hexagon.fill" : "hexagon")
+                            .font(.system(size: 17 * m.s, weight: .semibold))
+                            .foregroundStyle(item == current ? Color.yellow : Color.white)
+                            .frame(width: 38 * m.s, height: 38 * m.s)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(GlassButtonStyle())
+                    .accessibilityLabel(item.title)
+                }
+            }
+            .padding(.horizontal, 8 * m.s)
+            .frame(height: 42 * m.s)
+            .glassSurface(Capsule(), interactive: true)
+            .gesture(
+                DragGesture(minimumDistance: 14).onEnded { value in
+                    guard let index = items.firstIndex(of: current) else { return }
+                    if value.translation.width > 24, index > 0 {
+                        selectLighting(items[index - 1])
+                    } else if value.translation.width < -24, index < items.count - 1 {
+                        selectLighting(items[index + 1])
+                    }
+                }
+            )
         }
-        .position(x: rect.minX + 38 * m.s, y: dialBottom - 37 * m.s)
+    }
+
+    private func selectLighting(_ item: PortraitLighting) {
+        guard item != camera.styleSettings.lighting else { return }
+        UISelectionFeedbackGenerator().selectionChanged()
+        camera.styleSettings.lighting = item
     }
 
     // MARK: 快门 / 缩略图 / 视频·照片·人像 / 翻转

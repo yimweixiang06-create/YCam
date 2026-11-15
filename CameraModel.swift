@@ -376,6 +376,18 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
             self.position = devicePosition
             self.micAvailable = mic
             self.cameraReady = running
+            if running { self.restoreLastModeIfNeeded() }
+        }
+    }
+
+    /// 启动后只做一次：回到上一次使用的模式（视频 / 照片 / 人像）。
+    private var restoredMode = false
+    private func restoreLastModeIfNeeded() {
+        guard !restoredMode else { return }
+        restoredMode = true
+        if let raw = UserDefaults.standard.string(forKey: "ycam.lastMode"),
+           let saved = CaptureMode(rawValue: raw), saved != mode {
+            setMode(saved)
         }
     }
 
@@ -561,6 +573,7 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
         guard newMode != mode else { return }
         guard !isRecording, !isCapturingPhoto, !isFinalizingVideo, timerCountdown == nil else { return }
         mode = newMode
+        UserDefaults.standard.set(newMode.rawValue, forKey: "ycam.lastMode")
 
         // 人像光效 / 景深只在人像模式里生效
         if newMode == .portrait {
@@ -1054,7 +1067,9 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
 
         let needsProcessing = !job.settings.isIdentity || job.cropAspect != nil
         if needsProcessing {
-            if let processed = renderFiltered(data, settings: job.settings, cropAspect: job.cropAspect, preferHEIC: job.preferHEIC) {
+            let liveID = job.producedLiveURL.flatMap { Self.contentIdentifier(of: $0) }
+            if let processed = renderFiltered(data, settings: job.settings, cropAspect: job.cropAspect,
+                                              preferHEIC: job.preferHEIC, liveIdentifier: liveID) {
                 output = processed.data
                 if let note = processed.note { notes.append(note) }
                 if let live = job.producedLiveURL {
@@ -1127,7 +1142,7 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
 
     /// 用与预览完全相同的 FilterEngine 处理整张照片，保留 EXIF / 色彩空间；HEIF 或 JPEG 输出。
     private func renderFiltered(_ data: Data, settings: StyleSettings, cropAspect: CGFloat?,
-                                preferHEIC: Bool) -> (data: Data, note: String?)? {
+                                preferHEIC: Bool, liveIdentifier: String? = nil) -> (data: Data, note: String?)? {
         guard let decoded = CIImage(data: data, options: [.applyOrientationProperty: true]) else { return nil }
         let colorSpace = decoded.colorSpace ?? Self.sRGB
         let source = Self.cropped(decoded, toAspect: cropAspect)
@@ -1151,6 +1166,12 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
             metadata = props
         }
         metadata[kCGImagePropertyOrientation] = 1     // 方向已经烘焙进像素
+        if let liveIdentifier {
+            // 保证处理后的静态照片仍带实况的配对 ID，系统才会把它和动态部分认成同一张实况照片
+            var apple = (metadata[kCGImagePropertyMakerAppleDictionary] as? [String: Any]) ?? [:]
+            apple["17"] = liveIdentifier
+            metadata[kCGImagePropertyMakerAppleDictionary] = apple
+        }
         if var tiff = metadata[kCGImagePropertyTIFFDictionary] as? [CFString: Any] {
             tiff[kCGImagePropertyTIFFOrientation] = 1
             metadata[kCGImagePropertyTIFFDictionary] = tiff
@@ -1170,6 +1191,15 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
     }
 
     /// 按取景框的宽高比居中裁剪（取景框不是 4:3 时，成片与所见一致）。
+    /// 读出实况动态部分里的配对 ID（com.apple.quicktime.content.identifier）。
+    private static func contentIdentifier(of movie: URL) -> String? {
+        let asset = AVURLAsset(url: movie)
+        for item in asset.metadata where item.identifier == .quickTimeMetadataContentIdentifier {
+            if let value = item.stringValue { return value }
+        }
+        return nil
+    }
+
     private static func cropped(_ image: CIImage, toAspect aspect: CGFloat?) -> CIImage {
         guard let aspect, aspect > 0 else { return image }
         let e = image.extent

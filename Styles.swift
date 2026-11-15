@@ -93,6 +93,7 @@ enum CameraStyle: String, CaseIterable, Identifiable {
     case standard, pearl
     case amber, gold, roseGold, coolRose, cool, neutral, vibrant, warm, ethereal, dramatic, luminous, radiant, monochrome
     case fuji400, kodak800, fujiCyan, kodakWarmYellow
+    case fujiProvia, fujiVelvia, fujiAstia, fujiRealaAce, fujiClassicChrome, fujiClassicNeg, fujiProNeg, fujiEterna, fujiEternaBB
 
     var id: String { rawValue }
 
@@ -117,10 +118,20 @@ enum CameraStyle: String, CaseIterable, Identifiable {
         case .kodak800: return "KODAK 800"
         case .fujiCyan: return "FUJI 青调"
         case .kodakWarmYellow: return "KODAK 暖黄"
+        case .fujiProvia: return "富士 PROVIA"
+        case .fujiVelvia: return "富士 Velvia"
+        case .fujiAstia: return "富士 ASTIA"
+        case .fujiRealaAce: return "富士 REALA ACE"
+        case .fujiClassicChrome: return "富士 经典铬 CC"
+        case .fujiClassicNeg: return "富士 经典负片 CN"
+        case .fujiProNeg: return "富士 PRO Neg"
+        case .fujiEterna: return "富士 ETERNA"
+        case .fujiEternaBB: return "富士 ETERNA BB"
         }
     }
 
-    /// 以下初始值来自用户提供的真实 iPhone 截图，不代表 Apple 官方默认值。
+    /// 苹果官方仅说明可调整色调、颜色和强度，没有发布各风格的完整预设数值。
+    /// 下列两组是用户提供的 iPhone 截图读数，不是 Apple 官方标定表；其他风格以中性控制点起步。
     var referenceControls: (tone: Int, color: Int, intensity: Double) {
         switch self {
         case .pearl: return (45, 90, 1.0)
@@ -132,7 +143,24 @@ enum CameraStyle: String, CaseIterable, Identifiable {
     var isFilm: Bool {
         switch self {
         case .fuji400, .kodak800, .fujiCyan, .kodakWarmYellow: return true
+        case .fujiProvia, .fujiVelvia, .fujiAstia, .fujiRealaAce, .fujiClassicChrome, .fujiClassicNeg, .fujiProNeg, .fujiEterna, .fujiEternaBB: return true
         default: return false
+        }
+    }
+
+    /// 用 .cube 数据做的风格（富士胶片模拟）：对应 Assets.xcassets 里的 LUT_<名字>.dataset；nil = 普通配方风格。
+    var lutName: String? {
+        switch self {
+        case .fujiProvia: return "PROVIA"
+        case .fujiVelvia: return "VELVIA"
+        case .fujiAstia: return "ASTIA"
+        case .fujiRealaAce: return "REALA"
+        case .fujiClassicChrome: return "CC"
+        case .fujiClassicNeg: return "CN"
+        case .fujiProNeg: return "PRONEG"
+        case .fujiEterna: return "ETERNA"
+        case .fujiEternaBB: return "ETERNABB"
+        default: return nil
         }
     }
 
@@ -158,12 +186,27 @@ enum CameraStyle: String, CaseIterable, Identifiable {
         case .kodak800: return Color(red: 0.95, green: 0.58, blue: 0.30)
         case .fujiCyan: return Color(red: 0.16, green: 0.82, blue: 0.88)
         case .kodakWarmYellow: return Color(red: 0.98, green: 0.80, blue: 0.20)
+        case .fujiProvia: return Color(red: 0.44, green: 0.62, blue: 0.86)
+        case .fujiVelvia: return Color(red: 0.88, green: 0.22, blue: 0.30)
+        case .fujiAstia: return Color(red: 0.96, green: 0.72, blue: 0.74)
+        case .fujiRealaAce: return Color(red: 0.60, green: 0.74, blue: 0.62)
+        case .fujiClassicChrome: return Color(red: 0.55, green: 0.60, blue: 0.52)
+        case .fujiClassicNeg: return Color(red: 0.62, green: 0.70, blue: 0.50)
+        case .fujiProNeg: return Color(red: 0.84, green: 0.74, blue: 0.68)
+        case .fujiEterna: return Color(red: 0.40, green: 0.56, blue: 0.58)
+        case .fujiEternaBB: return Color(red: 0.55, green: 0.56, blue: 0.58)
         }
     }
 
     /// 风格卡片的渐变色：把 3 个参考色（高光 / 肤色 / 暗部）送进该风格自己的配方，所见即所得（不是另外画的假色块）。
     var cardColors: [Color] {
         let samples: [(Float, Float, Float)] = [(0.93, 0.93, 0.95), (0.82, 0.60, 0.50), (0.16, 0.17, 0.20)]
+        if let name = lutName, let lut = LutLibrary.shared.table(named: name) {
+            return samples.map { sample in
+                let out = lut.sample(sample.0, sample.1, sample.2)
+                return Color(red: Double(out.0), green: Double(out.1), blue: Double(out.2))
+            }
+        }
         let r = recipe
         return samples.map { sample in
             let out = FilterEngine.transform(sample.0, sample.1, sample.2, r)
@@ -175,14 +218,14 @@ enum CameraStyle: String, CaseIterable, Identifiable {
     var recipe: LookRecipe {
         switch self {
         case .standard: return LookRecipe()
-        case .pearl: return LookRecipe(exposure: -0.03, contrast: -0.12, saturation: 0.90, vibrance: 0.06, temperature: 0.00, tint: 0.05, shadowTint: rgb(-0.004, 0.006, 0.012), highlightTint: rgb(0.018, 0.006, 0.022), blackLift: 0.025, whiteRoll: 0.14, bloom: 0.05)
+        case .pearl: return LookRecipe(exposure: 0.06, contrast: 0.06, saturation: 0.98, temperature: -0.02, tint: 0.04, shadowTint: rgb(-0.004, 0.002, 0.004), highlightTint: rgb(0.006, 0.002, 0.010), whiteRoll: 0.04)
         case .amber: return LookRecipe(exposure: -0.02, contrast: 0.10, saturation: 1.10, temperature: 0.34, tint: 0.12, highlightTint: rgb(0.022, 0.002, -0.016))
-        case .gold: return LookRecipe(exposure: 0.12, contrast: 0.03, saturation: 1.06, temperature: 0.30, tint: -0.14, highlightTint: rgb(0.012, 0.020, -0.016), blackLift: 0.010)
-        case .roseGold: return LookRecipe(contrast: -0.04, saturation: 1.00, temperature: 0.18, tint: 0.14, highlightTint: rgb(0.016, 0.000, 0.004), blackLift: 0.020)
+        case .gold: return LookRecipe(exposure: 0.10, contrast: 0.02, saturation: 1.00, temperature: 0.30, tint: -0.14, highlightTint: rgb(0.012, 0.020, -0.016), blackLift: 0.010)
+        case .roseGold: return LookRecipe(contrast: 0.02, saturation: 1.00, temperature: 0.18, tint: 0.14, highlightTint: rgb(0.016, 0.000, 0.004))
         case .coolRose: return LookRecipe(exposure: 0.05, contrast: 0.02, temperature: -0.20, tint: 0.08, highlightTint: rgb(0.006, -0.002, 0.008))
         case .cool: return LookRecipe(contrast: 0.06, saturation: 1.02, temperature: -0.30, tint: -0.04, highlightTint: rgb(-0.004, 0.004, 0.012))
         case .radiant: return LookRecipe(exposure: -0.05, contrast: 0.30, saturation: 1.14, vibrance: 0.20, shadowTint: rgb(-0.012, 0.010, 0.020), highlightTint: rgb(0.014, 0.000, 0.016), whiteRoll: 0.05)
-        case .neutral: return LookRecipe(exposure: 0.08, contrast: -0.06, saturation: 0.90, temperature: -0.12)
+        case .neutral: return LookRecipe(exposure: 0.10, contrast: -0.05, saturation: 0.92, temperature: -0.16)
         case .vibrant: return LookRecipe(contrast: 0.10, saturation: 1.16, vibrance: 0.30)
         case .warm: return LookRecipe(exposure: 0.04, contrast: 0.03, saturation: 1.04, temperature: 0.24, tint: 0.02)
         case .ethereal: return LookRecipe(exposure: 0.15, contrast: -0.20, saturation: 0.92, temperature: -0.04, blackLift: 0.03, whiteRoll: 0.10, bloom: 0.12)
@@ -193,6 +236,15 @@ enum CameraStyle: String, CaseIterable, Identifiable {
         case .kodak800: return LookRecipe(exposure: 0.04, contrast: 0.02, saturation: 0.98, temperature: 0.16, tint: 0.03, shadowTint: rgb(0.008, 0.002, -0.004), highlightTint: rgb(0.010, 0.005, -0.012), midGamma: rgb(0.98, 1.00, 1.04), blackLift: 0.035, whiteRoll: 0.10, grain: 0.85)
         case .fujiCyan: return LookRecipe(contrast: 0.08, saturation: 1.00, temperature: -0.22, tint: -0.08, shadowTint: rgb(-0.020, 0.012, 0.022), highlightTint: rgb(-0.004, 0.006, 0.010), midGamma: rgb(1.07, 0.97, 0.95), blackLift: 0.025, whiteRoll: 0.08, grain: 0.50)
         case .kodakWarmYellow: return LookRecipe(contrast: 0.12, saturation: 1.12, vibrance: 0.05, temperature: 0.30, tint: -0.03, shadowTint: rgb(0.004, 0.000, -0.006), highlightTint: rgb(0.024, 0.016, -0.028), blackLift: 0.015, whiteRoll: 0.06, grain: 0.60)
+        case .fujiProvia: return LookRecipe()
+        case .fujiVelvia: return LookRecipe()
+        case .fujiAstia: return LookRecipe()
+        case .fujiRealaAce: return LookRecipe()
+        case .fujiClassicChrome: return LookRecipe()
+        case .fujiClassicNeg: return LookRecipe()
+        case .fujiProNeg: return LookRecipe()
+        case .fujiEterna: return LookRecipe()
+        case .fujiEternaBB: return LookRecipe()
         }
     }
 }
@@ -271,9 +323,10 @@ enum AppleFilter: String, CaseIterable, Identifiable {
 struct StyleSettings: Equatable {
     var style: CameraStyle = .standard
     var filter: AppleFilter = .original
-    /// 横向颜色 −100...+100，纵向色调 +100...−100。
+    /// iPhone 摄影风格调色盘：水平颜色 −100...+100，垂直色调 +100...−100。
+    /// 注意这些是 YCam 的控制刻度，不是 Apple 未公开的底层色彩参数。
     var point = CGPoint(x: 0.5, y: 0.5)
-    /// 调色盘强度 0...1。
+    /// 调色盘强度 0...1（0 = 原始配方不生效）。
     var intensity: Double = 1.0
     /// 保留字段（曝光现在由相机硬件补偿控制）。
     var exposure: Double = 0
@@ -284,6 +337,7 @@ struct StyleSettings: Equatable {
 
     static let defaultPoint = CGPoint(x: 0.5, y: 0.5)
 
+    /// 按当前风格恢复对应参考控制点，而不是每次都跳回任意固定位置。
     mutating func restoreStyleControls() {
         let reference = style.referenceControls
         point = CGPoint(x: CGFloat(reference.color + 100) / 200,
@@ -293,8 +347,9 @@ struct StyleSettings: Equatable {
 
     var isPaletteDefault: Bool {
         let reference = style.referenceControls
-        return abs(point.x - CGFloat(reference.color + 100) / 200) < 0.001
-            && abs(point.y - CGFloat(100 - reference.tone) / 200) < 0.001
+        let desiredX = CGFloat(reference.color + 100) / 200
+        let desiredY = CGFloat(100 - reference.tone) / 200
+        return abs(point.x - desiredX) < 0.001 && abs(point.y - desiredY) < 0.001
     }
 
     var isIdentity: Bool {

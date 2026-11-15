@@ -125,7 +125,7 @@ struct SwatchCarousel<Item: Hashable & Identifiable>: View {
     }
 }
 
-// MARK: - 色调板：横向颜色可正负，纵向色调
+// MARK: - 摄影风格色调板：横向颜色 −100...100，纵向色调 +100...−100
 
 struct DotPalette: View {
     @Binding var point: CGPoint
@@ -143,7 +143,7 @@ struct DotPalette: View {
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
                     .fill(LinearGradient(colors: colors, startPoint: .top, endPoint: .bottom))
                     .overlay(
-                        // 左边偏灰（低纯度），右边保持风格本色（高纯度）
+                        // 色彩轴提供冷暖视觉提示，不会把负值错误地显示成灰度。
                         LinearGradient(colors: [Color.blue.opacity(0.20), .clear, Color.orange.opacity(0.16)],
                                        startPoint: .leading, endPoint: .trailing)
                             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
@@ -178,7 +178,7 @@ struct DotPalette: View {
             .accessibilityElement()
             .accessibilityLabel("色调板")
             .accessibilityValue("颜色\(Int(((point.x - 0.5) * 200).rounded()))，色调\(Int(((0.5 - point.y) * 200).rounded()))")
-            .accessibilityHint("左右调节颜色，上下调节色调")
+            .accessibilityHint("左右调节颜色，向上增加色调数值")
             .accessibilityAdjustableAction { direction in
                 let delta: CGFloat = direction == .increment ? 1 : -1
                 let next = min(CGFloat(columns - 1), max(0, CGFloat(selectedColumn) + delta))

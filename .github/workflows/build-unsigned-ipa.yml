@@ -11,7 +11,7 @@
 #    · 工程 YCam.xcodeproj，唯一的 target / scheme 叫 YCam，产物 YCam.app，Bundle ID com.ycam.camera
 #    · 最低系统 iOS 18.0，仅 iPhone；Info.plist 是手写的（GENERATE_INFOPLIST_FILE = NO）
 #    · Glass.swift 用 #if compiler(>=6.2) 包着官方 Liquid Glass，所以必须用 Xcode 26（Swift 6.2）编译
-#    · 13 个 Swift 文件 + Info.plist + Assets.xcassets 必须在仓库根目录（见 UPLOAD_TO_GITHUB_FIRST.md）
+#    · 13 个 Swift 文件 + Info.plist + Assets.xcassets（含 9 个 LUT_*.dataset 富士胶片数据）必须在仓库根目录（见 UPLOAD_TO_GITHUB_FIRST.md）
 #
 #  费用提示：公开仓库免费；私有仓库的 macOS 分钟按 10 倍扣（免费账户每月 2000 分钟 ≈ 200 分钟 macOS）。
 #  所以只改说明文档（.md）/ docs / tools 的提交不会自动触发构建，新提交会自动取消还在跑的旧构建。
@@ -125,6 +125,7 @@ jobs:
           for f in YCam.xcodeproj/project.pbxproj Info.plist \
                    FilmStyleCameraApp.swift CameraHomeView.swift CameraModel.swift CameraPreview.swift \
                    DotPalette.swift FilterEngine.swift Styles.swift VideoRecorder.swift Glass.swift Diagnostics.swift CameraControls.swift ControlPanels.swift LivePhotoStyler.swift \
+                   Assets.xcassets/LUT_ASTIA.dataset/ASTIA.bin Assets.xcassets/LUT_CC.dataset/CC.bin Assets.xcassets/LUT_CN.dataset/CN.bin Assets.xcassets/LUT_ETERNA.dataset/ETERNA.bin Assets.xcassets/LUT_ETERNABB.dataset/ETERNABB.bin Assets.xcassets/LUT_PRONEG.dataset/PRONEG.bin Assets.xcassets/LUT_PROVIA.dataset/PROVIA.bin Assets.xcassets/LUT_REALA.dataset/REALA.bin Assets.xcassets/LUT_VELVIA.dataset/VELVIA.bin \
                    Assets.xcassets/Contents.json Assets.xcassets/AppIcon.appiconset/Contents.json; do
             if [ ! -f "$f" ]; then
               echo "::error::缺少必需文件：$f"
@@ -219,9 +220,6 @@ jobs:
             CODE_SIGN_IDENTITY=
             ONLY_ACTIVE_ARCH=NO
             COMPILER_INDEX_STORE_ENABLE=NO
-            DEBUG_INFORMATION_FORMAT=dwarf
-            CURRENT_PROJECT_VERSION=${{ github.run_number }}
-            -jobs "$(sysctl -n hw.ncpu)"
           )
           if [ "$BUILD_MODE" = "scheme" ]; then
             DERIVED="$RUNNER_TEMP/YCamDerivedData"
@@ -348,8 +346,6 @@ jobs:
           XCODE_LINE="$(sed -n '1p' "$LOGS/xcode-version.txt")"
           SDK_LINE="$(grep -m1 '^iphoneos SDK' "$LOGS/xcode-version.txt" | sed 's/^iphoneos SDK: //' || true)"
           IPA_SIZE="$(du -h "$IPA" | awk '{print $1}')"
-          WARNINGS="$(grep -c 'warning:' "$LOGS/xcodebuild.log" 2>/dev/null || true)"
-          WARNINGS="${WARNINGS:-0}"
           {
             echo "### ✅ YCam 构建成功"
             echo
@@ -361,8 +357,6 @@ jobs:
             echo "| 版本 | $(pb CFBundleShortVersionString) ($(pb CFBundleVersion)) |"
             echo "| 最低系统 | iOS $(pb MinimumOSVersion) |"
             echo "| IPA 大小 | $IPA_SIZE |"
-            echo "| 编译警告 | ${WARNINGS} 条 |"
-            echo "| 构建编号 | #${{ github.run_number }} |"
             if [ "$COUNT" -gt 0 ]; then
               echo "| Liquid Glass symbol references in the binary | ${COUNT}（官方玻璃已编进 App）|"
             else

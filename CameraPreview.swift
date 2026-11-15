@@ -45,3 +45,64 @@ struct FilteredCameraPreview: UIViewRepresentable {
         view.setMirrored(camera.position == .front)
     }
 }
+
+/// 全屏透明触摸层（UIKit 手势）：点按 / 单指滑动 / 双指捏合变焦。
+struct TouchCatcher: UIViewRepresentable {
+    var onTap: (CGPoint) -> Void
+    var onSwipe: (CGSize) -> Void
+    var onPinchBegan: () -> Void
+    var onPinchChanged: (CGFloat) -> Void
+    var onPinchEnded: () -> Void
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
+    func makeUIView(context: Context) -> UIView {
+        let view = UIView()
+        view.backgroundColor = .clear
+        view.isMultipleTouchEnabled = true
+        let coordinator = context.coordinator
+        coordinator.parent = self
+        let tap = UITapGestureRecognizer(target: coordinator, action: #selector(Coordinator.handleTap(_:)))
+        let pan = UIPanGestureRecognizer(target: coordinator, action: #selector(Coordinator.handlePan(_:)))
+        pan.maximumNumberOfTouches = 1
+        let pinch = UIPinchGestureRecognizer(target: coordinator, action: #selector(Coordinator.handlePinch(_:)))
+        for recognizer in [tap, pan, pinch] as [UIGestureRecognizer] {
+            recognizer.delegate = coordinator
+            view.addGestureRecognizer(recognizer)
+        }
+        return view
+    }
+
+    func updateUIView(_ uiView: UIView, context: Context) {
+        context.coordinator.parent = self
+    }
+
+    @MainActor
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+        var parent: TouchCatcher?
+
+        @objc func handleTap(_ gesture: UITapGestureRecognizer) {
+            parent?.onTap(gesture.location(in: gesture.view))
+        }
+
+        @objc func handlePan(_ gesture: UIPanGestureRecognizer) {
+            guard gesture.state == .ended, let view = gesture.view else { return }
+            let t = gesture.translation(in: view)
+            parent?.onSwipe(CGSize(width: t.x, height: t.y))
+        }
+
+        @objc func handlePinch(_ gesture: UIPinchGestureRecognizer) {
+            switch gesture.state {
+            case .began: parent?.onPinchBegan()
+            case .changed: parent?.onPinchChanged(gesture.scale)
+            case .ended, .cancelled, .failed: parent?.onPinchEnded()
+            default: break
+            }
+        }
+
+        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
+                               shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool {
+            true
+        }
+    }
+}
