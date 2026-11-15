@@ -111,7 +111,7 @@ struct CameraHomeView: View {
             .frame(width: rect.width, height: rect.height)
             .clipped()
             .position(x: rect.midX, y: rect.midY)
-            .animation(.spring(response: 0.4, dampingFraction: 0.9), value: rect)
+            // Avoid animating a live AVCaptureVideoPreviewLayer-sized surface on mode changes.
     }
 
     private func gridLayer(_ m: UIMetrics) -> some View {
@@ -140,7 +140,7 @@ struct CameraHomeView: View {
         guard !camera.isRecording && !camera.isFinalizingVideo else { return }
         let dx = translation.width
         let dy = translation.height
-        if abs(dx) > 60, abs(dx) > abs(dy) * 1.5 {
+        if abs(dx) >= 42, abs(dx) > abs(dy) * 1.2 {
             stepMode(dx > 0 ? -1 : 1)          // 向右滑 = 上一个模式（与系统相机一致）
         } else if dy < -60, abs(dy) > abs(dx) * 1.5, sheet == .closed {
             go(.drawer)
@@ -664,10 +664,10 @@ struct CameraHomeView: View {
             return
         }
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        withAnimation(.snappy(duration: 0.25)) {
-            sheet = .closed
-            camera.setMode(target)
-        }
+        // Do not animate the entire camera and preview while switching AV presets.
+        // The bottom selector already tracks the finger on its own lightweight layer.
+        sheet = .closed
+        camera.setMode(target)
     }
 
     // MARK: 底部面板（高斯磨砂）
@@ -841,78 +841,187 @@ private struct CaptureModeStrip: View {
     let selected: CaptureMode
     let onSelect: (CaptureMode) -> Void
 
-    @GestureState private var dragOffset: CGFloat = 0
-
     var body: some View {
-        let modes = CaptureMode.allCases
-        let labelWidth = 68 * m.s
-        let totalWidth = labelWidth * CGFloat(modes.count) + 8 * m.s
-        let selectedIndex = modes.firstIndex(of: selected) ?? 1
-        let visualIndex = min(CGFloat(modes.count - 1),
-                              max(0, CGFloat(selectedIndex) - dragOffset / labelWidth))
-
-        ZStack {
+        let width = CGFloat(CaptureMode.allCases.count) * 68 * m.s + 8 * m.s
+        return ZStack {
             Capsule()
                 .fill(Color.clear)
-                .frame(width: totalWidth, height: 48 * m.s)
+                .frame(width: width, height: 48 * m.s)
                 .frostedPanel(Capsule())
                 .allowsHitTesting(false)
 
-            Capsule()
-                .fill(Color.white.opacity(0.08))
-                .frame(width: labelWidth, height: 40 * m.s)
-                .frostedPanel(Capsule())
-                .offset(x: (visualIndex - CGFloat(modes.count - 1) / 2) * labelWidth)
-                .animation(dragOffset == 0 ? .easeOut(duration: 0.18) : nil,
-                           value: selected)
-                .allowsHitTesting(false)
-
-            HStack(spacing: 0) {
-                ForEach(modes) { mode in
-                    Button {
-                        onSelect(mode)
-                    } label: {
-                        Text(mode.rawValue)
-                            .font(.system(size: 15 * m.s, weight: .semibold))
-                            .foregroundStyle(mode == selected ? Color.yellow : Color.white)
-                            .frame(width: labelWidth, height: 48 * m.s)
-                            .background(Color.white.opacity(0.001))
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("\(mode.rawValue)模式")
-                }
-            }
+            // UIKit owns this touch surface. No SwiftUI @GestureState or
+            // nested buttons re-render while the finger is moving.
+            ModeStripTouchSurface(selected: selected, scale: m.s, onSelect: onSelect)
+                .frame(width: width, height: 48 * m.s)
         }
-        .frame(width: totalWidth, height: 48 * m.s)
-        .contentShape(Rectangle())
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 12 * m.s, coordinateSpace: .local)
-                .updating($dragOffset) { value, state, _ in
-                    if abs(value.translation.width) > abs(value.translation.height) {
-                        state = value.translation.width
-                    }
-                }
-                .onEnded { value in
-                    let dx = value.translation.width
-                    guard abs(dx) >= 22 * m.s,
-                          abs(dx) > abs(value.translation.height) * 1.1 else { return }
-                    let steps = max(1, Int((abs(dx) / labelWidth).rounded()))
-                    let next = min(modes.count - 1,
-                                   max(0, selectedIndex + (dx < 0 ? steps : -steps)))
-                    if next != selectedIndex { onSelect(modes[next]) }
-                }
-        )
-        .accessibilityElement(children: .contain)
-        .accessibilityAdjustableAction { direction in
-            let index = modes.firstIndex(of: selected) ?? 1
-            switch direction {
-            case .increment:
-                onSelect(modes[min(modes.count - 1, index + 1)])
-            case .decrement:
-                onSelect(modes[max(0, index - 1)])
-            @unknown default: break
-            }
-        }
+        .frame(width: width, height: 48 * m.s)
+    }
 }
+
+private struct ModeStripTouchSurface: UIViewRepresentable {
+    let selected: CaptureMode
+    let scale: CGFloat
+    let onSelect: (CaptureMode) -> Void
+
+    func makeUIView(context: Context) -> ModeStripTrackingView {
+        let view = ModeStripTrackingView(frame: .zero)
+        view.configure(selected: selected, scale: scale, onSelect: onSelect)
+        return view
+    }
+
+    func updateUIView(_ uiView: ModeStripTrackingView, context: Context) {
+        uiView.configure(selected: selected, scale: scale, onSelect: onSelect)
+    }
+}
+
+/// Direct UIControl touch tracking: native-speed taps and dragging, including
+/// horizontal movements that begin on the text. Indicator movement updates
+/// only one CALayer; the camera is reconfigured once on touch release.
+@MainActor
+private final class ModeStripTrackingView: UIControl {
+    private let modes = CaptureMode.allCases
+    private let highlight = CALayer()
+    private let labels: [UILabel] = CaptureMode.allCases.map { mode in
+        let label = UILabel()
+        label.text = mode.rawValue
+        label.textAlignment = .center
+        label.isUserInteractionEnabled = false
+        label.isAccessibilityElement = false
+        return label
+    }
+
+    private var scale: CGFloat = 1
+    private var selectedIndex = 1
+    private var startingIndex = 1
+    private var touchStart = CGPoint.zero
+    private var trackingTouch = false
+    private var onSelect: ((CaptureMode) -> Void)?
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        backgroundColor = .clear
+        isMultipleTouchEnabled = false
+        isExclusiveTouch = true
+        highlight.backgroundColor = UIColor.white.withAlphaComponent(0.16).cgColor
+        layer.addSublayer(highlight)
+        for label in labels { addSubview(label) }
+
+        isAccessibilityElement = true
+        accessibilityTraits = [.adjustable]
+        accessibilityLabel = "拍摄模式"
+        accessibilityHint = "向上或向下滑动切换视频、照片、人像"
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    func configure(selected: CaptureMode, scale: CGFloat,
+                   onSelect: @escaping (CaptureMode) -> Void) {
+        self.scale = scale
+        self.onSelect = onSelect
+        if !trackingTouch {
+            selectedIndex = modes.firstIndex(of: selected) ?? 1
+            show(position: CGFloat(selectedIndex))
+        }
+        setNeedsLayout()
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        let slot = 68 * scale
+        for (index, label) in labels.enumerated() {
+            label.frame = CGRect(x: (4 + CGFloat(index) * 68) * scale,
+                                 y: 0, width: slot, height: bounds.height)
+            label.font = UIFont.systemFont(ofSize: 15 * scale, weight: .semibold)
+        }
+        if !trackingTouch { show(position: CGFloat(selectedIndex)) }
+    }
+
+    private func show(position: CGFloat) {
+        let position = min(CGFloat(modes.count - 1), max(0, position))
+        let nearest = min(modes.count - 1, max(0, Int(position.rounded())))
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        highlight.frame = CGRect(x: (4 + position * 68) * scale,
+                                 y: 4 * scale, width: 68 * scale, height: 40 * scale)
+        highlight.cornerRadius = 20 * scale
+        CATransaction.commit()
+        for (index, label) in labels.enumerated() {
+            let active = index == nearest
+            label.textColor = active ? .systemYellow : .white
+        }
+        accessibilityValue = modes[nearest].rawValue
+    }
+
+    override func beginTracking(_ touch: UITouch, with event: UIEvent?) -> Bool {
+        touchStart = touch.location(in: self)
+        startingIndex = selectedIndex
+        trackingTouch = true
+        return true
+    }
+
+    override func continueTracking(_ touch: UITouch, with event: UIEvent?) -> Bool {
+        let point = touch.location(in: self)
+        let dx = point.x - touchStart.x
+        let dy = point.y - touchStart.y
+        if abs(dx) > abs(dy) * 0.75 {
+            // Follows the finger directly, with no animation or SwiftUI state changes.
+            show(position: CGFloat(startingIndex) - dx / (68 * scale))
+        }
+        return true
+    }
+
+    override func endTracking(_ touch: UITouch?, with event: UIEvent?) {
+        defer { trackingTouch = false }
+        guard let touch else {
+            show(position: CGFloat(selectedIndex))
+            return
+        }
+        let end = touch.location(in: self)
+        let dx = end.x - touchStart.x
+        let dy = end.y - touchStart.y
+        let result: Int
+
+        if abs(dx) >= 9 * scale && abs(dx) >= abs(dy) * 0.8 {
+            // A short intentional swipe changes one mode; a longer swipe can
+            // cross two. This is independent of the starting label.
+            let steps = max(1, Int((abs(dx) / (68 * scale) + 0.25).rounded(.down)))
+            result = min(modes.count - 1,
+                         max(0, startingIndex + (dx < 0 ? steps : -steps)))
+        } else if abs(dx) < 9 * scale && abs(dy) < 15 * scale {
+            // Taps select exactly the segment under the finger.
+            result = min(modes.count - 1,
+                         max(0, Int((end.x / (68 * scale + 0.001)).rounded(.down))))
+        } else {
+            // Vertical drags belong to other controls, never to the mode bar.
+            result = startingIndex
+        }
+
+        selectedIndex = result
+        show(position: CGFloat(result))
+        if result != startingIndex { onSelect?(modes[result]) }
+    }
+
+    override func cancelTracking(with event: UIEvent?) {
+        trackingTouch = false
+        show(position: CGFloat(selectedIndex))
+    }
+
+    override func accessibilityIncrement() {
+        let newIndex = min(modes.count - 1, selectedIndex + 1)
+        guard newIndex != selectedIndex else { return }
+        selectedIndex = newIndex
+        show(position: CGFloat(newIndex))
+        onSelect?(modes[newIndex])
+    }
+
+    override func accessibilityDecrement() {
+        let newIndex = max(0, selectedIndex - 1)
+        guard newIndex != selectedIndex else { return }
+        selectedIndex = newIndex
+        show(position: CGFloat(newIndex))
+        onSelect?(modes[newIndex])
+    }
 }
