@@ -4,10 +4,11 @@ import AVFoundation
 /// 显示“已套用风格”的实时画面。
 /// 旧版本用 AVCaptureVideoPreviewLayer，只能显示原始画面，所以预览不会随风格变化；
 /// 现在预览、照片、视频都使用 FilterEngine 处理后的同一路画面。
+/// Keep the last valid camera frame visible while AVFoundation changes
+/// between photo and video configurations; no pixel readback is required.
 final class FilteredPreviewView: UIView {
-    // Keep the SwiftUI container fixed; rotate only the preview sublayer.
-    // This avoids rotating/re-rendering every 4K frame in software.
     let displayLayer = AVSampleBufferDisplayLayer()
+    private let heldLayer = AVSampleBufferDisplayLayer()
     private var mirrored = false
     private var lastOrientation: UIInterfaceOrientation = .portrait
 
@@ -16,7 +17,10 @@ final class FilteredPreviewView: UIView {
         backgroundColor = .black
         clipsToBounds = true
         displayLayer.videoGravity = .resizeAspectFill
+        heldLayer.videoGravity = .resizeAspectFill
+        heldLayer.isHidden = true
         layer.addSublayer(displayLayer)
+        layer.addSublayer(heldLayer)
     }
 
     required init?(coder: NSCoder) {
@@ -28,14 +32,30 @@ final class FilteredPreviewView: UIView {
         updateDisplayGeometry()
     }
 
-    func setMirrored(_ newValue: Bool) {
-        guard mirrored != newValue else { return }
-        mirrored = newValue
+    func holdLastFrame(_ sample: CMSampleBuffer?) {
+        guard let sample else { return }
+        let renderer = heldLayer.sampleBufferRenderer
+        renderer.flush()
+        if renderer.isReadyForMoreMediaData {
+            renderer.enqueue(sample)
+            heldLayer.isHidden = false
+        }
+    }
+
+    func resumeLivePreview() {
+        guard !heldLayer.isHidden else { return }
+        heldLayer.isHidden = true
+        heldLayer.sampleBufferRenderer.flush()
+    }
+
+    func setMirrored(_ value: Bool) {
+        guard mirrored != value else { return }
+        mirrored = value
         updateDisplayGeometry()
     }
 
-    func setOrientation(_ newValue: UIInterfaceOrientation) {
-        let resolved: UIInterfaceOrientation = newValue == .unknown ? .portrait : newValue
+    func setOrientation(_ value: UIInterfaceOrientation) {
+        let resolved: UIInterfaceOrientation = value == .unknown ? .portrait : value
         guard lastOrientation != resolved else { return }
         lastOrientation = resolved
         updateDisplayGeometry()
@@ -50,12 +70,17 @@ final class FilteredPreviewView: UIView {
         default: rotation = 0
         }
         let mirror = CGAffineTransform(scaleX: mirrored ? -1 : 1, y: 1)
+        let transform = CGAffineTransform(rotationAngle: rotation).concatenating(mirror)
+        let frameSize = landscape
+            ? CGSize(width: bounds.height, height: bounds.width) : bounds.size
+
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        displayLayer.bounds = CGRect(origin: .zero,
-            size: landscape ? CGSize(width: bounds.height, height: bounds.width) : bounds.size)
-        displayLayer.position = CGPoint(x: bounds.midX, y: bounds.midY)
-        displayLayer.setAffineTransform(CGAffineTransform(rotationAngle: rotation).concatenating(mirror))
+        for previewLayer in [displayLayer, heldLayer] {
+            previewLayer.bounds = CGRect(origin: .zero, size: frameSize)
+            previewLayer.position = CGPoint(x: bounds.midX, y: bounds.midY)
+            previewLayer.setAffineTransform(transform)
+        }
         CATransaction.commit()
     }
 }
@@ -65,7 +90,7 @@ struct FilteredCameraPreview: UIViewRepresentable {
 
     func makeUIView(context: Context) -> FilteredPreviewView {
         let view = FilteredPreviewView()
-        camera.attach(displayLayer: view.displayLayer)
+        camera.attach(preview: view)
         return view
     }
 
