@@ -867,7 +867,7 @@ struct CameraHomeView: View {
     }
 }
 
-/// MARK: - iOS-inspired Portrait Lighting dial
+// MARK: - iOS-inspired Portrait Lighting dial
 // Apple's Camera uses a compact drag-select lighting dial near the bottom of the viewfinder.
 // Avoid a full-width black capsule/hexagon grid: only the current effect is highlighted.
 // This is a SwiftUI approximation, not Apple's private camera control implementation.
