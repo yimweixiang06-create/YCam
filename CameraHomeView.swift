@@ -182,7 +182,7 @@ struct CameraHomeView: View {
         let rawBase = isFramed ? rect.maxY - 37 * m.s : m.shutterCenterY - 72 * m.s
         let baseY = min(rawBase, m.shutterCenterY - 72 * m.s)        // 展开按钮中心
         // The second floating zoom control is intentionally gone. Pinch the preview to zoom.
-        let lightingY = baseY - 112 * m.s
+        let lightingY = baseY - 94 * m.s
         return ZStack {
             topCapsule(m)
                 .position(x: m.W - 73 * m.s, y: m.capsuleCenterY)
@@ -867,71 +867,104 @@ struct CameraHomeView: View {
     }
 }
 
-// MARK: - Isolated real-time portrait-lighting selector
-// The highlight tracks the finger directly; AV processing starts only when the gesture ends.
+/// MARK: - iOS-inspired Portrait Lighting dial
+// Apple's Camera uses a compact drag-select lighting dial near the bottom of the viewfinder.
+// Avoid a full-width black capsule/hexagon grid: only the current effect is highlighted.
+// This is a SwiftUI approximation, not Apple's private camera control implementation.
 private struct PortraitLightingStrip: View {
     let m: UIMetrics
     let selected: PortraitLighting
     let personDetected: Bool
     let onSelect: (PortraitLighting) -> Void
-    @State private var dragOffset: CGFloat = 0
-    @State private var dragging = false
 
-    private var items: [PortraitLighting] { PortraitLighting.allCases.filter { $0 != .off } }
+    // Gesture-local state means dragging never triggers AVFoundation reconfiguration.
+    @GestureState private var translation: CGFloat = 0
+    private let allLights: [PortraitLighting] = [.natural, .studio, .contour, .stage, .stageMono, .highKeyMono]
+
+    private func icon(for light: PortraitLighting) -> String {
+        switch light {
+        case .natural: return "sun.max"
+        case .studio: return "lightbulb.fill"
+        case .contour: return "circle.lefthalf.filled"
+        case .stage: return "moon.fill"
+        case .stageMono: return "moon.stars.fill"
+        case .highKeyMono: return "sun.max.fill"
+        case .off: return "slash.circle"
+        }
+    }
 
     var body: some View {
-        let cell = 44 * m.s
-        let index = items.firstIndex(of: selected) ?? 0
-        let lower = -CGFloat(index) * cell
-        let upper = CGFloat(items.count - index - 1) * cell
-        let limited = min(upper, max(lower, dragOffset))
-        let nearest = min(items.count - 1, max(0, index + Int((limited / cell).rounded())))
+        let cell = 52 * m.s
+        let width = min(m.W - 50 * m.s, 266 * m.s)
+        let current = allLights.firstIndex(of: selected) ?? 0
+        // Constrain the row so it never rubber-bands past the first/last light.
+        let limited = min(CGFloat(current) * cell,
+                          max(-CGFloat(allLights.count - current - 1) * cell, translation))
+        let targetIndex = min(allLights.count - 1,
+                              max(0, current - Int((limited / cell).rounded())))
+        let displayed = allLights[targetIndex]
+        let centered = (CGFloat(allLights.count - 1) / 2 - CGFloat(current)) * cell
+
         return VStack(spacing: 6 * m.s) {
-            Text(personDetected ? selected.title : "\(selected.title)（未检测到人物）")
-                .font(.system(size: 12 * m.s, weight: .semibold))
-                .foregroundStyle(Color.black)
-                .padding(.horizontal, 10 * m.s)
-                .frame(height: 22 * m.s)
-                .background(Capsule().fill(personDetected ? Color.yellow : Color.white.opacity(0.85)))
+            Text(displayed.title)
+                .font(.system(size: 12 * m.s, weight: .medium))
+                .foregroundStyle(.white)
+                .shadow(color: .black.opacity(0.8), radius: 4, y: 1)
+                .frame(height: 20 * m.s)
+                .accessibilityLabel(personDetected ? displayed.title : "\(displayed.title)，等待检测主体")
+
             ZStack {
-                // Small moving spot uses local SwiftUI state only; filter rendering does not update on drag.
-                Circle()
-                    .fill(Color.white.opacity(0.12))
-                    .frame(width: 36 * m.s, height: 36 * m.s)
-                    .offset(x: (CGFloat(index) - CGFloat(items.count - 1) / 2) * cell + limited)
-                    .animation(dragging ? nil : .easeOut(duration: 0.14), value: limited)
-                    .allowsHitTesting(false)
                 HStack(spacing: 0) {
-                    ForEach(items) { item in
-                        Button { onSelect(item) } label: {
-                            Image(systemName: item == items[nearest] ? "hexagon.fill" : "hexagon")
-                                .font(.system(size: 17 * m.s, weight: .semibold))
-                                .foregroundStyle(item == items[nearest] ? Color.yellow : Color.white)
-                                .frame(width: cell, height: 42 * m.s)
-                                .contentShape(Rectangle())
+                    ForEach(allLights) { light in
+                        let focused = light == displayed
+                        Button { onSelect(light) } label: {
+                            ZStack {
+                                Circle()
+                                    .fill(.black.opacity(focused ? 0.48 : 0.18))
+                                    .frame(width: (focused ? 42 : 36) * m.s,
+                                           height: (focused ? 42 : 36) * m.s)
+                                Circle()
+                                    .strokeBorder(focused ? Color.yellow : Color.white.opacity(0.45),
+                                                  lineWidth: focused ? 1.8 * m.s : 0.75 * m.s)
+                                    .frame(width: (focused ? 42 : 36) * m.s,
+                                           height: (focused ? 42 : 36) * m.s)
+                                Image(systemName: icon(for: light))
+                                    .font(.system(size: (focused ? 20 : 16) * m.s,
+                                                  weight: .medium))
+                                    .foregroundStyle(focused ? Color.yellow : Color.white.opacity(0.86))
+                            }
+                            .frame(width: cell, height: 52 * m.s)
+                            .contentShape(Rectangle())
                         }
                         .buttonStyle(GlassButtonStyle())
-                        .accessibilityLabel(item.title)
+                        .accessibilityLabel(light.title)
                     }
                 }
+                .fixedSize()
+                .offset(x: centered + limited)
+                .animation(translation == 0 ? .easeOut(duration: 0.18) : nil,
+                           value: selected)
             }
-            .padding(.horizontal, 8 * m.s)
-            .frame(height: 42 * m.s)
-            .glassSurface(Capsule(), interactive: false)
+            .frame(width: width, height: 52 * m.s)
+            .clipped()
+            .contentShape(Rectangle())
             .highPriorityGesture(
-                DragGesture(minimumDistance: 6 * m.s)
-                    .onChanged { value in
-                        dragging = true
-                        dragOffset = value.translation.width
+                DragGesture(minimumDistance: 5 * m.s)
+                    .updating($translation) { value, state, _ in
+                        state = value.translation.width
                     }
                     .onEnded { value in
-                        let step = Int((min(upper, max(lower, value.translation.width)) / cell).rounded())
-                        let target = min(items.count - 1, max(0, index + step))
-                        dragging = false
-                        dragOffset = 0
-                        if target != index { onSelect(items[target]) }
+                        let offset = min(CGFloat(current) * cell,
+                                         max(-CGFloat(allLights.count - current - 1) * cell,
+                                             value.translation.width))
+                        let newIndex = min(allLights.count - 1,
+                                           max(0, current - Int((offset / cell).rounded())))
+                        if newIndex != current { onSelect(allLights[newIndex]) }
                     }
             )
+            .accessibilityElement(children: .contain)
+            .accessibilityHint("左右滑动，选择人像光效")
         }
+        .frame(width: width, height: 79 * m.s)
     }
 }
