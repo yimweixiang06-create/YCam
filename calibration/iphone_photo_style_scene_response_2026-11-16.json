@@ -1,0 +1,451 @@
+{
+  "schema": "ycam-photographic-style-scene-response-v1",
+  "date": "2026-11-16",
+  "reference": "User-uploaded native iPhone camera screenshots of same white sheet, wood cupboards and orange objects; white cursor positions extracted directly from 11x11 dotted panel",
+  "limitations": "Screen captures at different camera exposure/framing and white balance, not paired Apple RAW and YCam frames. Not evidence of 100% Apple proprietary ISP equivalence. Unlabeled amber screenshot group is only tentatively mapped to Warm.",
+  "sceneRegions": "Paper and cupboard/color-object median sample patches at fixed normalized screen positions, not photos uploaded to GitHub",
+  "controls": "x=-1 color -100, x=+1 color +100; t=+1 upper tone 100, t=-1 lower tone -100. Corners are user-supplied reference RGB values, not absolute device colorimetric standards.",
+  "styles": {
+    "gold": {
+      "count": 8,
+      "confirmed": true,
+      "gamma": 0.4,
+      "left": 0.66,
+      "right": 0.52,
+      "corners": [
+        [
+          [
+            234,
+            227,
+            221
+          ],
+          [
+            92,
+            85,
+            77
+          ]
+        ],
+        [
+          [
+            240,
+            232,
+            223
+          ],
+          [
+            103,
+            57,
+            28
+          ]
+        ],
+        [
+          [
+            202,
+            195,
+            189
+          ],
+          [
+            28,
+            25,
+            21
+          ]
+        ],
+        [
+          [
+            198,
+            189,
+            178
+          ],
+          [
+            16,
+            5,
+            3
+          ]
+        ]
+      ]
+    },
+    "coolRose": {
+      "count": 10,
+      "confirmed": true,
+      "gamma": 0.36,
+      "left": 0.82,
+      "right": 0.58,
+      "corners": [
+        [
+          [
+            229,
+            231,
+            230
+          ],
+          [
+            94,
+            93,
+            88
+          ]
+        ],
+        [
+          [
+            229,
+            230,
+            224
+          ],
+          [
+            120,
+            79,
+            50
+          ]
+        ],
+        [
+          [
+            196,
+            196,
+            194
+          ],
+          [
+            36,
+            36,
+            36
+          ]
+        ],
+        [
+          [
+            204,
+            204,
+            196
+          ],
+          [
+            28,
+            14,
+            5
+          ]
+        ]
+      ]
+    },
+    "cool": {
+      "count": 6,
+      "confirmed": false,
+      "note": "Style inference from adjacent picker; verify name on device",
+      "gamma": 0.36,
+      "left": 0.88,
+      "right": 0.52,
+      "corners": [
+        [
+          [
+            225,
+            230,
+            236
+          ],
+          [
+            83,
+            83,
+            81
+          ]
+        ],
+        [
+          [
+            221,
+            223,
+            224
+          ],
+          [
+            109,
+            79,
+            62
+          ]
+        ],
+        [
+          [
+            193,
+            196,
+            203
+          ],
+          [
+            24,
+            24,
+            24
+          ]
+        ],
+        [
+          [
+            199,
+            201,
+            203
+          ],
+          [
+            39,
+            29,
+            27
+          ]
+        ]
+      ]
+    },
+    "roseGold": {
+      "count": 8,
+      "confirmed": true,
+      "gamma": 0.36,
+      "left": 0.74,
+      "right": 0.58,
+      "corners": [
+        [
+          [
+            223,
+            215,
+            212
+          ],
+          [
+            68,
+            61,
+            55
+          ]
+        ],
+        [
+          [
+            232,
+            227,
+            217
+          ],
+          [
+            129,
+            80,
+            46
+          ]
+        ],
+        [
+          [
+            197,
+            191,
+            187
+          ],
+          [
+            15,
+            14,
+            12
+          ]
+        ],
+        [
+          [
+            207,
+            200,
+            192
+          ],
+          [
+            37,
+            21,
+            8
+          ]
+        ]
+      ]
+    },
+    "vibrant": {
+      "count": 7,
+      "confirmed": true,
+      "gamma": 0.36,
+      "left": 0.72,
+      "right": 0.58,
+      "corners": [
+        [
+          [
+            209,
+            221,
+            245
+          ],
+          [
+            92,
+            79,
+            89
+          ]
+        ],
+        [
+          [
+            215,
+            228,
+            245
+          ],
+          [
+            121,
+            70,
+            47
+          ]
+        ],
+        [
+          [
+            181,
+            186,
+            211
+          ],
+          [
+            27,
+            12,
+            15
+          ]
+        ],
+        [
+          [
+            192,
+            198,
+            216
+          ],
+          [
+            41,
+            13,
+            3
+          ]
+        ]
+      ]
+    },
+    "neutral": {
+      "count": 9,
+      "confirmed": true,
+      "gamma": 0.34,
+      "left": 0.78,
+      "right": 0.55,
+      "corners": [
+        [
+          [
+            225,
+            227,
+            226
+          ],
+          [
+            77,
+            74,
+            67
+          ]
+        ],
+        [
+          [
+            226,
+            227,
+            221
+          ],
+          [
+            123,
+            81,
+            45
+          ]
+        ],
+        [
+          [
+            208,
+            208,
+            208
+          ],
+          [
+            23,
+            22,
+            18
+          ]
+        ],
+        [
+          [
+            209,
+            210,
+            205
+          ],
+          [
+            37,
+            22,
+            10
+          ]
+        ]
+      ]
+    },
+    "warm": {
+      "count": 5,
+      "confirmed": false,
+      "note": "Provisional mapping from unlabeled amber-color screenshot group; Warm baseline recipe intentionally unchanged",
+      "gamma": 0.34,
+      "left": 0.7,
+      "right": 0.56,
+      "corners": [
+        [
+          [
+            231,
+            223,
+            241
+          ],
+          [
+            100,
+            68,
+            63
+          ]
+        ],
+        [
+          [
+            226,
+            216,
+            227
+          ],
+          [
+            132,
+            60,
+            29
+          ]
+        ],
+        [
+          [
+            206,
+            194,
+            206
+          ],
+          [
+            27,
+            25,
+            10
+          ]
+        ],
+        [
+          [
+            203,
+            184,
+            190
+          ],
+          [
+            38,
+            18,
+            4
+          ]
+        ]
+      ]
+    },
+    "pearl": {
+      "count": 20,
+      "source": "iPhone screen-recording frames of the Pearl style; no complete four-corner paired set",
+      "confirmed": true,
+      "gamma": 0.48,
+      "left": 0.76,
+      "right": 0.55,
+      "video_regions": {
+        "paper_center": [
+          215,
+          217,
+          212
+        ],
+        "paper_lower": [
+          211,
+          213,
+          208
+        ],
+        "paper_upper_right": [
+          232,
+          232,
+          227
+        ],
+        "wood_dark_center": [
+          66,
+          19,
+          27
+        ],
+        "wood_dark_lower": [
+          42,
+          2,
+          11
+        ],
+        "wood_dark_upper_right": [
+          124,
+          27,
+          38
+        ]
+      }
+    }
+  }
+}

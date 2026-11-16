@@ -136,6 +136,32 @@ final class FilterEngine {
         return r
     }
 
+    // User-supplied iPhone screenshot observations (53 control-point images)
+    // and Pearl video. These are scene-relative approximations: screenshot
+    // autoexposure/AWB and YCam sensor input were not paired and locked.
+    // Important: only the selected Photographic Style is affected; AppleFilter
+    // remains exclusive and the camera/palette UI is unchanged.
+    private struct PhotoStyleResponse {
+        let gamma: Double
+        let left: Double
+        let right: Double
+        var isReferenceDerived: Bool { gamma > 0.20 }
+    }
+
+    private static func photoStyleResponse(for style: CameraStyle) -> PhotoStyleResponse {
+        switch style {
+        case .gold: return PhotoStyleResponse(gamma: 0.40, left: 0.66, right: 0.52)
+        case .coolRose: return PhotoStyleResponse(gamma: 0.36, left: 0.82, right: 0.58)
+        case .cool: return PhotoStyleResponse(gamma: 0.36, left: 0.88, right: 0.52)
+        case .roseGold: return PhotoStyleResponse(gamma: 0.36, left: 0.74, right: 0.58)
+        case .vibrant: return PhotoStyleResponse(gamma: 0.36, left: 0.72, right: 0.58)
+        case .neutral: return PhotoStyleResponse(gamma: 0.34, left: 0.78, right: 0.55)
+        case .warm: return PhotoStyleResponse(gamma: 0.34, left: 0.70, right: 0.56) // Unlabeled warm-colored source; provisional
+        case .pearl: return PhotoStyleResponse(gamma: 0.48, left: 0.76, right: 0.55) // Video reference
+        default: return PhotoStyleResponse(gamma: 0.10, left: 0.24, right: 0.36) // Unreferenced styles unchanged
+        }
+    }
+
     // MARK: Colour math (mirrored line by line in tools/style_check.py)
 
     @inline(__always) private static func toLinear(_ v: Float) -> Float {
@@ -310,20 +336,29 @@ final class FilterEngine {
             let upperLeft = max(0.0, -color) * max(0.0, rawTone)
             let lowerLeft = max(0.0, -color) * max(0.0, -rawTone)
             let lowerRight = max(0.0, color) * max(0.0, -rawTone)
-            // Reduce wash at the top, and preserve shadows at BOTH bottom corners.
-            let tone = rawTone * (1.0 - 0.28 * upperRight - 0.28 * upperLeft
-                                 - 0.50 * lowerLeft - 0.50 * lowerRight)
-            // Continuous upper +3% and lower DIRECT -2% (center is neutral).
+            // Per-style screenshot response, not a universal exposure/color
+            // mapping. The supplied photos show much stronger upper/lower
+            // separation and near-neutral colors at the far left edge.
+            let response = FilterEngine.photoStyleResponse(for: snap.settings.style)
+            let upperCorner = response.isReferenceDerived ? 0.08 : 0.28
+            let lowerCorner = response.isReferenceDerived ? 0.12 : 0.50
+            let tone = rawTone * (1.0 - upperCorner * upperRight - upperCorner * upperLeft
+                                 - lowerCorner * lowerLeft - lowerCorner * lowerRight)
+            // Preserve user's original: upper half +3%, lower half directly
+            // -2%; no smoothing/blur and no style mixing.
             let zoneSaturation = 1.0 + (rawTone >= 0 ? 0.03 : 0.02) * rawTone
+            let pearlImageMode = snap.settings.style == .pearl && snap.settings.filter == .original
+            let gammaResponse = pearlImageMode ? (tone >= 0 ? 0.48 : 0.50) : response.gamma
+            let exposureResponse = pearlImageMode ? (tone >= 0 ? 0.06 : -0.12) : 0.02
 
             if abs(tone) > 0.0001 {
                 // Downward drag reduces midtone luminance gently without
                 // crushing petals, faces, shadows or blue-sky gradations.
                 out = out.applyingFilter("CIGammaAdjust", parameters: [
-                    "inputPower": 1 - 0.10 * tone
+                    "inputPower": 1 - gammaResponse * tone
                 ])
                 out = out.applyingFilter("CIExposureAdjust", parameters: [
-                    kCIInputEVKey: 0.02 * tone
+                    kCIInputEVKey: exposureResponse * tone
                 ])
             }
             if abs(color) > 0.0001 {
@@ -334,7 +369,7 @@ final class FilterEngine {
                 ])
             }
             out = out.applyingFilter("CIColorControls", parameters: [
-                kCIInputSaturationKey: (1 + color * (color >= 0 ? 0.36 : 0.24)) * zoneSaturation,
+                kCIInputSaturationKey: (1 + color * (color >= 0 ? response.right : response.left)) * zoneSaturation,
                 kCIInputContrastKey: 1 - 0.04 * tone + 0.03 * upperRight + 0.04 * upperLeft
             ])
             if upperLeft > 0.05 {
@@ -349,7 +384,7 @@ final class FilterEngine {
         }
         // 珠光只做轻度亮度边缘强化，不增加任何空间模糊／磨皮。
         // 不动景深蒙版，真正的背景虚化只能由用户开启景深。
-        if snap.settings.style == .pearl && snap.settings.intensity > 0.01 {
+        if snap.settings.style == .pearl && snap.settings.filter == .original && snap.settings.intensity > 0.01 {
             out = out.applyingFilter("CISharpenLuminance", parameters: ["inputSharpness": 0.16])
         }
         if snap.recipe.grain > 0.001 {
