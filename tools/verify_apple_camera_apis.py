@@ -17,7 +17,7 @@ checks=[
 "device.isWhiteBalanceModeSupported(.continuousAutoWhiteBalance)",
 "if !manualShutter, device.isExposurePointOfInterestSupported {",
 "videoOutput.alwaysDiscardsLateVideoFrames = true",
-"adaptivePreviewLongEdge = max(560, adaptivePreviewLongEdge * 0.82)",
+"adaptivePreviewLongEdge = max(680, adaptivePreviewLongEdge * 0.82)",
 "let list = device.activeFormat.supportedMaxPhotoDimensions",
 "settings.photoQualityPrioritization = .quality",
 "photoOutput.maxPhotoQualityPrioritization = .quality"
