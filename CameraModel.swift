@@ -141,6 +141,10 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
     private var mayResumeHeldPreview = false  // dataQueue
     private var pixelPool: CVPixelBufferPool?                              // 仅 dataQueue
     private var pixelPoolSize = (width: 0, height: 0)                      // 仅 dataQueue
+    // A separate small preview pool avoids alternating full-4K and preview
+    // buffer allocations for each filtered recording frame.
+    private var recordingPreviewPool: CVPixelBufferPool?                  // 仅 dataQueue
+    private var recordingPreviewPoolSize = (width: 0, height: 0)          // 仅 dataQueue
     private var currentJob: PhotoJob?
     private let jobLock = NSLock()
     private var observers: [NSObjectProtocol] = []
@@ -1443,9 +1447,14 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
                 return
             }
 
-            // 照片 / 人像取景只需要较低分辨率；视频按原分辨率处理（要写进文件）。
+            // Full resolution is necessary ONLY while the movie writer is
+            // actually armed. Staying in the VIDEO tab (including iOS screen
+            // recording) must not force a 4K/60fps Core Image preview render.
+            // Preserve the selected recording format/quality unchanged.
+            let fullResolutionForRecording = dataIsVideoMode && recorder.isArmed
             let longEdge = CGFloat(max(srcW, srcH))
-            let scale = dataIsVideoMode ? 1 : min(1, min(adaptivePreviewLongEdge, thermalPreviewLimit) / longEdge)
+            let scale = fullResolutionForRecording ? 1
+                : min(1, min(adaptivePreviewLongEdge, thermalPreviewLimit) / longEdge)
             let start = CACurrentMediaTime()
             let width = max(2, Int((CGFloat(srcW) * scale).rounded()))
             let height = max(2, Int((CGFloat(srcH) * scale).rounded()))
@@ -1470,11 +1479,40 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
             ciContext.render(processed, to: target,
                              bounds: CGRect(x: 0, y: 0, width: width, height: height),
                              colorSpace: Self.sRGB)
-            display(target, pts: pts)
+            if fullResolutionForRecording {
+                // Keep the native-size buffer for AVAssetWriter. Only the
+                // VIEWFINDER is reduced, avoiding 4K layer composition while
+                // recording with a photographic style.
+                let previewEdge: CGFloat = min(1080, thermalPreviewLimit)
+                if longEdge > previewEdge {
+                    let previewScale = previewEdge / longEdge
+                    let previewWidth = max(2, Int((CGFloat(width) * previewScale).rounded()))
+                    let previewHeight = max(2, Int((CGFloat(height) * previewScale).rounded()))
+                    if let previewBuffer = makePixelBuffer(width: previewWidth,
+                                                           height: previewHeight, forRecordingPreview: true) {
+                        let small = CIImage(cvPixelBuffer: target)
+                            .transformed(by: CGAffineTransform(scaleX: previewScale, y: previewScale))
+                        ciContext.render(small, to: previewBuffer,
+                                         bounds: CGRect(x: 0, y: 0,
+                                                        width: previewWidth, height: previewHeight),
+                                         colorSpace: Self.sRGB)
+                        display(previewBuffer, pts: pts)
+                    } else {
+                        display(target, pts: pts)
+                    }
+                } else {
+                    display(target, pts: pts)
+                }
+            } else {
+                display(target, pts: pts)
+            }
             recorder.appendVideo(target, pts: pts)
-            if !dataIsVideoMode {
+            if !fullResolutionForRecording {
+                // At 60fps an idle video preview needs a tighter budget than
+                // the still-photo view; adapt from actual GPU time, not model.
+                let frameBudgetMs = dataIsVideoMode ? 18.0 : 32.0
                 let ms = (CACurrentMediaTime() - start) * 1000
-                if ms > 32 { slowPreviewFrames += 1; fastPreviewFrames = 0 }
+                if ms > frameBudgetMs { slowPreviewFrames += 1; fastPreviewFrames = 0 }
                 else if ms < 15 { fastPreviewFrames += 1; slowPreviewFrames = 0 }
                 else { slowPreviewFrames = 0; fastPreviewFrames = 0 }
                 if slowPreviewFrames >= 6 {
@@ -1511,8 +1549,11 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
         DispatchQueue.main.async { self.histogram.bins = normalized }
     }
 
-    private func makePixelBuffer(width: Int, height: Int) -> CVPixelBuffer? {
-        if pixelPool == nil || pixelPoolSize.width != width || pixelPoolSize.height != height {
+    private func makePixelBuffer(width: Int, height: Int,
+                                 forRecordingPreview: Bool = false) -> CVPixelBuffer? {
+        let existingPool = forRecordingPreview ? recordingPreviewPool : pixelPool
+        let size = forRecordingPreview ? recordingPreviewPoolSize : pixelPoolSize
+        if existingPool == nil || size.width != width || size.height != height {
             let attributes: [String: Any] = [
                 kCVPixelBufferPixelFormatTypeKey as String: Int(kCVPixelFormatType_32BGRA),
                 kCVPixelBufferWidthKey as String: width,
@@ -1522,10 +1563,15 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
             ]
             var pool: CVPixelBufferPool?
             CVPixelBufferPoolCreate(kCFAllocatorDefault, nil, attributes as CFDictionary, &pool)
-            pixelPool = pool
-            pixelPoolSize = (width, height)
+            if forRecordingPreview {
+                recordingPreviewPool = pool
+                recordingPreviewPoolSize = (width, height)
+            } else {
+                pixelPool = pool
+                pixelPoolSize = (width, height)
+            }
         }
-        guard let pool = pixelPool else { return nil }
+        guard let pool = (forRecordingPreview ? recordingPreviewPool : pixelPool) else { return nil }
         var buffer: CVPixelBuffer?
         guard CVPixelBufferPoolCreatePixelBuffer(kCFAllocatorDefault, pool, &buffer) == kCVReturnSuccess,
               let buffer else { return nil }
