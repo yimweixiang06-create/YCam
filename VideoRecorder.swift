@@ -27,9 +27,12 @@ final class VideoRecorder {
     // Recorder is confined to CameraModel.dataQueue. A video-mode preview
     // can stay low-resolution until an actual recording is armed.
     var isArmed: Bool { armed }
-    // Reduce display-only work during 60fps filtered recording while
-    // preserving every full-resolution frame offered to AVAssetWriter.
-    var previewFrameStride: Int { fps >= 60 ? 2 : 1 }
+    // Preview cadence is driven by measured per-frame cost, not device model
+    // or a blanket 60fps-to-30fps downgrade on powerful iPhones.
+    private var previewStride = 1
+    private var slowPreviewFrames = 0
+    private var fastPreviewFrames = 0
+    var previewFrameStride: Int { previewStride }
     private var sessionStart: CMTime?
     private var lastVideoPTS = CMTime.invalid
     private var videoFrames = 0
@@ -46,6 +49,31 @@ final class VideoRecorder {
         self.fps = max(1, fps)
         captureOrientation = orientation
         armed = true
+    }
+
+    // Called from CameraModel.dataQueue after the full-size writer frame.
+    // Throttle only the display copy when total processing repeatedly
+    // exceeds the selected frame period, and restore 1:1 on recovery.
+    func noteVideoProcessingTime(milliseconds: Double) {
+        guard armed else { return }
+        let budget = 1_000.0 / Double(max(1, fps))
+        if milliseconds > budget * 0.85 {
+            slowPreviewFrames += 1
+            fastPreviewFrames = 0
+        } else if milliseconds < budget * 0.60 {
+            fastPreviewFrames += 1
+            slowPreviewFrames = 0
+        } else {
+            slowPreviewFrames = 0
+            fastPreviewFrames = 0
+        }
+        if slowPreviewFrames >= 6 {
+            previewStride = min(3, previewStride + 1)
+            slowPreviewFrames = 0
+        } else if fastPreviewFrames >= 60 {
+            previewStride = max(1, previewStride - 1)
+            fastPreviewFrames = 0
+        }
     }
 
     func appendVideo(_ pixelBuffer: CVPixelBuffer, pts: CMTime) {
@@ -236,6 +264,9 @@ final class VideoRecorder {
         lastVideoPTS = .invalid
         videoFrames = 0
         writerBackpressureDrops = 0
+        previewStride = 1
+        slowPreviewFrames = 0
+        fastPreviewFrames = 0
         failure = nil
     }
 }
