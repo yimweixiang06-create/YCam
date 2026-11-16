@@ -130,50 +130,142 @@ struct SwatchCarousel<Item: Hashable & Identifiable>: View {
 struct DotPalette: View {
     @Binding var point: CGPoint
     var style: CameraStyle
-
-    // The original cardColors represent highlight / warm skin / shadow.
-    // They are NOT x-axis positions: using them as a left-to-right gradient
-    // made the custom pad white, yellow, then almost black.
-    // Build a restrained visual guide from the selected style instead.
-    // This is YCam UI artwork, not an Apple preset reference or color target.
-    private var guideColors: [Color] {
-        let base = UIColor(style.swatch)
-        var hue: CGFloat = 0
-        var saturation: CGFloat = 0
-        var brightness: CGFloat = 0
-        var alpha: CGFloat = 0
-        let hasHSB = base.getHue(&hue, saturation: &saturation,
-                                 brightness: &brightness, alpha: &alpha)
-        if !hasHSB { return [Color.gray, Color.gray, Color.gray] }
-
-        // Standard and monochrome are strictly neutral. Other looks retain
-        // only the selected style's hue, not the invented peach skin swatch.
-        let maxSaturation: CGFloat = (style == .standard || style == .monochrome)
-            ? 0 : min(0.32, max(0.10, saturation * 0.70))
-        func guide(_ fraction: CGFloat) -> Color {
-            Color(uiColor: UIColor(hue: hue,
-                                   saturation: maxSaturation * fraction,
-                                   brightness: 0.56,
-                                   alpha: 1))
-        }
-        return [guide(0.04), guide(0.48), guide(1.00)]
-    }
+    var filter: AppleFilter
+    var intensity: Double
 
     var body: some View {
-        RoundedRectangle(cornerRadius: 18, style: .continuous)
-            .fill(LinearGradient(colors: guideColors, startPoint: .leading, endPoint: .trailing))
-            // The X-axis is color richness, not a white/skin/black sample strip.
-            // The Y-axis is only a moderate light/dark cue; never paint black
-            // or blown-out white at a corner of the original dotted pad.
-            .overlay(
-                LinearGradient(colors: [Color.white.opacity(0.11), .clear, Color.black.opacity(0.14)],
-                               startPoint: .top, endPoint: .bottom)
-                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        // iOS 27-inspired palette field, compared with the user's actual
+        // camera recording: soft smoked-rose at the top, charcoal-plum below.
+        // Keep the tiny 11x11 dots and precise touch cursor on their own
+        // pre-existing CALayers. No expensive live backdrop blur or glare.
+        let shape = RoundedRectangle(cornerRadius: 18, style: .continuous)
+        ZStack {
+            shape.fill(
+                LinearGradient(stops: [
+                    .init(color: Color(red: 0.39, green: 0.33, blue: 0.37), location: 0),
+                    .init(color: Color(red: 0.32, green: 0.24, blue: 0.29), location: 0.35),
+                    .init(color: Color(red: 0.22, green: 0.14, blue: 0.20), location: 0.68),
+                    .init(color: Color(red: 0.11, green: 0.08, blue: 0.13), location: 1)
+                ], startPoint: .topLeading, endPoint: .bottomTrailing)
             )
-            .overlay {
-                DotPaletteTouchSurface(point: $point)
-                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            // Preserve each style's calculated two-axis color field, but
+            // use it only as a restrained tint over the system-like backdrop.
+            Image(uiImage: PaletteColorMap.image(style: style, filter: filter, intensity: intensity))
+                .resizable()
+                .interpolation(.high)
+                .saturation(0.70)
+                .opacity(0.18)
+                .allowsHitTesting(false)
+            LinearGradient(stops: [
+                .init(color: Color.white.opacity(0.055), location: 0),
+                .init(color: .clear, location: 0.33),
+                .init(color: Color.black.opacity(0.23), location: 1)
+            ], startPoint: .top, endPoint: .bottom)
+            .allowsHitTesting(false)
+        }
+        .clipShape(shape)
+        .overlay {
+            DotPaletteTouchSurface(point: $point)
+                .clipShape(shape)
+        }
+    }
+}
+
+/// Cache one 33x33 RGBA color surface per style/filter/5%-strength combination.
+/// Each source cell is evaluated independently for BOTH tone and color axes.
+/// The raster is for the pad's visual guidance only; actual preview/photos
+/// continue to use FilterEngine.process and its full-resolution GPU pipeline.
+private enum PaletteColorMap {
+    private static let side = 33
+    private static let cache: NSCache<NSString, UIImage> = {
+        let result = NSCache<NSString, UIImage>()
+        result.countLimit = 64
+        return result
+    }()
+
+    private static func clamp(_ value: Float) -> Float {
+        min(1, max(0, value))
+    }
+
+    static func image(style: CameraStyle, filter: AppleFilter, intensity: Double) -> UIImage {
+        let strengthStep = Int((min(1, max(0, intensity)) * 20).rounded())
+        let key = NSString(string: "\(style.rawValue)|\(filter.rawValue)|\(strengthStep)")
+        if let existing = cache.object(forKey: key) { return existing }
+
+        let strength = Float(strengthStep) / 20
+        var settings = StyleSettings()
+        settings.style = style
+        settings.filter = filter
+        settings.intensity = Double(strength)
+        let recipe = FilterEngine.effectiveRecipe(for: settings)
+        let filmLut = style.lutName.flatMap { LutLibrary.shared.table(named: $0) }
+
+        var rgba = [UInt8](repeating: 255, count: side * side * 4)
+        for row in 0..<side {
+            let y = Float(row) / Float(side - 1)
+            let tone = (0.5 - y) * 2 * strength
+            for column in 0..<side {
+                let x = Float(column) / Float(side - 1)
+                let color = (x - 0.5) * 2 * strength
+
+                // Sample three meaningful scene colors (skin / sky / neutral)
+                // separately at EVERY coordinate. They are visual examples,
+                // not a claim of a frame's actual pixels or official Apple LUT.
+                let examples: [(Float, Float, Float, Float)] = [
+                    (0.90, 0.52, 0.58, 0.48),
+                    (0.44, 0.71, 0.88, 0.32),
+                    (0.68, 0.70, 0.71, 0.20)
+                ]
+                var sumR: Float = 0, sumG: Float = 0, sumB: Float = 0
+                for (sr, sg, sb, weight) in examples {
+                    var r = sr, g = sg, b = sb
+                    if let filmLut {
+                        let mapped = filmLut.sample(r, g, b)
+                        r += (mapped.0 - r) * strength
+                        g += (mapped.1 - g) * strength
+                        b += (mapped.2 - b) * strength
+                    }
+                    (r, g, b) = FilterEngine.transform(r, g, b, recipe)
+                    let gamma = 1 - 0.10 * tone
+                    let gain = powf(2, 0.02 * tone)
+                    r = clamp(powf(clamp(r), gamma) * gain)
+                    g = clamp(powf(clamp(g), gamma) * gain)
+                    b = clamp(powf(clamp(b), gamma) * gain)
+
+                    let luminosity = 0.2126 * r + 0.7152 * g + 0.0722 * b
+                    let chroma = max(r, max(g, b)) - min(r, min(g, b))
+                    let vibrance = 1 + 0.18 * color * (1 - chroma) * 0.2
+                    let saturation = 1 + color * (color >= 0 ? 0.36 : 0.24)
+                    let contrast = 1 - 0.04 * tone
+                    let scale = vibrance * saturation
+                    sumR += clamp(((luminosity + (r - luminosity) * scale) - 0.5) * contrast + 0.5) * weight
+                    sumG += clamp(((luminosity + (g - luminosity) * scale) - 0.5) * contrast + 0.5) * weight
+                    sumB += clamp(((luminosity + (b - luminosity) * scale) - 0.5) * contrast + 0.5) * weight
+                }
+                let i = (row * side + column) * 4
+                rgba[i] = UInt8((clamp(sumR) * 255).rounded())
+                rgba[i + 1] = UInt8((clamp(sumG) * 255).rounded())
+                rgba[i + 2] = UInt8((clamp(sumB) * 255).rounded())
+                rgba[i + 3] = 255
             }
+        }
+
+        let data = Data(rgba)
+        guard let provider = CGDataProvider(data: data as CFData),
+              let cgImage = CGImage(
+                width: side, height: side,
+                bitsPerComponent: 8, bitsPerPixel: 32,
+                bytesPerRow: side * 4,
+                space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.last.rawValue),
+                provider: provider, decode: nil, shouldInterpolate: true, intent: .defaultIntent
+              ) else {
+            // A safe fallback for failed image allocation; never touch the camera.
+            return UIImage()
+        }
+        let result = UIImage(cgImage: cgImage)
+        cache.setObject(result, forKey: key)
+        return result
     }
 }
 

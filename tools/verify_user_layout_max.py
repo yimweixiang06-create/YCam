@@ -157,19 +157,23 @@ assert 'shortName: { $0.pickerTitle }' not in panel
 assert 'symbol: "circle.grid.3x3.fill"' not in panel
 assert 'symbol: "circle.lefthalf.filled"' not in panel
 assert 'Text("自定义")' in panel
-assert 'DotPalette(point: $camera.styleSettings.point, style: settings.style)' in panel
+assert 'DotPalette(point: $camera.styleSettings.point, style: settings.style,' in panel
+assert 'filter: settings.filter, intensity: settings.intensity)' in panel
 
-# Preserve original square, control dot, shape, panels and 11 yellow ticks.
-# Artwork is now a style-dependent hue/saturation guide, not left-to-right
-# highlight/skin/shadow photos or a shared purple mask.
+# User-selected sober iOS27-inspired palette artwork from v1.5,
+# NOT the made-up pastel style swatch from v1.10. Preserve original panel,
+# card dimensions, white dot, 11x11 dots and yellow 11-tick intensity slider.
 assert 'struct DotPalette: View' in palette_src
 assert 'var style: CameraStyle' in palette_src
-assert 'let base = UIColor(style.swatch)' in palette_src
-assert '.fill(LinearGradient(colors: guideColors, startPoint: .leading, endPoint: .trailing))' in palette_src
-assert 'Color.white.opacity(0.11), .clear, Color.black.opacity(0.14)' in palette_src
+assert 'var filter: AppleFilter' in palette_src
+assert 'var intensity: Double' in palette_src
+assert 'Color(red: 0.39, green: 0.33, blue: 0.37)' in palette_src
+assert 'Color(red: 0.11, green: 0.08, blue: 0.13)' in palette_src
+assert '.opacity(0.18)' in palette_src
+assert 'Image(uiImage: PaletteColorMap.image(style: style, filter: filter, intensity: intensity))' in palette_src
+assert 'private var guideColors' not in palette_src
+assert 'let base = UIColor(style.swatch)' not in palette_src
 assert 'Color.black.opacity(0.63)' not in palette_src
-assert 'Color.white.opacity(0.42)' not in palette_src
-assert 'Image(uiImage: PaletteColorMap.image(' not in palette_src
 assert 'DotPaletteTouchSurface(point: $point)' in palette_src
 assert 'private final class DotPaletteTrackingView: UIControl' in palette_src
 assert 'private let dotsLayer = CAShapeLayer()' in palette_src
