@@ -33,7 +33,12 @@ assert "case .pearl: return LookRecipe(exposure: -0.015" in sty
 assert "exposureResponse = pearlImageMode ? (tone >= 0 ? 0.06 : -0.12)" not in eng
 assert "if snap.settings.filter != .original && snap.recipe.softness > 0.001" in eng
 assert "if snap.settings.filter != .original && snap.recipe.bloom > 0.001" in eng
-assert "let scale = dataIsVideoMode ? 1" in cam
+# Preserve full selected recording resolution only when writer is armed.
+# Video tab idle preview should adapt to real GPU time (including screen recording).
+assert "let fullResolutionForRecording = dataIsVideoMode && recorder.isArmed" in cam
+assert "let scale = fullResolutionForRecording ? 1" in cam
+assert "recordingPreviewPool" in cam
+assert "recorder.appendVideo(target, pts: pts)" in cam
 assert "adaptivePreviewLongEdge: CGFloat = 1200" in cam
 assert "maxPreviewLongEdge: CGFloat = 1450" in cam
 assert "adaptivePreviewLongEdge = max(680, adaptivePreviewLongEdge * 0.82)" in cam
