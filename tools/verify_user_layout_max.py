@@ -79,7 +79,9 @@ assert "private final class DotPaletteTrackingView: UIControl" in palette_src
 assert "let columns = 11" in palette_src
 assert "dotPosition(col: c, row: r)" in palette_src
 assert "dotPosition(col: c, row: r)" in palette_src
-assert "pendingBuild?.cancel()" in engine and "milliseconds(32)" in engine
+# LUTs rebuild only on real style changes; live 2D color controls do not queue cube builds.
+assert "pendingBuild?.cancel()" in engine and "milliseconds(16)" in engine
+assert "sameBakedStyle(previous.settings, settings)" in engine
 
 # v1.1(8) landscape/portrait/video/long-press/thermal smoke assertions
 info = (root / "Info.plist").read_text(encoding="utf-8")
@@ -135,6 +137,7 @@ assert "currentGeneration == latestGeneration" in model
 assert "private final class DotPaletteTrackingView: UIControl" in palette_src
 assert "private let dotsLayer = CAShapeLayer()" in palette_src
 assert "private let cursorLayer = CALayer()" in palette_src
-assert "lastCommitTime >= 1.0 / 15.0" in palette_src
+# The active touch implementation publishes at up to 60 Hz, not old 15 Hz.
+assert "lastCommitTime >= 1.0 / 60.0" in palette_src
 assert "DragGesture(minimumDistance: 0, coordinateSpace: .named" not in palette_src
 print("PASS: held preview during capture preset transition; palette cursor stays on visible dots")
