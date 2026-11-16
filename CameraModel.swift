@@ -349,6 +349,9 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
         photoOutput.maxPhotoQualityPrioritization = .quality
         rotationCoordinator = AVCaptureDevice.RotationCoordinator(device: device, previewLayer: nil)
         configureDeviceCapabilities(device)
+        // Always initialize the hardware's ambient-light white balance
+        // explicitly. Manual Kelvin remains user-controlled.
+        applyWhiteBalance(whiteBalanceKelvin, device)
         DiagnosticsLog.shared.add("相机设备：\(device.localizedName)，镜头数=\(device.constituentDevices.count)")
         return true
     }
@@ -669,7 +672,11 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
         if exposureBias != 0 { applyExposureBias(exposureBias, device) }
         if focusLens != nil { applyFocus(focusLens, device) }
         if shutterSeconds != nil { applyShutter(shutterSeconds, device) }
-        if whiteBalanceKelvin != nil { applyWhiteBalance(whiteBalanceKelvin, device) }
+        // Re-apply BOTH auto and manual white balance after every camera/preset
+        // change. Previously auto white balance could be left in a locked
+        // state after switching devices; that can turn neutral highlights
+        // warm/yellow when the ambient light suddenly changes.
+        applyWhiteBalance(whiteBalanceKelvin, device)
         applyNight(nightEnabled, device)
     }
 

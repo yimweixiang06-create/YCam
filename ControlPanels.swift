@@ -516,7 +516,7 @@ struct FiltersPanel: View {
     var body: some View {
         VStack(spacing: 8 * m.s) {
             PanelHeader(m, onBack: onBack, onReset: { camera.styleSettings.filter = .original }) {
-                panelTitle("滤镜：\(camera.styleSettings.filter.title)", m)
+                panelTitle("\("滤镜".ycamLocalized): \(camera.styleSettings.filter.title)", m)
             }
             Circle()
                 .fill(Color.white)

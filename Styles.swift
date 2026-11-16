@@ -292,14 +292,14 @@ enum AppleFilter: String, CaseIterable, Identifiable {
         switch self {
         case .original: return LookRecipe()
         case .vivid: return LookRecipe(contrast: 0.10, saturation: 1.28, vibrance: 0.15)
-        case .vividWarm: return LookRecipe(contrast: 0.10, saturation: 1.25, vibrance: 0.12, temperature: 0.22)
-        case .vividCool: return LookRecipe(contrast: 0.10, saturation: 1.25, vibrance: 0.12, temperature: -0.22)
-        case .dramatic: return LookRecipe(exposure: -0.08, contrast: 0.45, saturation: 0.82, whiteRoll: 0.05)
-        case .dramaticWarm: return LookRecipe(exposure: -0.08, contrast: 0.45, saturation: 0.82, temperature: 0.20, whiteRoll: 0.05)
+        case .vividWarm: return LookRecipe(exposure: 0.26, contrast: 0.03, saturation: 1.38, vibrance: 0.17, temperature: 0.34, tint: 0.07, blackLift: 0.06, whiteRoll: 0.10)
+        case .vividCool: return LookRecipe(exposure: 0.29, contrast: 0.12, saturation: 1.25, vibrance: 0.12, temperature: -0.47, tint: -0.03, blackLift: 0.04, whiteRoll: 0.09)
+        case .dramatic: return LookRecipe(exposure: -0.03, contrast: 0.41, saturation: 0.74, temperature: 0.01, tint: 0.01, blackLift: 0.04, whiteRoll: 0.08)
+        case .dramaticWarm: return LookRecipe(exposure: -0.18, contrast: 0.53, saturation: 0.77, vibrance: 0.05, temperature: 0.52, tint: -0.015, whiteRoll: 0.03)
         case .dramaticCool: return LookRecipe(exposure: -0.08, contrast: 0.45, saturation: 0.82, temperature: -0.20, whiteRoll: 0.05)
-        case .mono: return LookRecipe(contrast: 0.10, mono: 1)
-        case .silvertone: return LookRecipe(exposure: 0.04, contrast: 0.02, blackLift: 0.04, whiteRoll: 0.05, mono: 1)
-        case .noir: return LookRecipe(exposure: -0.10, contrast: 0.55, mono: 1)
+        case .mono: return LookRecipe(exposure: 0.10, contrast: 0.35, whiteRoll: 0.03, mono: 1)
+        case .silvertone: return LookRecipe(exposure: 0.35, contrast: 0.24, temperature: 0.46, tint: 0.03, blackLift: 0.055, whiteRoll: 0.08, mono: 0.88)
+        case .noir: return LookRecipe(exposure: 0.08, contrast: 0.88, whiteRoll: 0.01, mono: 1)
         }
     }
 

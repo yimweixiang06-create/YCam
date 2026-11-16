@@ -22,7 +22,7 @@ final class FilterEngine {
 
         /// 颜色 / 柔光 / 颗粒都不需要处理（视频模式下可以直接用相机原始帧，省掉整条 GPU 流水线）。
         var hasPaletteShift: Bool {
-            settings.intensity > 0.001 &&
+            settings.filter == .original && settings.intensity > 0.001 &&
                 (abs(settings.point.x - 0.5) > 0.0005 || abs(settings.point.y - 0.5) > 0.0005)
         }
 
@@ -110,7 +110,11 @@ final class FilterEngine {
         var base = s
         base.point = StyleSettings.defaultPoint
         let recipe = effectiveRecipe(for: base)
-        let lut: LutTable? = s.style.lutName.flatMap { LutLibrary.shared.table(named: $0) }
+        // Traditional filters use only their own recipe. Do not leak the
+        // selected Photographic Style's LUT into an ordinary photo filter.
+        let lut: LutTable? = s.filter == .original
+            ? s.style.lutName.flatMap { LutLibrary.shared.table(named: $0) }
+            : nil
         let strength = Float(min(1, max(0, s.intensity)))
         let cube: Data? = (recipe.isColorIdentity && lut == nil) ? nil : buildCube(recipe, lut: lut, strength: strength)
         return Snapshot(settings: s, recipe: recipe, cube: cube)
@@ -121,10 +125,13 @@ final class FilterEngine {
     /// Apple 摄影风格的专有算法未公开，YCam 的系数是经参考照片校准的独立实现。
     static func effectiveRecipe(for s: StyleSettings) -> LookRecipe {
         let k = Float(min(1, max(0, s.intensity)))
-        var r = s.style.recipe.scaled(by: k).combined(with: s.filter.recipe)
-        // Preserve v1.4 recipe colors. The +3% / -2% applies only to
-        // the live upper/lower palette halves, not all filters globally.
-        // Continuous tone/color controls are applied at render time instead.
+        // Keep Apple-style traditional filters and YCam's 28 Photographic
+        // Styles mutually exclusive in the color pipeline. This prevents
+        // double warmth or hidden style/palette shifts on filter preview,
+        // photographs and video, while preserving every style's own recipe.
+        var r = s.filter == .original
+            ? s.style.recipe.scaled(by: k)
+            : s.filter.recipe
         r.exposure += Float(s.exposure)
         return r
     }
