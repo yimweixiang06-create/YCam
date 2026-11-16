@@ -21,12 +21,13 @@ assert "Double((0.5 - snap.settings.point.y) * 2)" in engine
 assert "snap.settings.intensity" in engine
 # The original neutral point and upper +3% / lower direct -2% rule remain,
 # but the per-style color response has been calibrated from user's screenshots.
-# Unreferenced styles still use the original 0.24 / 0.36 saturation coefficients.
+# Every photographic style now owns its own saturation and tone response.
 assert 'out.applyingFilter("CIGammaAdjust"' in engine
 assert 'out.applyingFilter("CIExposureAdjust"' in engine
 assert 'out.applyingFilter("CIVibrance"' in engine
 assert 'kCIInputSaturationKey: (1 + color * (color >= 0 ? response.right : response.left)) * zoneSaturation' in engine
-assert 'default: return PhotoStyleResponse(gamma: 0.10, left: 0.24, right: 0.36)' in engine
+assert 'default: return PhotoStyleResponse(' not in engine
+assert 'case .fujiProvia: return PhotoStyleResponse(' in engine
 assert 'let response = FilterEngine.photoStyleResponse(for: snap.settings.style)' in engine
 assert 'let upperRight = max(0.0, color) * max(0.0, rawTone)' in engine
 assert 'let lowerLeft = max(0.0, -color) * max(0.0, -rawTone)' in engine

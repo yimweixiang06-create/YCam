@@ -136,29 +136,48 @@ final class FilterEngine {
         return r
     }
 
-    // User-supplied iPhone screenshot observations (53 control-point images)
-    // and Pearl video. These are scene-relative approximations: screenshot
-    // autoexposure/AWB and YCam sensor input were not paired and locked.
-    // Important: only the selected Photographic Style is affected; AppleFilter
-    // remains exclusive and the camera/palette UI is unchanged.
+    // Each of YCam's 28 photographic styles has its own pad-to-image curve.
+    // Shared algorithm != shared color recipe. Values not backed by paired
+    // Apple/YCam captures are conservative artistic presets, not Apple ISP.
     private struct PhotoStyleResponse {
         let gamma: Double
         let left: Double
         let right: Double
-        var isReferenceDerived: Bool { gamma > 0.20 }
+        let upperCorner: Double
+        let lowerCorner: Double
+        let exposure: Double
     }
 
     private static func photoStyleResponse(for style: CameraStyle) -> PhotoStyleResponse {
         switch style {
-        case .gold: return PhotoStyleResponse(gamma: 0.40, left: 0.66, right: 0.52)
-        case .coolRose: return PhotoStyleResponse(gamma: 0.36, left: 0.82, right: 0.58)
-        case .cool: return PhotoStyleResponse(gamma: 0.36, left: 0.88, right: 0.52)
-        case .roseGold: return PhotoStyleResponse(gamma: 0.36, left: 0.74, right: 0.58)
-        case .vibrant: return PhotoStyleResponse(gamma: 0.36, left: 0.72, right: 0.58)
-        case .neutral: return PhotoStyleResponse(gamma: 0.34, left: 0.78, right: 0.55)
-        case .warm: return PhotoStyleResponse(gamma: 0.34, left: 0.70, right: 0.56) // Unlabeled warm-colored source; provisional
-        case .pearl: return PhotoStyleResponse(gamma: 0.48, left: 0.76, right: 0.55) // Video reference
-        default: return PhotoStyleResponse(gamma: 0.10, left: 0.24, right: 0.36) // Unreferenced styles unchanged
+        case .standard: return PhotoStyleResponse(gamma: 0.070, left: 0.260, right: 0.250, upperCorner: 0.280, lowerCorner: 0.440, exposure: 0.006)
+        case .pearl: return PhotoStyleResponse(gamma: 0.072, left: 0.680, right: 0.310, upperCorner: 0.115, lowerCorner: 0.210, exposure: 0.012)
+        case .amber: return PhotoStyleResponse(gamma: 0.120, left: 0.520, right: 0.300, upperCorner: 0.175, lowerCorner: 0.290, exposure: 0.016)
+        case .gold: return PhotoStyleResponse(gamma: 0.125, left: 0.630, right: 0.320, upperCorner: 0.140, lowerCorner: 0.260, exposure: 0.018)
+        case .roseGold: return PhotoStyleResponse(gamma: 0.115, left: 0.630, right: 0.335, upperCorner: 0.160, lowerCorner: 0.270, exposure: 0.013)
+        case .coolRose: return PhotoStyleResponse(gamma: 0.107, left: 0.700, right: 0.340, upperCorner: 0.155, lowerCorner: 0.250, exposure: 0.010)
+        case .cool: return PhotoStyleResponse(gamma: 0.102, left: 0.720, right: 0.305, upperCorner: 0.150, lowerCorner: 0.280, exposure: 0.009)
+        case .neutral: return PhotoStyleResponse(gamma: 0.080, left: 0.660, right: 0.275, upperCorner: 0.180, lowerCorner: 0.300, exposure: 0.008)
+        case .vibrant: return PhotoStyleResponse(gamma: 0.135, left: 0.570, right: 0.400, upperCorner: 0.140, lowerCorner: 0.260, exposure: 0.017)
+        case .warm: return PhotoStyleResponse(gamma: 0.118, left: 0.610, right: 0.345, upperCorner: 0.185, lowerCorner: 0.290, exposure: 0.013)
+        case .ethereal: return PhotoStyleResponse(gamma: 0.085, left: 0.500, right: 0.270, upperCorner: 0.190, lowerCorner: 0.330, exposure: 0.009)
+        case .dramatic: return PhotoStyleResponse(gamma: 0.095, left: 0.425, right: 0.280, upperCorner: 0.230, lowerCorner: 0.320, exposure: 0.010)
+        case .luminous: return PhotoStyleResponse(gamma: 0.105, left: 0.550, right: 0.310, upperCorner: 0.180, lowerCorner: 0.310, exposure: 0.012)
+        case .radiant: return PhotoStyleResponse(gamma: 0.130, left: 0.540, right: 0.375, upperCorner: 0.175, lowerCorner: 0.270, exposure: 0.014)
+        case .monochrome: return PhotoStyleResponse(gamma: 0.070, left: 0.200, right: 0.210, upperCorner: 0.300, lowerCorner: 0.360, exposure: 0.006)
+        case .fuji400: return PhotoStyleResponse(gamma: 0.100, left: 0.440, right: 0.310, upperCorner: 0.260, lowerCorner: 0.330, exposure: 0.009)
+        case .kodak800: return PhotoStyleResponse(gamma: 0.095, left: 0.480, right: 0.320, upperCorner: 0.220, lowerCorner: 0.300, exposure: 0.011)
+        case .fujiCyan: return PhotoStyleResponse(gamma: 0.092, left: 0.450, right: 0.325, upperCorner: 0.250, lowerCorner: 0.350, exposure: 0.010)
+        case .kodakWarmYellow: return PhotoStyleResponse(gamma: 0.104, left: 0.495, right: 0.350, upperCorner: 0.230, lowerCorner: 0.335, exposure: 0.013)
+        case .fujiProvia: return PhotoStyleResponse(gamma: 0.088, left: 0.405, right: 0.290, upperCorner: 0.240, lowerCorner: 0.340, exposure: 0.009)
+        case .fujiVelvia: return PhotoStyleResponse(gamma: 0.099, left: 0.390, right: 0.360, upperCorner: 0.255, lowerCorner: 0.345, exposure: 0.010)
+        case .fujiAstia: return PhotoStyleResponse(gamma: 0.082, left: 0.425, right: 0.275, upperCorner: 0.235, lowerCorner: 0.355, exposure: 0.008)
+        case .fujiRealaAce: return PhotoStyleResponse(gamma: 0.085, left: 0.415, right: 0.295, upperCorner: 0.245, lowerCorner: 0.325, exposure: 0.009)
+        case .fujiClassicChrome: return PhotoStyleResponse(gamma: 0.093, left: 0.370, right: 0.315, upperCorner: 0.240, lowerCorner: 0.310, exposure: 0.010)
+        case .fujiClassicNeg: return PhotoStyleResponse(gamma: 0.103, left: 0.385, right: 0.335, upperCorner: 0.265, lowerCorner: 0.320, exposure: 0.012)
+        case .fujiProNeg: return PhotoStyleResponse(gamma: 0.077, left: 0.420, right: 0.282, upperCorner: 0.230, lowerCorner: 0.300, exposure: 0.007)
+        case .fujiEterna: return PhotoStyleResponse(gamma: 0.075, left: 0.375, right: 0.265, upperCorner: 0.255, lowerCorner: 0.365, exposure: 0.008)
+        case .fujiEternaBB: return PhotoStyleResponse(gamma: 0.098, left: 0.405, right: 0.302, upperCorner: 0.265, lowerCorner: 0.350, exposure: 0.011)
         }
     }
 
@@ -310,7 +329,9 @@ final class FilterEngine {
         if snap.needsMask, let mask {
             out = FilterEngine.applyLighting(out, mask: mask, lighting: snap.settings.lighting, depth: snap.settings.depth)
         }
-        if snap.recipe.softness > 0.001 {
+        if snap.settings.filter != .original && snap.recipe.softness > 0.001 {
+            // Styles are always spatially sharp. Optional softness is not
+            // allowed to leak into any Photographic Style, including Pearl.
             out = FilterEngine.applySoftness(out, amount: snap.recipe.softness, extent: extent)
         }
         if let cube = snap.cube,
@@ -340,16 +361,15 @@ final class FilterEngine {
             // mapping. The supplied photos show much stronger upper/lower
             // separation and near-neutral colors at the far left edge.
             let response = FilterEngine.photoStyleResponse(for: snap.settings.style)
-            let upperCorner = response.isReferenceDerived ? 0.08 : 0.28
-            let lowerCorner = response.isReferenceDerived ? 0.12 : 0.50
-            let tone = rawTone * (1.0 - upperCorner * upperRight - upperCorner * upperLeft
-                                 - lowerCorner * lowerLeft - lowerCorner * lowerRight)
-            // Preserve user's original: upper half +3%, lower half directly
-            // -2%; no smoothing/blur and no style mixing.
+            let tone = rawTone * (1.0 - response.upperCorner * upperRight - response.upperCorner * upperLeft
+                                 - response.lowerCorner * lowerLeft - response.lowerCorner * lowerRight)
+            // Upper +3%, lower direct -2%; keep palette axis centered.
             let zoneSaturation = 1.0 + (rawTone >= 0 ? 0.03 : 0.02) * rawTone
-            let pearlImageMode = snap.settings.style == .pearl && snap.settings.filter == .original
-            let gammaResponse = pearlImageMode ? (tone >= 0 ? 0.48 : 0.50) : response.gamma
-            let exposureResponse = pearlImageMode ? (tone >= 0 ? 0.06 : -0.12) : 0.02
+            // Use a gentle curve per style; 0.48/0.50 Pearl gamma and
+            // negative lower-tone exposure were lifting whites and shadows
+            // excessively. Positive exposure * signed tone is symmetric.
+            let gammaResponse = response.gamma
+            let exposureResponse = response.exposure
 
             if abs(tone) > 0.0001 {
                 // Downward drag reduces midtone luminance gently without
@@ -379,13 +399,15 @@ final class FilterEngine {
                 ])
             }
         }
-        if snap.recipe.bloom > 0.001 {
+        if snap.settings.filter != .original && snap.recipe.bloom > 0.001 {
+            // No style-added glow: preserves highlight texture and edge detail.
             out = FilterEngine.applyBloom(out, amount: snap.recipe.bloom, extent: extent)
         }
         // 珠光只做轻度亮度边缘强化，不增加任何空间模糊／磨皮。
         // 不动景深蒙版，真正的背景虚化只能由用户开启景深。
         if snap.settings.style == .pearl && snap.settings.filter == .original && snap.settings.intensity > 0.01 {
-            out = out.applyingFilter("CISharpenLuminance", parameters: ["inputSharpness": 0.16])
+            // Keep Pearl detail clean, never add a haze/soft-focus blend.
+            out = out.applyingFilter("CISharpenLuminance", parameters: ["inputSharpness": 0.09])
         }
         if snap.recipe.grain > 0.001 {
             out = FilterEngine.applyGrain(out, amount: snap.recipe.grain, scale: grainScale, extent: extent)

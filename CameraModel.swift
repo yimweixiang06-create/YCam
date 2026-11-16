@@ -145,12 +145,12 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
     private let jobLock = NSLock()
     private var observers: [NSObjectProtocol] = []
     private static let sRGB = CGColorSpace(name: CGColorSpace.sRGB)!
-    private static let maxPreviewLongEdge: CGFloat = 1050                  // 照片 / 人像取景的处理分辨率上限
+    private static let maxPreviewLongEdge: CGFloat = 1450                  // 照片 / 人像取景的处理分辨率上限
 
     private var framesProcessed = 0                                        // 仅 dataQueue
     private var frameCounter = 0
-    private var adaptivePreviewLongEdge: CGFloat = 900  // adaptive live preview; full-resolution photos unchanged
-    private var thermalPreviewLimit: CGFloat = 1050       // dataQueue
+    private var adaptivePreviewLongEdge: CGFloat = 1200  // adaptive live preview; preserve detail while dynamically reducing GPU work; photos remain full resolution
+    private var thermalPreviewLimit: CGFloat = 1450       // dataQueue
     private var slowPreviewFrames = 0
     private var fastPreviewFrames = 0                                           // 仅 dataQueue
     private var lastLoggedFrameSize = (width: 0, height: 0)                // 仅 dataQueue
@@ -1421,10 +1421,10 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
             if frameCounter % 60 == 0 {
                 switch ProcessInfo.processInfo.thermalState {
                 case .nominal: thermalPreviewLimit = Self.maxPreviewLongEdge
-                case .fair: thermalPreviewLimit = 850
-                case .serious: thermalPreviewLimit = 680
-                case .critical: thermalPreviewLimit = 560
-                @unknown default: thermalPreviewLimit = 680
+                case .fair: thermalPreviewLimit = 1050
+                case .serious: thermalPreviewLimit = 820
+                case .critical: thermalPreviewLimit = 680
+                @unknown default: thermalPreviewLimit = 820
                 }
                 adaptivePreviewLongEdge = min(adaptivePreviewLongEdge, thermalPreviewLimit)
             }
@@ -1478,7 +1478,7 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
                 else if ms < 15 { fastPreviewFrames += 1; slowPreviewFrames = 0 }
                 else { slowPreviewFrames = 0; fastPreviewFrames = 0 }
                 if slowPreviewFrames >= 6 {
-                    adaptivePreviewLongEdge = max(560, adaptivePreviewLongEdge * 0.82)
+                    adaptivePreviewLongEdge = max(680, adaptivePreviewLongEdge * 0.82)
                     slowPreviewFrames = 0
                 } else if fastPreviewFrames >= 70 {
                     adaptivePreviewLongEdge = min(thermalPreviewLimit, adaptivePreviewLongEdge * 1.10)
