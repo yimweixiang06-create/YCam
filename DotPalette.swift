@@ -27,15 +27,28 @@ struct DotGrid: View {
 
 struct SwatchCard: View {
     let colors: [Color]
+    let preview: UIImage?
     let selected: Bool
 
     var body: some View {
-        RoundedRectangle(cornerRadius: 11, style: .continuous)
-            .fill(LinearGradient(colors: colors, startPoint: .top, endPoint: .bottom))
-            .overlay(
+        ZStack {
+            if let preview {
+                // Same real camera frame, each thumbnail rendered by its own YCam look.
+                Image(uiImage: preview)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                // First-frame/camera-permission fallback, never official Apple data.
                 RoundedRectangle(cornerRadius: 11, style: .continuous)
-                    .stroke(Color.white.opacity(selected ? 0.85 : 0.14), lineWidth: selected ? 1.5 : 0.6)
-            )
+                    .fill(LinearGradient(colors: colors, startPoint: .top, endPoint: .bottom))
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 11, style: .continuous)
+                .stroke(Color.white.opacity(selected ? 0.90 : 0.18), lineWidth: selected ? 1.5 : 0.6)
+        )
     }
 }
 
@@ -47,6 +60,7 @@ struct SwatchCarousel<Item: Hashable & Identifiable>: View {
     let cardHeight: CGFloat
     let spacing: CGFloat
     let colors: (Item) -> [Color]
+    let previews: (Item) -> UIImage?
     let name: (Item) -> String
 
     @State private var anchorIndex = 0
@@ -59,7 +73,7 @@ struct SwatchCarousel<Item: Hashable & Identifiable>: View {
         GeometryReader { geo in
             ZStack {
                 ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
-                    SwatchCard(colors: colors(item), selected: item == selected)
+                    SwatchCard(colors: colors(item), preview: previews(item), selected: item == selected)
                         .frame(width: cardWidth, height: cardHeight)
                         .position(x: geo.size.width / 2 + CGFloat(index - anchorIndex) * step + drag,
                                   y: geo.size.height / 2)
@@ -125,6 +139,55 @@ struct SwatchCarousel<Item: Hashable & Identifiable>: View {
     }
 }
 
+/// Offline snapshots for selector cards, from ONE user-owned camera frame.
+/// No network permissions, no reused Apple visual assets and no 3D LUT rebuilds
+/// on the camera preview thread. The cards show YCam's effects, not Apple truth.
+enum SwatchPhotoRenderer {
+    private static let width = 60
+    private static let height = 78
+    private static let rgbSpace = CGColorSpace(name: CGColorSpace.sRGB)!
+    private static let rgbaBitmap = CGBitmapInfo(rawValue:
+        CGBitmapInfo.byteOrder32Big.rawValue | CGImageAlphaInfo.premultipliedLast.rawValue)
+
+    static func render(_ frame: CGImage, recipe: LookRecipe, lutName: String?) -> UIImage? {
+        var bytes = [UInt8](repeating: 0, count: width * height * 4)
+        bytes.withUnsafeMutableBytes { raw in
+            guard let context = CGContext(data: raw.baseAddress, width: width, height: height,
+                                          bitsPerComponent: 8, bytesPerRow: width * 4,
+                                          space: rgbSpace, bitmapInfo: rgbaBitmap.rawValue) else { return }
+            context.interpolationQuality = .high
+            let factor = max(CGFloat(width) / CGFloat(frame.width),
+                             CGFloat(height) / CGFloat(frame.height))
+            let w = CGFloat(frame.width) * factor
+            let h = CGFloat(frame.height) * factor
+            context.draw(frame, in: CGRect(x: (CGFloat(width) - w) / 2,
+                                            y: (CGFloat(height) - h) / 2, width: w, height: h))
+        }
+        let lut = lutName.flatMap { LutLibrary.shared.table(named: $0) }
+        for offset in stride(from: 0, to: bytes.count, by: 4) {
+            let alpha = Float(bytes[offset + 3]) / 255
+            guard alpha > 0 else { continue }
+            var r = min(1, Float(bytes[offset]) / (255 * alpha))
+            var g = min(1, Float(bytes[offset + 1]) / (255 * alpha))
+            var b = min(1, Float(bytes[offset + 2]) / (255 * alpha))
+            if let lut { (r, g, b) = lut.sample(r, g, b) }
+            (r, g, b) = FilterEngine.transform(r, g, b, recipe)
+            bytes[offset] = UInt8((max(0, min(1, r)) * alpha * 255).rounded())
+            bytes[offset + 1] = UInt8((max(0, min(1, g)) * alpha * 255).rounded())
+            bytes[offset + 2] = UInt8((max(0, min(1, b)) * alpha * 255).rounded())
+        }
+        guard let provider = CGDataProvider(data: Data(bytes) as CFData),
+              let output = CGImage(width: width, height: height,
+                                   bitsPerComponent: 8, bitsPerPixel: 32,
+                                   bytesPerRow: width * 4, space: rgbSpace,
+                                   bitmapInfo: rgbaBitmap, provider: provider,
+                                   decode: nil, shouldInterpolate: true, intent: .defaultIntent) else {
+            return nil
+        }
+        return UIImage(cgImage: output)
+    }
+}
+
 // MARK: - 摄影风格色调板：横向颜色 −100...100，纵向色调 +100...−100
 
 struct DotPalette: View {
@@ -134,32 +197,22 @@ struct DotPalette: View {
     var intensity: Double
 
     var body: some View {
-        // iOS 27-inspired palette field, compared with the user's actual
-        // camera recording: soft smoked-rose at the top, charcoal-plum below.
-        // Keep the tiny 11x11 dots and precise touch cursor on their own
-        // pre-existing CALayers. No expensive live backdrop blur or glare.
+        // Independent YCam 2D raster for EACH style. The previous shared
+        // smoked-rose background hid most of the style-dependent colors.
+        // Apple has not published these proprietary palette textures.
         let shape = RoundedRectangle(cornerRadius: 18, style: .continuous)
         ZStack {
-            shape.fill(
-                LinearGradient(stops: [
-                    .init(color: Color(red: 0.39, green: 0.33, blue: 0.37), location: 0),
-                    .init(color: Color(red: 0.32, green: 0.24, blue: 0.29), location: 0.35),
-                    .init(color: Color(red: 0.22, green: 0.14, blue: 0.20), location: 0.68),
-                    .init(color: Color(red: 0.11, green: 0.08, blue: 0.13), location: 1)
-                ], startPoint: .topLeading, endPoint: .bottomTrailing)
-            )
-            // Preserve each style's calculated two-axis color field, but
-            // use it only as a restrained tint over the system-like backdrop.
+            shape.fill(style.swatch)
             Image(uiImage: PaletteColorMap.image(style: style, filter: filter, intensity: intensity))
                 .resizable()
                 .interpolation(.high)
-                .saturation(0.70)
-                .opacity(0.18)
+                .saturation(style == .monochrome ? 0 : 1.04)
+                .opacity(0.92)
                 .allowsHitTesting(false)
             LinearGradient(stops: [
-                .init(color: Color.white.opacity(0.055), location: 0),
-                .init(color: .clear, location: 0.33),
-                .init(color: Color.black.opacity(0.23), location: 1)
+                .init(color: Color.white.opacity(0.04), location: 0),
+                .init(color: .clear, location: 0.42),
+                .init(color: Color.black.opacity(0.14), location: 1)
             ], startPoint: .top, endPoint: .bottom)
             .allowsHitTesting(false)
         }
