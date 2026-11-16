@@ -154,7 +154,12 @@ assert 'intensity: settings.intensity)' in panel
 assert 'private enum PaletteColorMap' in palette_src
 assert 'for row in 0..<side' in palette_src and 'for column in 0..<side' in palette_src
 assert 'FilterEngine.transform(r, g, b, recipe)' in palette_src
-assert 'style.cardColors' not in palette_src.split('struct DotPalette: View',1)[1]
+# Check the actual Swift source behavior rather than rejecting a comment.
+assert '.fill(LinearGradient(colors: colors,' not in palette_src.split('struct DotPalette: View',1)[1].split('private enum PaletteColorMap',1)[0]
+assert 'let examples: [(Float, Float, Float, Float)]' in palette_src
+assert 'for (sr, sg, sb, weight) in examples' in palette_src
+assert 'let gamma = 1 - 0.10 * tone' in palette_src
+assert 'let saturation = 1 + color * (color >= 0 ? 0.36 : 0.24)' in palette_src
 assert '.interpolation(.high)' in palette_src
 assert "DragGesture(minimumDistance: 0, coordinateSpace: .named" not in palette_src
 print("PASS: held preview during capture preset transition; palette cursor stays on visible dots")

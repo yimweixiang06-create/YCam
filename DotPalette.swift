@@ -185,42 +185,44 @@ private enum PaletteColorMap {
                 let x = Float(column) / Float(side - 1)
                 let color = (x - 0.5) * 2 * strength
 
-                // Multiple source channels vary with the position as well;
-                // this is not a single style.cardColors sample blown up.
-                let sourceR: Float = 0.64 + 0.13 * x + 0.02 * (1 - y)
-                let sourceG: Float = 0.56 + 0.045 * x + 0.025 * (1 - y)
-                let sourceB: Float = 0.66 - 0.15 * x + 0.015 * y
-                var r = sourceR, g = sourceG, b = sourceB
-                if let filmLut {
-                    let mapped = filmLut.sample(r, g, b)
-                    r += (mapped.0 - r) * strength
-                    g += (mapped.1 - g) * strength
-                    b += (mapped.2 - b) * strength
+                // Sample three meaningful scene colors (skin / sky / neutral)
+                // separately at EVERY coordinate. They are visual examples,
+                // not a claim of a frame's actual pixels or official Apple LUT.
+                let examples: [(Float, Float, Float, Float)] = [
+                    (0.90, 0.52, 0.58, 0.48),
+                    (0.44, 0.71, 0.88, 0.32),
+                    (0.68, 0.70, 0.71, 0.20)
+                ]
+                var sumR: Float = 0, sumG: Float = 0, sumB: Float = 0
+                for (sr, sg, sb, weight) in examples {
+                    var r = sr, g = sg, b = sb
+                    if let filmLut {
+                        let mapped = filmLut.sample(r, g, b)
+                        r += (mapped.0 - r) * strength
+                        g += (mapped.1 - g) * strength
+                        b += (mapped.2 - b) * strength
+                    }
+                    (r, g, b) = FilterEngine.transform(r, g, b, recipe)
+                    let gamma = 1 - 0.10 * tone
+                    let gain = powf(2, 0.02 * tone)
+                    r = clamp(powf(clamp(r), gamma) * gain)
+                    g = clamp(powf(clamp(g), gamma) * gain)
+                    b = clamp(powf(clamp(b), gamma) * gain)
+
+                    let luminosity = 0.2126 * r + 0.7152 * g + 0.0722 * b
+                    let chroma = max(r, max(g, b)) - min(r, min(g, b))
+                    let vibrance = 1 + 0.18 * color * (1 - chroma) * 0.2
+                    let saturation = 1 + color * (color >= 0 ? 0.36 : 0.24)
+                    let contrast = 1 - 0.04 * tone
+                    let scale = vibrance * saturation
+                    sumR += clamp(((luminosity + (r - luminosity) * scale) - 0.5) * contrast + 0.5) * weight
+                    sumG += clamp(((luminosity + (g - luminosity) * scale) - 0.5) * contrast + 0.5) * weight
+                    sumB += clamp(((luminosity + (b - luminosity) * scale) - 0.5) * contrast + 0.5) * weight
                 }
-                (r, g, b) = FilterEngine.transform(r, g, b, recipe)
-
-                // The same axis directions used by live Core Image controls:
-                // upwards = higher tone, rightwards = higher color.
-                let gamma = 1 - 0.28 * tone
-                let gain = powf(2, 0.08 * tone)
-                r = clamp(powf(clamp(r), gamma) * gain)
-                g = clamp(powf(clamp(g), gamma) * gain)
-                b = clamp(powf(clamp(b), gamma) * gain)
-
-                let luminosity = 0.2126 * r + 0.7152 * g + 0.0722 * b
-                let chroma = max(r, max(g, b)) - min(r, min(g, b))
-                let vibrance = 1 + 0.38 * color * (1 - chroma) * 0.2
-                let saturation = max(0.25, 1 + color * (color >= 0 ? 0.62 : 0.68))
-                let contrast = 1 - 0.14 * tone
-                let scale = vibrance * saturation
-                r = clamp(((luminosity + (r - luminosity) * scale) - 0.5) * contrast + 0.5)
-                g = clamp(((luminosity + (g - luminosity) * scale) - 0.5) * contrast + 0.5)
-                b = clamp(((luminosity + (b - luminosity) * scale) - 0.5) * contrast + 0.5)
-
                 let i = (row * side + column) * 4
-                rgba[i] = UInt8((r * 255).rounded())
-                rgba[i + 1] = UInt8((g * 255).rounded())
-                rgba[i + 2] = UInt8((b * 255).rounded())
+                rgba[i] = UInt8((clamp(sumR) * 255).rounded())
+                rgba[i + 1] = UInt8((clamp(sumG) * 255).rounded())
+                rgba[i + 2] = UInt8((clamp(sumB) * 255).rounded())
                 rgba[i + 3] = 255
             }
         }

@@ -289,33 +289,35 @@ final class FilterEngine {
             out = result
         }
         if snap.hasPaletteShift {
-            // Second calibration: independent 2D axes, continuous across
-            // all 8 directions, no abrupt steps or LUT rebuilds on touch.
-            // Tone is a midtone curve (protecting bright skies better than
-            // the former +/-0.36 EV exposure adjustment); color is a
-            // skin-tone-aware vibrance adjustment plus calibrated saturation.
+            // Color is evaluated by Core Image for every pixel, not taken from
+            // a single palette dot or applied as a uniform RGB overlay.
+            // The style's baked LUT stays fixed during touch; the 2D pad
+            // only modulates tone / chroma with conservative skin-safe limits.
+            // These are YCam approximations, NOT Apple's proprietary coefficients.
             let k = min(1.0, max(0.0, snap.settings.intensity))
             let color = min(1.0, max(-1.0, Double((snap.settings.point.x - 0.5) * 2))) * k
             let tone = min(1.0, max(-1.0, Double((0.5 - snap.settings.point.y) * 2))) * k
 
             if abs(tone) > 0.0001 {
+                // Downward drag reduces midtone luminance gently without
+                // crushing petals, faces, shadows or blue-sky gradations.
                 out = out.applyingFilter("CIGammaAdjust", parameters: [
-                    "inputPower": 1 - 0.28 * tone
+                    "inputPower": 1 - 0.10 * tone
                 ])
                 out = out.applyingFilter("CIExposureAdjust", parameters: [
-                    kCIInputEVKey: 0.08 * tone
+                    kCIInputEVKey: 0.02 * tone
                 ])
             }
             if abs(color) > 0.0001 {
-                // Apple Core Image CIVibrance selectively strengthens colors
-                // while reducing unwanted skin-tone shifts.
+                // CIVibrance is color-dependent (protects skin better than
+                // blanket desaturation). Keep all positions well above gray.
                 out = out.applyingFilter("CIVibrance", parameters: [
-                    "inputAmount": 0.38 * color
+                    "inputAmount": 0.18 * color
                 ])
             }
             out = out.applyingFilter("CIColorControls", parameters: [
-                kCIInputSaturationKey: max(0.25, 1 + color * (color >= 0 ? 0.62 : 0.68)),
-                kCIInputContrastKey: 1 - 0.14 * tone
+                kCIInputSaturationKey: 1 + color * (color >= 0 ? 0.36 : 0.24),
+                kCIInputContrastKey: 1 - 0.04 * tone
             ])
         }
         if snap.recipe.bloom > 0.001 {
