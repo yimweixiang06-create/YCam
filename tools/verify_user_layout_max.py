@@ -158,22 +158,66 @@ assert 'FilterEngine.transform(r, g, b, recipe)' in palette_src
 assert '.fill(LinearGradient(colors: colors,' not in palette_src.split('struct DotPalette: View',1)[1].split('private enum PaletteColorMap',1)[0]
 assert 'let examples: [(Float, Float, Float, Float)]' in palette_src
 assert 'for (sr, sg, sb, weight) in examples' in palette_src
-assert 'let gamma = 1 - 0.10 * tone' in palette_src
-assert 'let saturation = 1 + color * (color >= 0 ? 0.36 : 0.24)' in palette_src
+assert 'let axes = FilterEngine.paletteAxes(style: style,' in palette_src
+assert 'let gamma = Float(axes.gamma)' in palette_src
+assert 'let saturation = Float(axes.saturation)' in palette_src
 assert '.interpolation(.high)' in palette_src
-# Unique 2D palette field per style; no universal violet mask.
-# Still not a claim to Apple's private photographic-style palette coefficients.
+
+# Per-style icon with label ABOVE photo-free selector; no raw snapshots
+# or source processing while the chooser is open.
+assert 'struct SwatchCard: View' in palette_src
+assert 'Image(systemName: symbol)' in palette_src
+assert 'Text(label)' in palette_src
+assert 'PaletteIconArtwork.style($0)' in panel
+assert 'PaletteIconArtwork.filter($0)' in panel
+assert 'shortName: { $0.pickerTitle }' in panel
+assert 'SwatchPhotoRenderer' not in palette_src
+assert 'styleCardPreviews' not in model
+assert 'filterCardPreviews' not in model
+assert 'refreshStyleCardPreviews' not in home
+
+# The original grid and frosted control box must remain. Individual palette
+# colours dominate, with stronger colour directions and outlined white dots.
 assert 'shape.fill(style.swatch)' in palette_src
-assert '.opacity(0.92)' in palette_src
+assert '.opacity(0.97)' in palette_src
 assert 'style == .monochrome ? 0 : 1.04' in palette_src
 assert 'soft smoked-rose at the top' not in palette_src
-assert 'SwatchPhotoRenderer.render' in model
-assert 'let currentFilter = snap.settings.filter' in model
-assert 'let currentStyle = snap.settings.style' in model
-assert 'styleCardPreviews' in panel and 'filterCardPreviews' in panel
-assert 'camera.refreshStyleCardPreviews()' in home
-assert 'previews: (Item) -> UIImage?' in palette_src
-assert 'Image(uiImage: preview)' in palette_src
+assert 'let examples: [(Float, Float, Float, Float)]' in palette_src
+assert 'primary.0, primary.1, primary.2, 0.72' in palette_src
+assert 'dotsLayer.strokeColor = UIColor.black.withAlphaComponent(0.38).cgColor' in palette_src
+assert 'static func paletteAxes(style: CameraStyle, tone: Double, color: Double)' in engine
+assert 'kCIInputEVKey: axes.exposure' in engine
+assert 'kCIInputSaturationKey: axes.saturation' in engine
+assert 'kCIInputContrastKey: axes.contrast' in engine
+assert 'let exposure = (t >= 0 ? 0.40 : 0.52) * t' in engine
+
+# Numeric regression for the independent axes (normals and corners).
+def axes(tone, color, style="standard"):
+    t = max(-1.0, min(1.0, tone))
+    c = max(-1.0, min(1.0, color))
+    ev = (0.40 if t >= 0 else 0.52) * t
+    gamma = 1 - 0.18 * t
+    contrast = 1 - 0.16 * t
+    if style == "monochrome":
+        contrast += 0.22 * c
+    elif style == "dramatic":
+        contrast += 0.13 * max(0, -t) + 0.05 * max(0, c)
+    elif style == "ethereal":
+        contrast -= 0.07 * max(0, t)
+    sat = 1 if style == "monochrome" else 1 + c * (0.75 if c >= 0 else 0.54)
+    vib = 0 if style == "monochrome" else 0.30 * c
+    return ev, gamma, contrast, sat, vib
+
+assert axes(0, 0) == (0, 1, 1, 1, 0)
+assert axes(1, -1)[0] > 0 and axes(1, -1)[3] < 1
+assert axes(1, 1)[0] > 0 and axes(1, 1)[3] > 1
+assert axes(-1, 1)[0] < 0 and axes(-1, 1)[3] > 1
+assert axes(-1, -1)[0] < 0 and axes(-1, -1)[3] < 1
+assert len(set(axes(t,c) for t,c in [(1,1),(1,-1),(-1,1),(-1,-1)])) == 4
+assert axes(-1,1,"monochrome")[3] == 1
+assert axes(-1,-1,"monochrome")[3] == 1
+assert axes(-1,1,"monochrome")[2] > axes(-1,-1,"monochrome")[2]
+
 # These visual changes must never replace the restored old-size controls.
 assert 'let columns = 11' in palette_src
 assert 'DotPaletteTouchSurface(point: $point)' in palette_src
