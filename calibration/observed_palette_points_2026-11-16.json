@@ -1,0 +1,41 @@
+{
+  "schema": 1,
+  "source": "User-supplied iPhone camera comparison screen recording, 2026-11-16 09:50 local",
+  "rights_note": "Derived control settings and qualitative observations only; the original video is not redistributed.",
+  "style_key": "style:pearl",
+  "scene": "pink cherry blossoms with blue sky",
+  "evidence_level": "visual single-clip qualitative; not an original-and-target image pair",
+  "usable_for_numeric_color_fitting": false,
+  "observations": [
+    {
+      "time_second": 13,
+      "tone": 94,
+      "color": -87,
+      "intensity": 100,
+      "normalized_point": {"x": 0.065, "y": 0.03},
+      "description": "Pale muted blossom pink and relatively desaturated sky, not completely gray"
+    },
+    {
+      "time_second": 16,
+      "tone": 83,
+      "color": 79,
+      "intensity": 100,
+      "normalized_point": {"x": 0.895, "y": 0.085},
+      "description": "Saturated vivid pink blossoms and clearly blue sky, petal detail preserved"
+    },
+    {
+      "time_second": 20,
+      "tone": 89,
+      "color": 100,
+      "intensity": 100,
+      "normalized_point": {"x": 1, "y": 0.055},
+      "description": "Deep vivid pink flowers and blue sky; not a single flat pink overlay"
+    }
+  ],
+  "limitations": [
+    "Video capture, social-video overlays and compression can shift colors.",
+    "No matched original image or calibrated display, so CIE Delta E accuracy cannot be measured.",
+    "No lower-half control positions were recorded in this clip.",
+    "Do not infer unsupported positions or other style IDs from these three readings."
+  ]
+}
