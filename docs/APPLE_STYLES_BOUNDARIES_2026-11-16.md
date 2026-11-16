@@ -4,7 +4,9 @@
 - Photographic Styles 会智能调整照片**不同区域中的特定颜色**，不是单纯给整张照片叠一种均匀色块。来源：https://support.apple.com/en-gb/guide/iphone/iph629d2cd37/27/ios/27
 - 兼容设备拍摄使用「高效」格式时，可以在 Photos 中再次选择与调整风格：Tone、Color、Intensity；设备及功能代际有限制。来源：https://support.apple.com/en-my/guide/iphone/iphb08064d57/27/ios/27
 - iPhone 18 Pro / Pro Max 等支持的设备具备更进一步的 Texture、Soft Skin、Glow、Film 及 Grain 操作；并非所有设备均具备。见以上 Apple Support 页面。
-- Apple 只公开功能层面的描述；并没有在此公开用于复现原厂风格的具体语义分割类别与模型、ISP 数学模型、完整二维底图或 3D 色彩矩阵。
+- Apple Machine Learning Research 2021 年的 [HyperDETR 研究](https://machinelearning.apple.com/research/panoptic-segmentation) **明确确认 person/skin/sky segmentation 用于 Photographic Styles**，区域蒙版帮助选择性应用调整、保护肤色；研究还详细介绍 Transformer、MobileNetV3 与 ANE 端侧加速。这是可信的 Apple 一手技术材料，不只是第三方推测。
+- 该 2021 年论文并不能证明 iOS 27 仍运行完全相同的模型，也没有证明植物、建筑、嘴唇、衣物都用于每一个风格。
+- Apple 官方使用指南说明“高效”拍摄在兼容机型可供之后在 Photos 调整风格；它**没有**公开私人 HEIF 数据结构、全部 ISP 数学模型、颜色矩阵、每点二维背景，不能等同“独立图层+完全无损可逆”技术证明。
 
 ## 不得当作确定事实的推断
 - 「Apple 一定把 skin/sky/plant/building 分成四个独立掩膜」或其训练模型/矩阵；
