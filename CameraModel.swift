@@ -1519,6 +1519,9 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
                 display(target, pts: pts)
             }
             recorder.appendVideo(target, pts: pts)
+            if fullResolutionForRecording {
+                recorder.noteVideoProcessingTime(milliseconds: (CACurrentMediaTime() - start) * 1000)
+            }
             if !fullResolutionForRecording {
                 // At 60fps an idle video preview needs a tighter budget than
                 // the still-photo view; adapt from actual GPU time, not model.
