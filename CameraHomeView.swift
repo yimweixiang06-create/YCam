@@ -693,9 +693,6 @@ struct CameraHomeView: View {
         guard !camera.isRecording || target == .closed else { return }
         // 面板变形的玻璃层不接管手势；轻量动画可以避免高频反复触发。
         guard target != sheet else { return }
-        if target == .styles || target == .filters {
-            camera.refreshStyleCardPreviews()
-        }
         withAnimation(.easeOut(duration: 0.22)) { sheet = target }
     }
 
