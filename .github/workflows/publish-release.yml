@@ -1,83 +1,163 @@
-name: Publish YCam 1.1 (11) IPA to Releases
+name: Publish newly verified YCam IPA
 
 on:
+  workflow_run:
+    workflows:
+      - Build YCam for Sideloadly
+    types:
+      - completed
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - ".github/workflows/publish-release.yml"
-      - "RELEASE_NOTES_v1.1.11.md"
+    inputs:
+      build_run_id:
+        description: Successful Build YCam for Sideloadly run ID on main
+        required: true
+        type: string
 
 permissions:
-  contents: write
   actions: read
+  contents: write
 
 concurrency:
-  group: ycam-release-1-1-11
+  group: ycam-verified-release
   cancel-in-progress: false
 
 jobs:
   publish:
-    name: Publish verified unsigned IPA
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_branch == 'main' &&
+       github.event.workflow_run.event == 'push')
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout README and release notes
+      - name: Read repository sources and release tags
         uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
 
-      - name: Download the already successful YCam 1.1 (11) IPA
+      - name: Verify successful current-source iOS build with meaningful app changes
+        id: source
         env:
           GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
+          SOURCE_RUN_ID: ${{ github.event.workflow_run.id || inputs.build_run_id }}
+        run: |
+          set -euo pipefail
+          [[ "$SOURCE_RUN_ID" =~ ^[0-9]+$ ]] || { echo "::error::Invalid run ID"; exit 1; }
+          RUN="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN_ID")"
+          echo "$RUN" | jq -e --arg repo "$GITHUB_REPOSITORY" '
+            .status == "completed" and .conclusion == "success" and
+            .head_branch == "main" and .head_repository.full_name == $repo and
+            .name == "Build YCam for Sideloadly" and
+            (.event == "push" or .event == "workflow_dispatch")
+          ' > /dev/null
+          SHA="$(echo "$RUN" | jq -r .head_sha)"
+          CURRENT="$(git rev-parse HEAD)"
+          if [ "$SHA" != "$CURRENT" ]; then
+            echo "::notice::A newer main commit exists; refusing to publish a stale IPA."
+            exit 0
+          fi
+          PREVIOUS="$(gh release view -R "$GITHUB_REPOSITORY" --json tagName --jq .tagName)"
+          git rev-parse "$PREVIOUS^{commit}" > /dev/null
+          CHANGED="$(git diff --name-only "$PREVIOUS" "$SHA" --)"
+          if ! printf '%s\n' "$CHANGED" | grep -Eq '(^[^/]+\.swift$|^Info\.plist$|^Assets\.xcassets/|^YCam\.xcodeproj/)'; then
+            echo "::notice::No application-code changes since $PREVIOUS. No unnecessary release."
+            exit 0
+          fi
+          echo "publish=true" >> "$GITHUB_OUTPUT"
+          echo "source_sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "run_id=$SOURCE_RUN_ID" >> "$GITHUB_OUTPUT"
+          echo "previous=$PREVIOUS" >> "$GITHUB_OUTPUT"
+
+      - name: Download IPA from this exact successful iPhone build
+        if: steps.source.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN_ID: ${{ steps.source.outputs.run_id }}
         run: |
           set -euo pipefail
           mkdir -p release
-          # Use the exact successful iPhoneOS build, not an unrelated or
-          # unverified IPA, and do not rerun compilation in this workflow.
-          gh run download 43732391839 --name YCam-unsigned-IPA --dir release
+          gh run download "$SOURCE_RUN_ID" --repo "$GITHUB_REPOSITORY" --name YCam-unsigned-IPA --dir release
           test -s release/YCam-unsigned.ipa
-          mv release/YCam-unsigned.ipa release/YCam-v1.1-build11-unsigned.ipa
 
-      - name: Verify IPA version and integrity
+      - name: Verify binary metadata, version monotonicity and SHA-256
+        if: steps.source.outputs.publish == 'true'
+        id: validate
+        env:
+          PREVIOUS: ${{ steps.source.outputs.previous }}
+          SOURCE_SHA: ${{ steps.source.outputs.source_sha }}
+          SOURCE_RUN_ID: ${{ steps.source.outputs.run_id }}
         run: |
           set -euo pipefail
           python3 - <<'PY'
-          import hashlib
-          import plistlib
-          import zipfile
+          import hashlib, os, plistlib, re, zipfile
           from pathlib import Path
-          ipa = Path("release/YCam-v1.1-build11-unsigned.ipa")
-          with zipfile.ZipFile(ipa) as z:
-              assert z.testzip() is None, "Corrupted IPA archive"
-              info = plistlib.loads(z.read("Payload/YCam.app/Info.plist"))
-              assert info["CFBundleShortVersionString"] == "1.1", info
-              assert info["CFBundleVersion"] == "11", info
-              assert info["CFBundleIdentifier"] == "com.ycam.camera", info
-              assert any(name.endswith("YCam.app/YCam") for name in z.namelist())
-          assert ipa.stat().st_size >= 1_000_000
-          print("Verified YCam", info["CFBundleShortVersionString"], "("+info["CFBundleVersion"]+")")
-          print("IPA bytes:", ipa.stat().st_size)
-          print("SHA-256:", hashlib.sha256(ipa.read_bytes()).hexdigest())
+          old = os.environ["PREVIOUS"]
+          match = re.fullmatch(r"v(\d+)\.(\d+)(?:\.(\d+))?", old)
+          assert match, "Cannot determine next version from latest tag"
+          expected = f"{match.group(1)}.{int(match.group(2))+1}"
+          raw = Path("release/YCam-unsigned.ipa")
+          assert raw.stat().st_size >= 1_000_000, "IPA too small"
+          with zipfile.ZipFile(raw) as archive:
+              assert archive.testzip() is None, "Corrupted IPA"
+              names = set(archive.namelist())
+              assert "Payload/YCam.app/YCam" in names, "Missing executable"
+              plist = plistlib.loads(archive.read("Payload/YCam.app/Info.plist"))
+              assert plist["CFBundleIdentifier"] == "com.ycam.camera"
+              assert plist["CFBundleShortVersionString"] == expected, (
+                  "Built IPA version does not match next release", plist["CFBundleShortVersionString"], expected)
+              build = str(plist["CFBundleVersion"])
+              assert build.isdigit() and int(build)>13, "Build number is not monotonic"
+              assert plist.get("MinimumOSVersion","") == "18.0"
+              for key in ("NSCameraUsageDescription","NSMicrophoneUsageDescription",
+                          "NSPhotoLibraryAddUsageDescription","NSPhotoLibraryUsageDescription"):
+                  assert plist.get(key), f"Missing iOS permission {key}"
+          digest = hashlib.sha256(raw.read_bytes()).hexdigest()
+          final = Path(f"release/YCam-v{expected}-build{build}-unsigned.ipa")
+          raw.rename(final)
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf8") as f:
+              f.write(f"version={expected}\n")
+              f.write(f"build={build}\n")
+              f.write(f"file={final}\n")
+              f.write(f"sha256={digest}\n")
+          notes = (
+              f"## Verified YCam v{expected} (Build {build})\n\n"
+              "This version contains application-code improvements since the previous Release. "
+              "The exact source revision passed deterministic checks and Xcode iOS compilation, "
+              "package structure and version verification. Physical-device performance and "
+              "official proprietary color accuracy are **not** certified by CI.\n\n"
+              f"- Source SHA: {os.environ['SOURCE_SHA']}\n"
+              f"- Build run: https://github.com/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['SOURCE_RUN_ID']}\n"
+              f"- Package SHA-256: {digest}\n"
+              f"- Previous release: {old}\n\n"
+              "**Installation:** This is an **unsigned IPA** and requires signing with "
+              "Sideloadly/AltStore or an Apple development/distribution certificate. "
+              "Downloading it directly to an iPhone does not install it.\n\n"
+              "Ordinary web photographs are **not** official style-reference pairs; "
+              "this release is **not** a claim of newly calibrated Apple/Fuji/Kodak colors.\n"
+          )
+          Path("release-notes.md").write_text(notes, encoding="utf8")
+          print(f"Validated v{expected} ({build}) SHA-256={digest}")
           PY
 
-      - name: Create GitHub Release with installation package and notes
+      - name: Publish verified artifact as a new immutable-version Release
+        if: steps.source.outputs.publish == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ steps.validate.outputs.version }}
+          BUILD: ${{ steps.validate.outputs.build }}
+          FILE: ${{ steps.validate.outputs.file }}
+          SOURCE_SHA: ${{ steps.source.outputs.source_sha }}
         run: |
           set -euo pipefail
-          TAG="v1.1.11"
-          IPA="release/YCam-v1.1-build11-unsigned.ipa"
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" "$IPA" --clobber
-            gh release edit "$TAG" \
-              --title "YCam 1.1 (11)｜iOS 18+ 相机 · 摄影风格与流畅度更新" \
-              --notes-file RELEASE_NOTES_v1.1.11.md --latest
-          else
-            gh release create "$TAG" "$IPA" \
-              --target "$GITHUB_SHA" \
-              --title "YCam 1.1 (11)｜iOS 18+ 相机 · 摄影风格与流畅度更新" \
-              --notes-file RELEASE_NOTES_v1.1.11.md --latest
+          TAG="v$VERSION"
+          if gh release view "$TAG" -R "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            echo "::notice::Release $TAG already exists. Will not replace previous IPA."
+            exit 0
           fi
-          echo "### YCam install package published" >> "$GITHUB_STEP_SUMMARY"
-          echo "- [Release v1.1.11](https://github.com/$GITHUB_REPOSITORY/releases/tag/$TAG)" >> "$GITHUB_STEP_SUMMARY"
-          echo "- IPA: YCam-v1.1-build11-unsigned.ipa (unsigned; requires user signing)" >> "$GITHUB_STEP_SUMMARY"
+          gh release create "$TAG" "$FILE" -R "$GITHUB_REPOSITORY" --target "$SOURCE_SHA" \
+            --title "YCam v$VERSION (Build $BUILD) | Verified iOS IPA" \
+            --notes-file release-notes.md --latest
+          echo "### Published [YCam $TAG](https://github.com/$GITHUB_REPOSITORY/releases/tag/$TAG)" >> "$GITHUB_STEP_SUMMARY"
+          echo "IPA verified; unsigned and requires signing before installation." >> "$GITHUB_STEP_SUMMARY"

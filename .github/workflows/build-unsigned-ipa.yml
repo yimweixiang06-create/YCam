@@ -22,10 +22,12 @@ on:
   workflow_dispatch:
   push:
     branches: [main, master]
-    paths-ignore:
-      - "**.md"
-      - "docs/**"
-      - "tools/**"
+    paths:
+      - "*.swift"
+      - "Info.plist"
+      - "Assets.xcassets/**"
+      - "YCam.xcodeproj/**"
+      - ".github/workflows/build-unsigned-ipa.yml"
 
 concurrency:
   group: ycam-build-${{ github.ref }}
@@ -184,6 +186,14 @@ jobs:
           fi
           echo "文件检查全部通过。"
 
+      - name: Set up Python for deterministic color regression
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install regression test dependencies
+        run: python -m pip install --disable-pip-version-check --quiet numpy pillow
+
       # ---------------------------------------------------------------- 4
       - name: "4/9 检查工程结构（target / scheme）"
         run: |
@@ -206,6 +216,39 @@ jobs:
           echo "构建方式：$BUILD_MODE"
           echo "BUILD_MODE=$BUILD_MODE" >> "$GITHUB_ENV"
 
+      # A new build must be tested against the same sources that it packages.
+      - name: Verify source and all 38 colour profiles before building
+        run: |
+          set -euo pipefail
+          cd "$GITHUB_WORKSPACE/$PROJECT_DIR"
+          python3 tools/static_check.py
+          python3 tools/verify_neutral_controls.py
+          python3 tools/verify_user_layout_max.py
+          python3 tools/style_check.py > "$OUTPUT_DIR/logs/style-check.log"
+          tail -n 8 "$OUTPUT_DIR/logs/style-check.log"
+
+      # Only publish versions derived from the latest actual GitHub Release.
+      # The run number is a monotonically increasing iOS build number.
+      - name: Determine the next tested application version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="$(gh release view -R "$GITHUB_REPOSITORY" --json tagName --jq .tagName)"
+          if [[ "$TAG" =~ ^v([0-9]+)\.([0-9]+)(\.[0-9]+)?$ ]]; then
+            MAJOR="${BASH_REMATCH[1]}"
+            MINOR="${BASH_REMATCH[2]}"
+          else
+            echo "::error::Unexpected latest release tag $TAG; no version may be invented."
+            exit 1
+          fi
+          NEXT="$MAJOR.$((MINOR+1))"
+          BUILD="$GITHUB_RUN_NUMBER"
+          [[ "$BUILD" =~ ^[0-9]+$ ]] || exit 1
+          echo "YCAM_MARKETING_VERSION=$NEXT" >> "$GITHUB_ENV"
+          echo "YCAM_BUILD_NUMBER=$BUILD" >> "$GITHUB_ENV"
+          echo "Source commit: $GITHUB_SHA; candidate YCam v$NEXT ($BUILD); latest existing release: $TAG"
+
       # ---------------------------------------------------------------- 5
       - name: "5/9 编译未签名的 YCam.app（Release / iphoneos）"
         run: |
@@ -220,6 +263,8 @@ jobs:
             CODE_SIGN_IDENTITY=
             ONLY_ACTIVE_ARCH=NO
             COMPILER_INDEX_STORE_ENABLE=NO
+            MARKETING_VERSION="$YCAM_MARKETING_VERSION"
+            CURRENT_PROJECT_VERSION="$YCAM_BUILD_NUMBER"
           )
           if [ "$BUILD_MODE" = "scheme" ]; then
             DERIVED="$RUNNER_TEMP/YCamDerivedData"

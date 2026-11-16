@@ -1,7 +1,7 @@
 # 📷 YCam — 让 iOS 18 也能体验新一代相机摄影风格
 
-> **📥 下载最新版：** [GitHub Releases — YCam 1.1 (11)](https://github.com/yimweixiang06-create/YCam/releases/latest) · [直接下载未签名 IPA](https://github.com/yimweixiang06-create/YCam/releases/download/v1.1.11/YCam-v1.1-build11-unsigned.ipa)  
-> **📝 更新了什么：** [查看版本更新日志](https://github.com/yimweixiang06-create/YCam/releases/tag/v1.1.11)
+> **📥 下载最新版（自动显示最新已验证的安装包）：** [YCam GitHub Releases](https://github.com/yimweixiang06-create/YCam/releases/latest) — 找到 Assets 中的 IPA；未签名包需要先签名安装。
+> **📝 更新记录：** 最新 Release 页面含版本、构建编号、源码提交和 SHA-256 校验值。
 
 > **不必为了体验新式相机界面、摄影风格调色盘和胶片色彩，就一定要换一部支持 iOS 27 的 iPhone。**
 
