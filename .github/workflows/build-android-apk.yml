@@ -33,11 +33,23 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Use GitHub runner Android SDK (avoid obsolete 'tools' package)
+        run: |
+          set -euo pipefail
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          if command -v sdkmanager >/dev/null; then
+            SDKMANAGER="$(command -v sdkmanager)"
+          else
+            SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          fi
+          test -x "$SDKMANAGER"
+          "$SDKMANAGER" --version
+          echo "SDKMANAGER=$SDKMANAGER" >> "$GITHUB_ENV"
 
       - name: Install required Android SDK
-        run: sdkmanager --install "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+        run: |
+          set -euo pipefail
+          "$SDKMANAGER" --install "platforms;android-35" "build-tools;35.0.0" "platform-tools"
 
       - name: Gradle 8.11.1
         uses: gradle/actions/setup-gradle@v4
