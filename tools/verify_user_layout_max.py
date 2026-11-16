@@ -142,7 +142,10 @@ assert '.fill(LinearGradient(colors: colors, startPoint: .top, endPoint: .bottom
 assert 'SwatchCard(colors: colors(item), selected: item == selected)' in palette_src
 assert 'Image(systemName: symbol)' not in palette_src
 assert 'SwatchPhotoRenderer' not in palette_src
-assert 'PaletteColorMap' not in palette_src
+# The original SwatchCard must remain a gradient; only the custom palette
+# may use the restrained 2D raster from the user's selected v1.5 background.
+assert 'private enum PaletteColorMap {' in palette_src
+assert 'Image(uiImage: PaletteColorMap.image(style: style, filter: filter, intensity: intensity))' in palette_src
 assert 'previews: (Item)' not in palette_src
 assert 'shortName: (Item)' not in palette_src
 assert 'styleCardPreviews' not in model and 'filterCardPreviews' not in model
