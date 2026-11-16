@@ -27,7 +27,7 @@ struct DotGrid: View {
 
 /// Compact iOS-style symbolic swatch: icon ABOVE label. No photo cards.
 struct SwatchCard: View {
-    let artwork: UIImage
+    let colors: [Color]
     let label: String
     let symbol: String
     let selected: Bool
@@ -36,11 +36,10 @@ struct SwatchCard: View {
         VStack(spacing: 4) {
             ZStack {
                 Circle().fill(Color.white.opacity(selected ? 0.18 : 0.09))
-                Image(uiImage: artwork)
-                    .resizable()
-                    .scaledToFill()
+                Circle()
+                    .fill(LinearGradient(colors: colors,
+                                         startPoint: .topLeading, endPoint: .bottomTrailing))
                     .frame(width: 32, height: 32)
-                    .clipShape(Circle())
                 Image(systemName: symbol)
                     .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(Color.white.opacity(0.93))
@@ -71,7 +70,7 @@ struct SwatchCarousel<Item: Hashable & Identifiable>: View {
     let cardWidth: CGFloat
     let cardHeight: CGFloat
     let spacing: CGFloat
-    let artwork: (Item) -> UIImage
+    let colors: (Item) -> [Color]
     let name: (Item) -> String
     let shortName: (Item) -> String
     let symbol: String
@@ -86,7 +85,7 @@ struct SwatchCarousel<Item: Hashable & Identifiable>: View {
         GeometryReader { geo in
             ZStack {
                 ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
-                    SwatchCard(artwork: artwork(item), label: shortName(item),
+                    SwatchCard(colors: colors(item), label: shortName(item),
                                symbol: symbol, selected: item == selected)
                         .frame(width: cardWidth, height: cardHeight)
                         .position(x: geo.size.width / 2 + CGFloat(index - anchorIndex) * step + drag,
@@ -292,17 +291,6 @@ private enum PaletteColorMap {
         let result = UIImage(cgImage: cgImage)
         cache.setObject(result, forKey: key)
         return result
-    }
-}
-
-/// Matching circular selector icons use each effect's own 2D colour field.
-/// No camera frame, enlarged photo, or uniform rectangle is used.
-enum PaletteIconArtwork {
-    static func style(_ style: CameraStyle) -> UIImage {
-        PaletteColorMap.image(style: style, filter: .original, intensity: 1)
-    }
-    static func filter(_ filter: AppleFilter) -> UIImage {
-        PaletteColorMap.image(style: .standard, filter: filter, intensity: 1)
     }
 }
 
