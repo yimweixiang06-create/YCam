@@ -196,7 +196,20 @@ enum CameraStyle: String, CaseIterable, Identifiable {
     }
 
     /// 风格卡片的渐变色：把 3 个参考色（高光 / 肤色 / 暗部）送进该风格自己的配方，所见即所得（不是另外画的假色块）。
-    var cardColors: [Color] {
+    // The 28 cards are invariant under 2D palette dragging. Compute each
+    // three-stop gradient once, instead of repeating LUT lookups/colour math
+    // whenever a frame, style control, or gesture updates SwiftUI.
+    private static let cardColorCache: [CameraStyle: [Color]] = {
+        var cache: [CameraStyle: [Color]] = [:]
+        for style in CameraStyle.allCases {
+            cache[style] = style.makeCardColors()
+        }
+        return cache
+    }()
+
+    var cardColors: [Color] { Self.cardColorCache[self] ?? [] }
+
+    private func makeCardColors() -> [Color] {
         let samples: [(Float, Float, Float)] = [(0.93, 0.93, 0.95), (0.82, 0.60, 0.50), (0.16, 0.17, 0.20)]
         if let name = lutName, let lut = LutLibrary.shared.table(named: name) {
             return samples.map { sample in
