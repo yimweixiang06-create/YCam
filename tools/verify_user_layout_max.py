@@ -133,98 +133,57 @@ assert "lastDisplaySample = sample" in model
 assert "previewHoldGeneration" in model
 assert "currentGeneration == latestGeneration" in model
 
-# Style palette draws one cached grid and tracks a single CALayer at finger speed.
-assert "private final class DotPaletteTrackingView: UIControl" in palette_src
-assert "private let dotsLayer = CAShapeLayer()" in palette_src
-assert "private let cursorLayer = CALayer()" in palette_src
-# Restored original dot-grid design. Cursor layer follows the finger immediately;
-# the SwiftUI colour parameter commit was originally limited to 30 Hz.
-assert "lastCommitTime >= 1.0 / 30.0" in palette_src
-assert "private let dotsLayer = CAShapeLayer()" in palette_src
-assert "struct PaletteValuesCapsule:" not in panel
-assert "PaletteValuesCapsule(camera:" not in home
-assert 'Color.yellow : Color.white.opacity(0.35)' in palette_src
+# User-requested original UI restored from commit 2ba8b634; do not re-style.
+# Both original style and filter selectors are the small rectangular
+# gradient cards (41 × 52) — NOT photos, circular icons, or labels on cards.
+assert 'struct SwatchCard: View' in palette_src
+assert 'RoundedRectangle(cornerRadius: 11, style: .continuous)' in palette_src
+assert '.fill(LinearGradient(colors: colors, startPoint: .top, endPoint: .bottom))' in palette_src
+assert 'SwatchCard(colors: colors(item), selected: item == selected)' in palette_src
+assert 'Image(systemName: symbol)' not in palette_src
+assert 'SwatchPhotoRenderer' not in palette_src
+assert 'PaletteColorMap' not in palette_src
+assert 'previews: (Item)' not in palette_src
+assert 'shortName: (Item)' not in palette_src
+assert 'styleCardPreviews' not in model and 'filterCardPreviews' not in model
+
+# Keep original panels, original style names, exact sizes and custom button.
+assert panel.count('cardWidth: 41 * m.s') >= 2
+assert panel.count('cardHeight: 52 * m.s') >= 2
+assert panel.count('spacing: 8 * m.s') >= 2
+assert panel.count('colors: { $0.cardColors }') == 2
+assert panel.count('name: { $0.title }') == 2
+assert 'shortName: { $0.pickerTitle }' not in panel
+assert 'symbol: "circle.grid.3x3.fill"' not in panel
+assert 'symbol: "circle.lefthalf.filled"' not in panel
+assert 'Text("自定义")' in panel
+assert 'DotPalette(point: $camera.styleSettings.point, colors: settings.style.cardColors)' in panel
+
+# Restore original gradient dotted pad, WITHOUT invented unified purple mask
+# or 33x33 2D image. Preserve original white dots and yellow intensity ticks.
+assert 'struct DotPalette: View' in palette_src
+assert 'var colors: [Color]' in palette_src
+assert '.fill(LinearGradient(colors: colors, startPoint: .leading, endPoint: .trailing))' in palette_src
+assert 'Color.white.opacity(0.42), .clear, Color.black.opacity(0.63)' in palette_src
+assert 'Color.gray.opacity(0.34), .clear, (colors.last ?? .orange).opacity(0.20)' in palette_src
+assert 'DotPaletteTouchSurface(point: $point)' in palette_src
+assert 'private final class DotPaletteTrackingView: UIControl' in palette_src
+assert 'private let dotsLayer = CAShapeLayer()' in palette_src
+assert 'private let cursorLayer = CALayer()' in palette_src
+assert 'lastCommitTime >= 1.0 / 30.0' in palette_src
+assert 'let columns = 11' in palette_src and 'let rows = 11' in palette_src
 assert 'let ticks = 11' in palette_src
-assert 'panel(m, height: m.panelHeight(.custom, drawerCount: count))' in home
+assert 'Color.yellow : Color.white.opacity(0.35)' in palette_src
+assert 'dotsLayer.strokeColor = UIColor.black.withAlphaComponent(0.38).cgColor' not in palette_src
 assert '.frame(width: 200 * m.s)' in panel
 assert 'PanelHeader(m, onBack: onBack, onReset:' in panel
-assert 'DotPalette(point: $camera.styleSettings.point,' in panel
-assert 'style: settings.style, filter: settings.filter,' in panel
-assert 'intensity: settings.intensity)' in panel
-assert 'private enum PaletteColorMap' in palette_src
-assert 'for row in 0..<side' in palette_src and 'for column in 0..<side' in palette_src
-assert 'FilterEngine.transform(r, g, b, recipe)' in palette_src
-# Check the actual Swift source behavior rather than rejecting a comment.
-assert '.fill(LinearGradient(colors: colors,' not in palette_src.split('struct DotPalette: View',1)[1].split('private enum PaletteColorMap',1)[0]
-assert 'let examples: [(Float, Float, Float, Float)]' in palette_src
-assert 'for (sr, sg, sb, weight) in examples' in palette_src
-assert 'let axes = FilterEngine.paletteAxes(style: style,' in palette_src
-assert 'let gamma = Float(axes.gamma)' in palette_src
-assert 'let saturation = Float(axes.saturation)' in palette_src
-assert '.interpolation(.high)' in palette_src
+assert 'panel(m, height: m.panelHeight(.custom, drawerCount: count))' in home
+assert 'struct PaletteValuesCapsule:' not in panel
+assert 'PaletteValuesCapsule(camera:' not in home
+assert 'DragGesture(minimumDistance: 0, coordinateSpace: .named' not in palette_src
 
-# Per-style icon with label ABOVE photo-free selector; no raw snapshots
-# or source processing while the chooser is open.
-assert 'struct SwatchCard: View' in palette_src
-assert 'Image(systemName: symbol)' in palette_src
-assert 'Text(label)' in palette_src
-assert panel.count('colors: { $0.cardColors }') == 2
-assert 'Circle().fill(LinearGradient(colors: colors,' not in palette_src  # multiline gradient
-assert 'startPoint: .topLeading, endPoint: .bottomTrailing' in palette_src
-assert 'shortName: { $0.pickerTitle }' in panel
-assert 'SwatchPhotoRenderer' not in palette_src
-assert 'styleCardPreviews' not in model
-assert 'filterCardPreviews' not in model
-assert 'refreshStyleCardPreviews' not in home
-
-# The original grid and frosted control box must remain. Individual palette
-# colours dominate, with stronger colour directions and outlined white dots.
-assert 'shape.fill(style.swatch)' in palette_src
-assert '.opacity(0.97)' in palette_src
-assert 'style == .monochrome ? 0 : 1.04' in palette_src
-assert 'soft smoked-rose at the top' not in palette_src
-assert 'let examples: [(Float, Float, Float, Float)]' in palette_src
-assert 'primary.0, primary.1, primary.2, 0.72' in palette_src
-assert 'dotsLayer.strokeColor = UIColor.black.withAlphaComponent(0.38).cgColor' in palette_src
+# User requested UI rollback only. The recent filter color algorithm stays.
 assert 'static func paletteAxes(style: CameraStyle, tone: Double, color: Double)' in engine
 assert 'kCIInputEVKey: axes.exposure' in engine
 assert 'kCIInputSaturationKey: axes.saturation' in engine
-assert 'kCIInputContrastKey: axes.contrast' in engine
-assert 'let exposure = (t >= 0 ? 0.40 : 0.52) * t' in engine
-
-# Numeric regression for the independent axes (normals and corners).
-def axes(tone, color, style="standard"):
-    t = max(-1.0, min(1.0, tone))
-    c = max(-1.0, min(1.0, color))
-    ev = (0.40 if t >= 0 else 0.52) * t
-    gamma = 1 - 0.18 * t
-    contrast = 1 - 0.16 * t
-    if style == "monochrome":
-        contrast += 0.22 * c
-    elif style == "dramatic":
-        contrast += 0.13 * max(0, -t) + 0.05 * max(0, c)
-    elif style == "ethereal":
-        contrast -= 0.07 * max(0, t)
-    sat = 1 if style == "monochrome" else 1 + c * (0.75 if c >= 0 else 0.54)
-    vib = 0 if style == "monochrome" else 0.30 * c
-    return ev, gamma, contrast, sat, vib
-
-assert axes(0, 0) == (0, 1, 1, 1, 0)
-assert axes(1, -1)[0] > 0 and axes(1, -1)[3] < 1
-assert axes(1, 1)[0] > 0 and axes(1, 1)[3] > 1
-assert axes(-1, 1)[0] < 0 and axes(-1, 1)[3] > 1
-assert axes(-1, -1)[0] < 0 and axes(-1, -1)[3] < 1
-assert len(set(axes(t,c) for t,c in [(1,1),(1,-1),(-1,1),(-1,-1)])) == 4
-assert axes(-1,1,"monochrome")[3] == 1
-assert axes(-1,-1,"monochrome")[3] == 1
-assert axes(-1,1,"monochrome")[2] > axes(-1,-1,"monochrome")[2]
-
-# These visual changes must never replace the restored old-size controls.
-assert 'let columns = 11' in palette_src
-assert 'DotPaletteTouchSurface(point: $point)' in palette_src
-assert 'struct PaletteValuesCapsule:' not in panel
-assert 'PaletteValuesCapsule(camera:' not in home
-assert 'let ticks = 11' in palette_src
-assert 'panel(m, height: m.panelHeight(.custom, drawerCount: count))' in home
-assert "DragGesture(minimumDistance: 0, coordinateSpace: .named" not in palette_src
-print("PASS: held preview during capture preset transition; palette cursor stays on visible dots")
+print("PASS: original style/filter UI from 2ba8b634 restored; latest color engine preserved")
