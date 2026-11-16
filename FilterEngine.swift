@@ -308,9 +308,10 @@ final class FilterEngine {
                     kCIInputEVKey: 0.02 * tone
                 ])
             }
-            if abs(color) > 0.0001 {
-                // CIVibrance is color-dependent (protects skin better than
-                // blanket desaturation). Keep all positions well above gray.
+            if color > 0.0001 {
+                // Boost only toward the right. Negative CIVibrance selectively
+                // desaturates hues and can leave an unwanted warm/yellow cast.
+                // Left must use uniform saturation reduction without hue bias.
                 out = out.applyingFilter("CIVibrance", parameters: [
                     "inputAmount": 0.18 * color
                 ])
