@@ -98,10 +98,6 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
         }
     }
 
-    /// Actual raw-frame thumbnail previews, separate from photo output.
-    @Published private(set) var styleCardPreviews: [String: UIImage] = [:]
-    @Published private(set) var filterCardPreviews: [String: UIImage] = [:]
-
     let zoom = ZoomModel()
     let histogram = HistogramModel()
 
@@ -135,9 +131,6 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
     private weak var previewView: FilteredPreviewView?
     private let lastFrameLock = NSLock()
     private var lastDisplaySample: CMSampleBuffer?
-    // Only accessed by dataQueue; never sample the camera continuously for cards.
-    private var needsStyleCardSnapshot = false
-    private let cardPreviewQueue = DispatchQueue(label: "ycam.style.cards", qos: .utility)
     private var previewHoldGeneration: UInt64 = 0
     private var mayResumeHeldPreview = false  // dataQueue
     private var pixelPool: CVPixelBufferPool?                              // 仅 dataQueue
@@ -182,13 +175,6 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
 
     deinit {
         for token in observers { NotificationCenter.default.removeObserver(token) }
-    }
-
-    /// Capture ONE raw camera frame when the Styles/Filters chooser opens.
-    func refreshStyleCardPreviews() {
-        dataQueue.async { [weak self] in
-            self?.needsStyleCardSnapshot = true
-        }
     }
 
     func attach(preview view: FilteredPreviewView) {
@@ -1378,41 +1364,6 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
             let srcW = CVPixelBufferGetWidth(source)
             let srcH = CVPixelBufferGetHeight(source)
             let snap = FilterEngine.shared.snapshot()
-
-            // One small RAW scene snapshot per chooser entry, before any
-            // current effect is applied. This prevents double color treatment.
-            if needsStyleCardSnapshot {
-                needsStyleCardSnapshot = false
-                let raw = CIImage(cvPixelBuffer: source)
-                let factor = min(CGFloat(1), CGFloat(160) / max(raw.extent.width, raw.extent.height))
-                let small = raw.transformed(by: CGAffineTransform(scaleX: factor, y: factor))
-                if let frame = ciContext.createCGImage(small, from: small.extent) {
-                    let currentFilter = snap.settings.filter
-                    let currentStyle = snap.settings.style
-                    cardPreviewQueue.async { [weak self] in
-                        guard let self else { return }
-                        var styles: [String: UIImage] = [:]
-                        var filters: [String: UIImage] = [:]
-                        for style in CameraStyle.allCases {
-                            let recipe = style.recipe.combined(with: currentFilter.recipe)
-                            if let image = SwatchPhotoRenderer.render(frame, recipe: recipe, lutName: style.lutName) {
-                                styles[style.rawValue] = image
-                            }
-                        }
-                        for filter in AppleFilter.allCases {
-                            let recipe = currentStyle.recipe.combined(with: filter.recipe)
-                            if let image = SwatchPhotoRenderer.render(frame, recipe: recipe,
-                                                                       lutName: currentStyle.lutName) {
-                                filters[filter.rawValue] = image
-                            }
-                        }
-                        DispatchQueue.main.async { [weak self] in
-                            self?.styleCardPreviews = styles
-                            self?.filterCardPreviews = filters
-                        }
-                    }
-                }
-            }
 
             framesProcessed &+= 1
             frameCounter &+= 1
