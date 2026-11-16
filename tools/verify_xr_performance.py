@@ -51,7 +51,9 @@ assert "kCVPixelBufferPoolAllocationThresholdKey as String" in model
 assert "CVPixelBufferPoolCreatePixelBufferWithAuxAttributes(" in model
 assert "recorder.previewFrameStride" in model
 assert "isReadyForMoreMediaData ?? true" in model
-assert "var previewFrameStride: Int { fps >= 60 ? 2 : 1 }" in recorder
+assert "var previewFrameStride: Int { previewStride }" in recorder
+assert "func noteVideoProcessingTime(milliseconds: Double)" in recorder
+assert "recorder.noteVideoProcessingTime(milliseconds:" in model
 assert "writerBackpressureDrops" in recorder
 assert "CMTimeAdd(lastVideoPTS, frameDuration)" in recorder
 
