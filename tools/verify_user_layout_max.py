@@ -182,8 +182,18 @@ assert 'struct PaletteValuesCapsule:' not in panel
 assert 'PaletteValuesCapsule(camera:' not in home
 assert 'DragGesture(minimumDistance: 0, coordinateSpace: .named' not in palette_src
 
-# User requested UI rollback only. The recent filter color algorithm stays.
-assert 'static func paletteAxes(style: CameraStyle, tone: Double, color: Double)' in engine
-assert 'kCIInputEVKey: axes.exposure' in engine
-assert 'kCIInputSaturationKey: axes.saturation' in engine
-print("PASS: original style/filter UI from 2ba8b634 restored; latest color engine preserved")
+# Original palette UI must stay untouched; inspect the *active* color path.
+# v1.3's older hard-coded paletteAxes assertions caused CI to abort before
+# Xcode whenever the user-requested gentler palette math was restored.
+assert 'if snap.hasPaletteShift {' in engine
+assert 'let color = min(1.0, max(-1.0, Double((snap.settings.point.x - 0.5) * 2))) * k' in engine
+assert 'let tone = min(1.0, max(-1.0, Double((0.5 - snap.settings.point.y) * 2))) * k' in engine
+assert '"inputPower": 1 - 0.10 * tone' in engine
+assert 'kCIInputEVKey: 0.02 * tone' in engine
+assert 'if color > 0.0001 {' in engine
+assert '"inputAmount": 0.18 * color' in engine
+assert 'kCIInputSaturationKey: 1 + color * (color >= 0 ? 0.36 : 0.24)' in engine
+assert 'kCIInputContrastKey: 1 - 0.04 * tone' in engine
+assert 'if abs(color) > 0.0001 {' not in engine
+assert 'kCIInputEVKey: axes.exposure' not in engine
+print("PASS: original style/filter UI preserved; gentle palette axes and no negative vibrance verified")
