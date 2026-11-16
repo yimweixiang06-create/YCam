@@ -4,6 +4,12 @@ on:
   schedule:
     - cron: "*/5 * * * *"
   workflow_dispatch:
+  # Also verify the pipeline once when its own implementation is updated.
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/calibrate-photos-5min.yml"
+      - "tools/continuous_photo_check.py"
 
 # Run at most one photo check at once; do not accumulate parallel jobs.
 concurrency:
