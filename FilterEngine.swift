@@ -153,12 +153,12 @@ final class FilterEngine {
         case .standard: return PhotoStyleResponse(gamma: 0.070, left: 0.260, right: 0.250, upperCorner: 0.280, lowerCorner: 0.440, exposure: 0.006)
         case .pearl: return PhotoStyleResponse(gamma: 0.072, left: 0.680, right: 0.310, upperCorner: 0.115, lowerCorner: 0.210, exposure: 0.012)
         case .amber: return PhotoStyleResponse(gamma: 0.120, left: 0.520, right: 0.300, upperCorner: 0.175, lowerCorner: 0.290, exposure: 0.016)
-        case .gold: return PhotoStyleResponse(gamma: 0.125, left: 0.630, right: 0.320, upperCorner: 0.140, lowerCorner: 0.260, exposure: 0.018)
-        case .roseGold: return PhotoStyleResponse(gamma: 0.115, left: 0.630, right: 0.335, upperCorner: 0.160, lowerCorner: 0.270, exposure: 0.013)
-        case .coolRose: return PhotoStyleResponse(gamma: 0.107, left: 0.700, right: 0.340, upperCorner: 0.155, lowerCorner: 0.250, exposure: 0.010)
-        case .cool: return PhotoStyleResponse(gamma: 0.102, left: 0.720, right: 0.305, upperCorner: 0.150, lowerCorner: 0.280, exposure: 0.009)
-        case .neutral: return PhotoStyleResponse(gamma: 0.080, left: 0.660, right: 0.275, upperCorner: 0.180, lowerCorner: 0.300, exposure: 0.008)
-        case .vibrant: return PhotoStyleResponse(gamma: 0.135, left: 0.570, right: 0.400, upperCorner: 0.140, lowerCorner: 0.260, exposure: 0.017)
+        case .gold: return PhotoStyleResponse(gamma: 0.125, left: 0.635, right: 0.568, upperCorner: 0.140, lowerCorner: 0.260, exposure: 0.018)
+        case .roseGold: return PhotoStyleResponse(gamma: 0.115, left: 0.652, right: 0.563, upperCorner: 0.160, lowerCorner: 0.270, exposure: 0.013)
+        case .coolRose: return PhotoStyleResponse(gamma: 0.107, left: 0.752, right: 0.690, upperCorner: 0.155, lowerCorner: 0.250, exposure: 0.010)
+        case .cool: return PhotoStyleResponse(gamma: 0.102, left: 0.950, right: 0.543, upperCorner: 0.150, lowerCorner: 0.280, exposure: 0.009)
+        case .neutral: return PhotoStyleResponse(gamma: 0.080, left: 0.791, right: 0.652, upperCorner: 0.180, lowerCorner: 0.300, exposure: 0.008)
+        case .vibrant: return PhotoStyleResponse(gamma: 0.135, left: 0.587, right: 0.491, upperCorner: 0.140, lowerCorner: 0.260, exposure: 0.017)
         case .warm: return PhotoStyleResponse(gamma: 0.118, left: 0.610, right: 0.345, upperCorner: 0.185, lowerCorner: 0.290, exposure: 0.013)
         case .ethereal: return PhotoStyleResponse(gamma: 0.085, left: 0.500, right: 0.270, upperCorner: 0.190, lowerCorner: 0.330, exposure: 0.009)
         case .dramatic: return PhotoStyleResponse(gamma: 0.095, left: 0.425, right: 0.280, upperCorner: 0.230, lowerCorner: 0.320, exposure: 0.010)
@@ -182,6 +182,29 @@ final class FilterEngine {
     }
 
     // MARK: Colour math (mirrored line by line in tools/style_check.py)
+
+    // The screenshots show large shadow/midtone movement but comparatively
+    // modest white-paper movement. Apple Core Image's built-in CIToneCurve
+    // preserves the black/white endpoints without a global exposure boost.
+    // Each curve is independently fitted to its identified screenshot points.
+    // NOT Apple's proprietary Photographic Styles rendering coefficients.
+    private struct ScreenReferenceCurve {
+        let shadow: Double
+        let midtone: Double
+        let highlight: Double
+    }
+
+    private static func screenReferenceCurve(for style: CameraStyle) -> ScreenReferenceCurve? {
+        switch style {
+        case .gold: return ScreenReferenceCurve(shadow: 0.14500, midtone: 0.16505, highlight: 0.04713)
+        case .coolRose: return ScreenReferenceCurve(shadow: 0.11676, midtone: 0.15070, highlight: 0.02737)
+        case .cool: return ScreenReferenceCurve(shadow: 0.14500, midtone: 0.17000, highlight: 0.04279)
+        case .roseGold: return ScreenReferenceCurve(shadow: 0.14500, midtone: 0.17000, highlight: 0.03762)
+        case .vibrant: return ScreenReferenceCurve(shadow: 0.12392, midtone: 0.13825, highlight: 0.03401)
+        case .neutral: return ScreenReferenceCurve(shadow: 0.11966, midtone: 0.13169, highlight: 0.02558)
+        default: return nil // No trustworthy screenshot group for these styles
+        }
+    }
 
     @inline(__always) private static func toLinear(_ v: Float) -> Float {
         v <= 0.04045 ? v / 12.92 : powf((v + 0.055) / 1.055, 2.4)
@@ -351,7 +374,12 @@ final class FilterEngine {
             // only modulates tone / chroma with conservative skin-safe limits.
             // These are YCam approximations, NOT Apple's proprietary coefficients.
             let k = min(1.0, max(0.0, snap.settings.intensity))
-            let color = min(1.0, max(-1.0, Double((snap.settings.point.x - 0.5) * 2))) * k
+            let screenCurve = FilterEngine.screenReferenceCurve(for: snap.settings.style)
+            // Screenshots with palette 75 still show nearly gray at the far
+            // left of Cool. Keep the horizontal pad independent from the
+            // same linear scaling used for the style's base recipe.
+            let colorScale = screenCurve == nil ? k : min(1.0, k * 1.35)
+            let color = min(1.0, max(-1.0, Double((snap.settings.point.x - 0.5) * 2))) * colorScale
             let rawTone = min(1.0, max(-1.0, Double((0.5 - snap.settings.point.y) * 2))) * k
             let upperRight = max(0.0, color) * max(0.0, rawTone)
             let upperLeft = max(0.0, -color) * max(0.0, rawTone)
@@ -361,8 +389,8 @@ final class FilterEngine {
             // mapping. The supplied photos show much stronger upper/lower
             // separation and near-neutral colors at the far left edge.
             let response = FilterEngine.photoStyleResponse(for: snap.settings.style)
-            let tone = rawTone * (1.0 - response.upperCorner * upperRight - response.upperCorner * upperLeft
-                                 - response.lowerCorner * lowerLeft - response.lowerCorner * lowerRight)
+            let tone = screenCurve == nil ? rawTone * (1.0 - response.upperCorner * upperRight - response.upperCorner * upperLeft
+                                 - response.lowerCorner * lowerLeft - response.lowerCorner * lowerRight) : rawTone
             // Upper +3%, lower direct -2%; keep palette axis centered.
             let zoneSaturation = 1.0 + (rawTone >= 0 ? 0.03 : 0.02) * rawTone
             // Use a gentle curve per style; 0.48/0.50 Pearl gamma and
@@ -372,14 +400,33 @@ final class FilterEngine {
             let exposureResponse = response.exposure
 
             if abs(tone) > 0.0001 {
-                // Downward drag reduces midtone luminance gently without
-                // crushing petals, faces, shadows or blue-sky gradations.
-                out = out.applyingFilter("CIGammaAdjust", parameters: [
-                    "inputPower": 1 - gammaResponse * tone
-                ])
-                out = out.applyingFilter("CIExposureAdjust", parameters: [
-                    kCIInputEVKey: exposureResponse * tone
-                ])
+                if let screenCurve {
+                    // Five anchored values protect neutral white paper and
+                    // true black, while independently matching the shadows,
+                    // floor midtones and paper/highlight changes in screenshots.
+                    // This is a COLOR/TONE filter, never Gaussian blur.
+                    let p0 = CIVector(x: 0, y: 0)
+                    let p1 = CIVector(x: 0.18, y: CGFloat(0.18 + tone * screenCurve.shadow))
+                    let p2 = CIVector(x: 0.55, y: CGFloat(0.55 + tone * screenCurve.midtone))
+                    let p3 = CIVector(x: 0.90, y: CGFloat(0.90 + tone * screenCurve.highlight))
+                    let p4 = CIVector(x: 1, y: 1)
+                    out = out.applyingFilter("CIToneCurve", parameters: [
+                        "inputPoint0": p0,
+                        "inputPoint1": p1,
+                        "inputPoint2": p2,
+                        "inputPoint3": p3,
+                        "inputPoint4": p4
+                    ])
+                } else {
+                    // User-supplied reference points are not available for
+                    // this style: retain its own conservative gamma/EV curve.
+                    out = out.applyingFilter("CIGammaAdjust", parameters: [
+                        "inputPower": 1 - gammaResponse * tone
+                    ])
+                    out = out.applyingFilter("CIExposureAdjust", parameters: [
+                        kCIInputEVKey: exposureResponse * tone
+                    ])
+                }
             }
             if abs(color) > 0.0001 {
                 // CIVibrance is color-dependent (protects skin better than

@@ -39,6 +39,8 @@ on:
       - "tools/verify_palette_screenshot_refs.py"
       - "tools/verify_photographic_style_scene_refs.py"
       - "tools/verify_style_independence.py"
+      - "tools/verify_screenshot_tone_fit.py"
+      - "calibration/iphone_screen_tone_and_chroma_45_2026-11-16.json"
       - "tools/verify_apple_camera_apis.py"
       - "calibration/iphone_photo_style_scene_response_2026-11-16.json"
       - "calibration/iphone_palette_screenshot_rgb5x5_2026-11-16.json"
@@ -244,6 +246,7 @@ jobs:
           python3 tools/verify_palette_screenshot_refs.py
           python3 tools/verify_photographic_style_scene_refs.py
           python3 tools/verify_style_independence.py
+          python3 tools/verify_screenshot_tone_fit.py
           python3 tools/verify_apple_camera_apis.py
           python3 tools/verify_app_language.py
           python3 tools/verify_filter_separation.py

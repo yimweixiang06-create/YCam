@@ -17,7 +17,7 @@ assert set(rs)==set(names),(set(names)-set(rs),set(rs)-set(names))
 assert len(set(rs.values()))==28,"Two styles accidentally share the full tone-response recipe"
 for name,(g,l,r,u,d,e) in rs.items():
     assert 0.03<=g<=0.14,(name,g)
-    assert 0.18<=l<=0.73 and 0.20<=r<=0.41,(name,l,r)
+    assert 0.18<=l<=0.99 and 0.20<=r<=0.75,(name,l,r)
     assert 0<=e<=0.02,(name,e)
     assert 0<u<0.50 and 0<d<0.50,(name,u,d)
 assert "default:" not in block, "All 28 cases must be explicit; no global default"

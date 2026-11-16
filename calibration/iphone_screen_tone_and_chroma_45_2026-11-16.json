@@ -1,0 +1,133 @@
+{
+  "schema": "ycam-user-iphone-screen-references-tone-and-chroma-v2",
+  "date": "2026-11-16",
+  "source_screenshot_count": 45,
+  "source": "Previously supplied native iPhone Camera screenshots (subset directly mapped to a named style in an annotated contact sheet)",
+  "excluded_unassigned_screenshots": "Remaining user images include unlabeled amber, picker screens and style groups not reliably mapped here; do not claim they are fitted to any named style.",
+  "sample_regions": [
+    "paper_center",
+    "paper_lower",
+    "wood",
+    "floor"
+  ],
+  "method": "Screenshot color-axis cursor localized from white-dot component; 4 region RGB medians/luminance extracted after resampling to 497x1080; fit 5-point tone curve and per-style chroma axis. Hold one screenshot out when estimating aggregate predictive luminance error; other screenshots have unlocked AE/AWB.",
+  "notes": "This is NOT a comparison between YCam captured output and iPhone native output. The RGB error below measures leave-one-screenshot-out screen-reference-region simulation and cannot prove real camera output fidelity. Without paired capture from same sensor+locked scene, actual DeltaE is unknown.",
+  "existing_global_gamma_model_cv_mae_luma_255": 14.742763803479516,
+  "candidate_screen_reference_curve_cv_mae_luma_255": 6.1114197699322785,
+  "style_reference_points": {
+    "gold": {
+      "observations": 8,
+      "typical_displayed_palette_strength_pct": 85,
+      "style_name_confirmed": true,
+      "tone_curve": {
+        "shadow_at_018": 0.145,
+        "midtone_at_055": 0.16505,
+        "highlight_at_090": 0.04713
+      },
+      "chroma_axis": {
+        "left_decrease": 0.635,
+        "right_increase": 0.568
+      },
+      "heldout_reference_luminance_mae_255": {
+        "previous": 15.5,
+        "screen_reference_curve": 5.62
+      },
+      "fitting_note": "Brightness and contrast inferred from scene patches, not from a published Apple camera API."
+    },
+    "coolRose": {
+      "observations": 8,
+      "typical_displayed_palette_strength_pct": 100,
+      "style_name_confirmed": true,
+      "tone_curve": {
+        "shadow_at_018": 0.11676,
+        "midtone_at_055": 0.1507,
+        "highlight_at_090": 0.02737
+      },
+      "chroma_axis": {
+        "left_decrease": 0.752,
+        "right_increase": 0.69
+      },
+      "heldout_reference_luminance_mae_255": {
+        "previous": 15.31,
+        "screen_reference_curve": 5.14
+      },
+      "fitting_note": "Brightness and contrast inferred from scene patches, not from a published Apple camera API."
+    },
+    "cool": {
+      "observations": 6,
+      "typical_displayed_palette_strength_pct": 75,
+      "style_name_confirmed": false,
+      "tone_curve": {
+        "shadow_at_018": 0.145,
+        "midtone_at_055": 0.17,
+        "highlight_at_090": 0.04279
+      },
+      "chroma_axis": {
+        "left_decrease": 0.95,
+        "right_increase": 0.543
+      },
+      "heldout_reference_luminance_mae_255": {
+        "previous": 14.86,
+        "screen_reference_curve": 5.86
+      },
+      "fitting_note": "Brightness and contrast inferred from scene patches, not from a published Apple camera API."
+    },
+    "roseGold": {
+      "observations": 8,
+      "typical_displayed_palette_strength_pct": 75,
+      "style_name_confirmed": true,
+      "tone_curve": {
+        "shadow_at_018": 0.145,
+        "midtone_at_055": 0.17,
+        "highlight_at_090": 0.03762
+      },
+      "chroma_axis": {
+        "left_decrease": 0.652,
+        "right_increase": 0.563
+      },
+      "heldout_reference_luminance_mae_255": {
+        "previous": 15.46,
+        "screen_reference_curve": 5.74
+      },
+      "fitting_note": "Brightness and contrast inferred from scene patches, not from a published Apple camera API."
+    },
+    "vibrant": {
+      "observations": 7,
+      "typical_displayed_palette_strength_pct": 100,
+      "style_name_confirmed": true,
+      "tone_curve": {
+        "shadow_at_018": 0.12392,
+        "midtone_at_055": 0.13825,
+        "highlight_at_090": 0.03401
+      },
+      "chroma_axis": {
+        "left_decrease": 0.587,
+        "right_increase": 0.491
+      },
+      "heldout_reference_luminance_mae_255": {
+        "previous": 11.93,
+        "screen_reference_curve": 9.94
+      },
+      "fitting_note": "Brightness and contrast inferred from scene patches, not from a published Apple camera API."
+    },
+    "neutral": {
+      "observations": 8,
+      "typical_displayed_palette_strength_pct": 100,
+      "style_name_confirmed": true,
+      "tone_curve": {
+        "shadow_at_018": 0.11966,
+        "midtone_at_055": 0.13169,
+        "highlight_at_090": 0.02558
+      },
+      "chroma_axis": {
+        "left_decrease": 0.791,
+        "right_increase": 0.652
+      },
+      "heldout_reference_luminance_mae_255": {
+        "previous": 15.08,
+        "screen_reference_curve": 4.79
+      },
+      "fitting_note": "Brightness and contrast inferred from scene patches, not from a published Apple camera API."
+    }
+  }
+}
