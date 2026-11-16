@@ -99,34 +99,34 @@ enum CameraStyle: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .standard: return "标准"
-        case .pearl: return "珠光 Pearl"
-        case .amber: return "琥珀色 Amber"
-        case .gold: return "金色 Gold"
-        case .roseGold: return "玫瑰金 Rose Gold"
-        case .coolRose: return "冷调玫瑰色 Cool Rose"
-        case .cool: return "冷调 Cool"
-        case .radiant: return "耀目 Bright"
-        case .neutral: return "自然 Neutral"
-        case .vibrant: return "鲜明 Vibrant"
-        case .warm: return "温馨 Warm"
-        case .ethereal: return "空灵 Ethereal"
-        case .dramatic: return "戏剧 Dramatic"
-        case .luminous: return "明亮 Luminous"
-        case .monochrome: return "黑白 Mono"
+        case .standard: return "标准".ycamLocalized
+        case .pearl: return "珠光 Pearl".ycamLocalized
+        case .amber: return "琥珀色 Amber".ycamLocalized
+        case .gold: return "金色 Gold".ycamLocalized
+        case .roseGold: return "玫瑰金 Rose Gold".ycamLocalized
+        case .coolRose: return "冷调玫瑰色 Cool Rose".ycamLocalized
+        case .cool: return "冷调 Cool".ycamLocalized
+        case .radiant: return "耀目 Bright".ycamLocalized
+        case .neutral: return "自然 Neutral".ycamLocalized
+        case .vibrant: return "鲜明 Vibrant".ycamLocalized
+        case .warm: return "温馨 Warm".ycamLocalized
+        case .ethereal: return "空灵 Ethereal".ycamLocalized
+        case .dramatic: return "戏剧 Dramatic".ycamLocalized
+        case .luminous: return "明亮 Luminous".ycamLocalized
+        case .monochrome: return "黑白 Mono".ycamLocalized
         case .fuji400: return "FUJI 400"
         case .kodak800: return "KODAK 800"
-        case .fujiCyan: return "FUJI 青调"
-        case .kodakWarmYellow: return "KODAK 暖黄"
-        case .fujiProvia: return "富士 PROVIA"
-        case .fujiVelvia: return "富士 Velvia"
-        case .fujiAstia: return "富士 ASTIA"
-        case .fujiRealaAce: return "富士 REALA ACE"
-        case .fujiClassicChrome: return "富士 经典铬 CC"
-        case .fujiClassicNeg: return "富士 经典负片 CN"
-        case .fujiProNeg: return "富士 PRO Neg"
-        case .fujiEterna: return "富士 ETERNA"
-        case .fujiEternaBB: return "富士 ETERNA BB"
+        case .fujiCyan: return "FUJI 青调".ycamLocalized
+        case .kodakWarmYellow: return "KODAK 暖黄".ycamLocalized
+        case .fujiProvia: return "富士 PROVIA".ycamLocalized
+        case .fujiVelvia: return "富士 Velvia".ycamLocalized
+        case .fujiAstia: return "富士 ASTIA".ycamLocalized
+        case .fujiRealaAce: return "富士 REALA ACE".ycamLocalized
+        case .fujiClassicChrome: return "富士 经典铬 CC".ycamLocalized
+        case .fujiClassicNeg: return "富士 经典负片 CN".ycamLocalized
+        case .fujiProNeg: return "富士 PRO Neg".ycamLocalized
+        case .fujiEterna: return "富士 ETERNA".ycamLocalized
+        case .fujiEternaBB: return "富士 ETERNA BB".ycamLocalized
         }
     }
 
@@ -255,13 +255,13 @@ enum PortraitLighting: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .off: return "关"
-        case .natural: return "自然光"
-        case .studio: return "摄影棚光"
-        case .contour: return "轮廓光"
-        case .stage: return "舞台光"
-        case .stageMono: return "舞台光单色"
-        case .highKeyMono: return "高调单色光"
+        case .off: return "关".ycamLocalized
+        case .natural: return "自然光".ycamLocalized
+        case .studio: return "摄影棚光".ycamLocalized
+        case .contour: return "轮廓光".ycamLocalized
+        case .stage: return "舞台光".ycamLocalized
+        case .stageMono: return "舞台光单色".ycamLocalized
+        case .highKeyMono: return "高调单色光".ycamLocalized
         }
     }
 }
@@ -275,16 +275,16 @@ enum AppleFilter: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .original: return "原图"
-        case .vivid: return "鲜明"
-        case .vividWarm: return "鲜暖色"
-        case .vividCool: return "鲜冷色"
-        case .dramatic: return "戏剧"
-        case .dramaticWarm: return "戏剧暖色"
-        case .dramaticCool: return "戏剧冷色"
-        case .mono: return "单色"
-        case .silvertone: return "银色调"
-        case .noir: return "黑白"
+        case .original: return "原图".ycamLocalized
+        case .vivid: return "鲜明".ycamLocalized
+        case .vividWarm: return "鲜暖色".ycamLocalized
+        case .vividCool: return "鲜冷色".ycamLocalized
+        case .dramatic: return "戏剧".ycamLocalized
+        case .dramaticWarm: return "戏剧暖色".ycamLocalized
+        case .dramaticCool: return "戏剧冷色".ycamLocalized
+        case .mono: return "单色".ycamLocalized
+        case .silvertone: return "银色调".ycamLocalized
+        case .noir: return "黑白".ycamLocalized
         }
     }
 

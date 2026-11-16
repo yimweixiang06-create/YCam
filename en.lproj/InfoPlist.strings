@@ -1,0 +1,5 @@
+"CFBundleDisplayName" = "YCam";
+"NSCameraUsageDescription" = "YCam uses the camera to show a preview, take photos, and record videos.";
+"NSMicrophoneUsageDescription" = "YCam needs microphone access to record audio with video.";
+"NSPhotoLibraryAddUsageDescription" = "YCam needs permission to save photos and videos to your library.";
+"NSPhotoLibraryUsageDescription" = "YCam needs permission to access your photo library.";

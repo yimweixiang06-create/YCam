@@ -358,7 +358,7 @@ struct CameraHomeView: View {
 
     private func editButton(_ m: UIMetrics) -> some View {
         Button { go(sheet == .edit ? .drawer : .edit) } label: {
-            Text(sheet == .edit ? "完成" : "编辑")
+            Text((sheet == .edit ? "完成" : "编辑").ycamLocalized)
                 .font(.system(size: 13 * m.s, weight: .semibold))
                 .foregroundStyle(Color.white)
                 .padding(.horizontal, 12 * m.s)
@@ -368,7 +368,7 @@ struct CameraHomeView: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(GlassButtonStyle())
-        .accessibilityLabel(sheet == .edit ? "完成编辑" : "编辑抽屉里的功能")
+        .accessibilityLabel((sheet == .edit ? "完成编辑" : "编辑抽屉里的功能").ycamLocalized)
     }
 
     // MARK: 图标
@@ -463,7 +463,7 @@ struct CameraHomeView: View {
             return ControlSpec(title: id.title, icon: liveIcon(m, size: 24), active: liveEffective,
                                enabled: camera.mode != .video && camera.livePhotoSupported, action: { liveTapped() })
         case .aspect:
-            return ControlSpec(title: id.title, icon: AnyView(Text(camera.aspect.rawValue).font(.system(size: 16 * m.s, weight: .bold))),
+            return ControlSpec(title: id.title, icon: AnyView(Text(camera.aspect.rawValue.ycamLocalized).font(.system(size: 16 * m.s, weight: .bold))),
                                active: camera.aspect != .fourThree, enabled: photoLike, action: { go(.aspect) })
         case .timer:
             let icon: AnyView = camera.timerSeconds > 0
@@ -591,7 +591,7 @@ struct CameraHomeView: View {
         .buttonStyle(GlassButtonStyle())
         .disabled(shutterDisabled)
         .opacity(shutterDisabled && !camera.isFinalizingVideo ? 0.5 : 1)
-        .accessibilityLabel(shutterLabel)
+        .accessibilityLabel(shutterLabel.ycamLocalized)
     }
 
     private var shutterLabel: String {
@@ -794,7 +794,7 @@ struct CameraHomeView: View {
     @ViewBuilder
     private func toastLayer(_ m: UIMetrics) -> some View {
         if let text = camera.message {
-            Text(text)
+            Text(text.ycamLocalized)
                 .font(.callout.weight(.medium))
                 .foregroundStyle(Color.white)
                 .multilineTextAlignment(.center)
@@ -903,7 +903,7 @@ private final class ModeStripTrackingView: UIControl, UIGestureRecognizerDelegat
     private let highlight = CALayer()
     private let labels: [UILabel] = CaptureMode.allCases.map { mode in
         let label = UILabel()
-        label.text = mode.rawValue
+        label.text = mode.title
         label.textAlignment = .center
         label.isUserInteractionEnabled = false
         label.isAccessibilityElement = false
@@ -1011,7 +1011,7 @@ private final class ModeStripTrackingView: UIControl, UIGestureRecognizerDelegat
             for (i, label) in labels.enumerated() {
                 label.textColor = i == nearest ? .systemYellow : .white
             }
-            accessibilityValue = modes[nearest].rawValue
+            accessibilityValue = modes[nearest].title
         }
     }
 

@@ -8,6 +8,7 @@ enum CaptureMode: String, CaseIterable, Identifiable {
     case photo = "照片"
     case portrait = "人像"
     var id: String { rawValue }
+    var title: String { rawValue.ycamLocalized }
 }
 
 // MARK: - 各项设置的取值
@@ -65,7 +66,9 @@ struct VideoSpec: Hashable, Identifiable {
     let height: Int
     let fps: Int
     var id: String { "\(height)p\(fps)" }
-    var title: String { (height >= 2160 ? "4K" : "HD 1080p") + " · \(fps) 帧" }
+    var title: String {
+        (height >= 2160 ? "4K" : "HD 1080p") + String(format: NSLocalizedString("video.fps.suffix", comment: "Video frame rate"), fps)
+    }
 }
 
 struct ZoomStop: Identifiable, Equatable {
@@ -76,7 +79,7 @@ struct ZoomStop: Identifiable, Equatable {
 
 enum WhiteBalancePresets {
     static let items: [(title: String, kelvin: Int)] = [
-        ("晴天", 5500), ("阴天", 6500), ("白炽灯", 3200), ("荧光灯", 4200)
+        ("晴天".ycamLocalized, 5500), ("阴天".ycamLocalized, 6500), ("白炽灯".ycamLocalized, 3200), ("荧光灯".ycamLocalized, 4200)
     ]
 }
 
@@ -95,21 +98,21 @@ enum ControlID: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .flash: return "闪光灯"
-        case .live: return "实况"
-        case .aspect: return "宽高比"
-        case .timer: return "计时器"
-        case .exposure: return "曝光"
-        case .style: return "摄影风格"
-        case .filter: return "滤镜"
-        case .depth: return "景深"
-        case .night: return "夜间模式"
-        case .format: return "格式"
-        case .focus: return "对焦"
-        case .shutter: return "快门速度"
-        case .whiteBalance: return "白平衡"
-        case .histogram: return "直方图"
-        case .grid: return "网格"
+        case .flash: return "闪光灯".ycamLocalized
+        case .live: return "实况".ycamLocalized
+        case .aspect: return "宽高比".ycamLocalized
+        case .timer: return "计时器".ycamLocalized
+        case .exposure: return "曝光".ycamLocalized
+        case .style: return "摄影风格".ycamLocalized
+        case .filter: return "滤镜".ycamLocalized
+        case .depth: return "景深".ycamLocalized
+        case .night: return "夜间模式".ycamLocalized
+        case .format: return "格式".ycamLocalized
+        case .focus: return "对焦".ycamLocalized
+        case .shutter: return "快门速度".ycamLocalized
+        case .whiteBalance: return "白平衡".ycamLocalized
+        case .histogram: return "直方图".ycamLocalized
+        case .grid: return "网格".ycamLocalized
         }
     }
 }

@@ -49,12 +49,12 @@ struct PanelIconButton: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(GlassButtonStyle())
-        .accessibilityLabel(label)
+        .accessibilityLabel(label.ycamLocalized)
     }
 }
 
 func panelTitle(_ text: String, _ m: UIMetrics) -> some View {
-    Text(text)
+    Text(text.ycamLocalized)
         .font(.system(size: 14 * m.s, weight: .medium))
         .foregroundStyle(Color.white)
         .lineLimit(1)
@@ -107,7 +107,7 @@ struct PanelSlider: View {
 }
 
 private func hint(_ text: String, _ m: UIMetrics) -> some View {
-    Text(text)
+    Text(text.ycamLocalized)
         .font(.system(size: 11 * m.s))
         .foregroundStyle(Color.white.opacity(0.6))
         .multilineTextAlignment(.center)
@@ -265,7 +265,7 @@ struct EditPanel: View {
 
     private func toggle(_ title: String, on: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Text(title)
+            Text(title.ycamLocalized)
                 .font(.system(size: 13 * m.s, weight: .semibold))
                 .foregroundStyle(on ? Color.black : Color.white)
                 .frame(width: 52 * m.s, height: 32 * m.s)
@@ -287,7 +287,7 @@ struct AspectPanel: View {
     var body: some View {
         VStack(spacing: 10 * m.s) {
             PanelHeader(m, onBack: onBack) { panelTitle("宽高比", m) }
-            ChipRow(items: AspectSetting.allCases, selected: camera.aspect, m: m, title: { $0.rawValue }) { value in
+            ChipRow(items: AspectSetting.allCases, selected: camera.aspect, m: m, title: { $0.rawValue.ycamLocalized }) { value in
                 camera.aspect = value
                 camera.markControlsChanged()
             }
@@ -498,7 +498,7 @@ struct CustomPalettePanel: View {
 
     private func valueLabel(_ title: String, _ value: String) -> some View {
         HStack(spacing: 4) {
-            Text(title)
+            Text(title.ycamLocalized)
                 .font(.system(size: 12 * m.s))
                 .foregroundStyle(Color.white.opacity(0.6))
             Text(value)
@@ -576,7 +576,7 @@ struct FormatPanel: View {
     }
 
     private func sectionTitle(_ text: String) -> some View {
-        Text(text)
+        Text(text.ycamLocalized)
             .font(.system(size: 12 * m.s, weight: .medium))
             .foregroundStyle(Color.white.opacity(0.7))
             .frame(maxWidth: .infinity, alignment: .leading)
