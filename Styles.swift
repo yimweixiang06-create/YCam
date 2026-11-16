@@ -215,7 +215,7 @@ enum CameraStyle: String, CaseIterable, Identifiable {
     var recipe: LookRecipe {
         switch self {
         case .standard: return LookRecipe()
-        case .pearl: return LookRecipe(exposure: 0.09, contrast: 0.10, saturation: 1.02, vibrance: 0.08, temperature: 0.01, tint: 0.045, shadowTint: rgb(0.006, -0.002, 0.009), highlightTint: rgb(0.003, 0.003, 0.004), whiteRoll: 0.07)
+        case .pearl: return LookRecipe(exposure: 0.09, contrast: 0.10, saturation: 1.02, vibrance: 0.08, temperature: 0.01, tint: 0.045, shadowTint: rgb(0.014, -0.005, 0.017), highlightTint: rgb(0.003, 0.003, 0.004), whiteRoll: 0.07)
         case .amber: return LookRecipe(exposure: -0.02, contrast: 0.10, saturation: 1.10, temperature: 0.34, tint: 0.12, highlightTint: rgb(0.022, 0.002, -0.016))
         case .gold: return LookRecipe(exposure: 0.04, contrast: 0.09, saturation: 1.00, temperature: 0.27, tint: -0.12, highlightTint: rgb(0.009, 0.010, -0.013), blackLift: 0.010)
         case .roseGold: return LookRecipe(exposure: -0.02, contrast: 0.03, saturation: 1.00, temperature: 0.19, tint: 0.14, highlightTint: rgb(0.012, 0.000, 0.004))
