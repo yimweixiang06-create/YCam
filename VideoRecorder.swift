@@ -24,6 +24,9 @@ final class VideoRecorder {
     private var outputURL: URL?
     private var audioSettings: [String: Any]?
     private var armed = false
+    // Recorder is confined to CameraModel.dataQueue. A video-mode preview
+    // can stay low-resolution until an actual recording is armed.
+    var isArmed: Bool { armed }
     private var sessionStart: CMTime?
     private var lastVideoPTS = CMTime.invalid
     private var videoFrames = 0
