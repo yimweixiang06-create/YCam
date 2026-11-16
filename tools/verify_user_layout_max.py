@@ -161,12 +161,21 @@ assert 'for (sr, sg, sb, weight) in examples' in palette_src
 assert 'let gamma = 1 - 0.10 * tone' in palette_src
 assert 'let saturation = 1 + color * (color >= 0 ? 0.36 : 0.24)' in palette_src
 assert '.interpolation(.high)' in palette_src
-# The user selected an iOS 27-inspired backdrop ONLY for the dot grid.
-# Keep existing custom sheet, control labels, yellow tick slider and touch layers.
-assert 'soft smoked-rose at the top, charcoal-plum below' in palette_src
-assert '.opacity(0.18)' in palette_src
-assert '.saturation(0.70)' in palette_src
-assert 'startPoint: .topLeading, endPoint: .bottomTrailing' in palette_src
+# Unique 2D palette field per style; no universal violet mask.
+# Still not a claim to Apple's private photographic-style palette coefficients.
+assert 'shape.fill(style.swatch)' in palette_src
+assert '.opacity(0.92)' in palette_src
+assert 'style == .monochrome ? 0 : 1.04' in palette_src
+assert 'soft smoked-rose at the top' not in palette_src
+assert 'SwatchPhotoRenderer.render' in model
+assert 'let currentFilter = snap.settings.filter' in model
+assert 'let currentStyle = snap.settings.style' in model
+assert 'styleCardPreviews' in panel and 'filterCardPreviews' in panel
+assert 'camera.refreshStyleCardPreviews()' in home
+assert 'previews: (Item) -> UIImage?' in palette_src
+assert 'Image(uiImage: preview)' in palette_src
+# These visual changes must never replace the restored old-size controls.
+assert 'let columns = 11' in palette_src
 assert 'DotPaletteTouchSurface(point: $point)' in palette_src
 assert 'struct PaletteValuesCapsule:' not in panel
 assert 'PaletteValuesCapsule(camera:' not in home
