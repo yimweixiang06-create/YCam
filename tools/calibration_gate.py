@@ -58,6 +58,29 @@ def verify_pair(pair, effects):
     for field in ("lighting_description","color_profile","tone_color_strength"):
         if not pair.get(field):
             raise ValueError(f"{effect}: missing image and control matching metadata: {field}")
+
+    # The source photograph's actual on-device tone, color and strength must
+    # be documented, not guessed from a color swatch or random test category.
+    controls = pair["tone_color_strength"]
+    if not isinstance(controls, dict):
+        raise ValueError(f"{effect}: tone_color_strength must be an exact control record")
+    for name, lower, upper in (("tone", -100, 100), ("color", -100, 100),
+                                ("intensity", 0, 100)):
+        v = controls.get(name)
+        if isinstance(v, bool) or not isinstance(v, (int, float)) or not lower <= v <= upper:
+            raise ValueError(f"{effect}: missing / out-of-range {name}")
+    x = (controls["color"] + 100) / 200
+    y = (100 - controls["tone"]) / 200
+    location = pair.get("normalized_point")
+    if not isinstance(location, dict) or not all(
+        isinstance(location.get(axis), (int, float)) and
+        not isinstance(location.get(axis), bool) for axis in ("x", "y")
+    ) or abs(location["x"] - x) > 0.005 or abs(location["y"] - y) > 0.005:
+        raise ValueError(f"{effect}: grid position does not match photographed tone/color values")
+    if not re.fullmatch(r"[0-9a-fA-F]{64}",str(pair.get("controls_evidence_sha256",""))):
+        raise ValueError(f"{effect}: missing verifiable screenshot of actual control position")
+    if not pair.get("reference_effect_source_verified"):
+        raise ValueError(f"{effect}: no independent verification of real on-camera effect")
     return effect
 
 
