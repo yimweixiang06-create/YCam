@@ -445,7 +445,7 @@ struct StylesPanel: View {
                            cardWidth: 58 * m.s,
                            cardHeight: 62 * m.s,
                            spacing: 7 * m.s,
-                           artwork: { PaletteIconArtwork.style($0) },
+                           colors: { $0.cardColors },
                            name: { $0.title },
                            shortName: { $0.pickerTitle },
                            symbol: "circle.grid.3x3.fill")
@@ -530,7 +530,7 @@ struct FiltersPanel: View {
                            cardWidth: 58 * m.s,
                            cardHeight: 62 * m.s,
                            spacing: 7 * m.s,
-                           artwork: { PaletteIconArtwork.filter($0) },
+                           colors: { $0.cardColors },
                            name: { $0.title },
                            shortName: { $0.title },
                            symbol: "circle.lefthalf.filled")
