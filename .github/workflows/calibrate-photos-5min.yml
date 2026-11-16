@@ -10,6 +10,8 @@ on:
     paths:
       - ".github/workflows/calibrate-photos-5min.yml"
       - "tools/continuous_photo_check.py"
+      - "tools/calibration_gate.py"
+      - "calibration/reference_pairs.json"
 
 # Run at most one photo check at once; do not accumulate parallel jobs.
 concurrency:
@@ -22,14 +24,15 @@ permissions:
 jobs:
   sample-and-verify:
     name: Sample up to 200 licensed photos across 38 effects
-    runs-on: ubuntu-latest
-    timeout-minutes: 4
+    # Stable image; do not silently migrate color jobs to a new OS mid-study.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
     steps:
       - name: Checkout YCam
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
@@ -38,7 +41,7 @@ jobs:
 
       # Keep recent accepted source hashes across runs; report cache misses honestly.
       - name: Restore recent photo hashes
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: .cache/ycam_photo_seen.json
           key: ycam-photo-seen-${{ github.run_id }}
@@ -46,23 +49,28 @@ jobs:
             ycam-photo-seen-
 
       - name: Collect and check up to 200 unique licensed photos
-        run: python tools/continuous_photo_check.py --target 200 --seconds 150
+        run: python tools/continuous_photo_check.py --target 200 --seconds 200
+
+      - name: Verify minimum 2000 photos and prevent wrong-filter calibration
+        run: python tools/calibration_gate.py
 
       - name: Save photo hashes
         if: always()
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         with:
           path: .cache/ycam_photo_seen.json
           key: ycam-photo-seen-${{ github.run_id }}
 
       - name: Publish auditable photo and per-effect report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ycam-photo-audit-${{ github.run_id }}
           path: reports/continuous/
           if-no-files-found: warn
           retention-days: 3
 
-# Unpaired web photos are only robustness samples, NOT authoritative color truth.
-# No automatic Swift/LUT tuning or IPA publishing without verified same-scene pairs.
+# This job saves evidence only: it is NOT an auto-publish job.
+# No Swift/LUT changes before >=2,000 strictly photo-evidenced samples,
+# exact original-vs-effect preset pairing and an independently better holdout.
+# Real iOS builds happen only on actual tested application source changes.
