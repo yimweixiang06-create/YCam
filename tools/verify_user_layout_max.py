@@ -158,7 +158,11 @@ assert 'shortName: { $0.pickerTitle }' not in panel
 assert 'symbol: "circle.grid.3x3.fill"' not in panel
 assert 'symbol: "circle.lefthalf.filled"' not in panel
 assert 'Text("自定义")' in panel
-assert 'DotPalette(point: $camera.styleSettings.point, colors: settings.style.cardColors)' in panel
+assert 'DotPalette(point: $camera.styleSettings.point,' in panel
+assert 'style: settings.style,' in panel
+assert 'colors: settings.style.cardColors)' in panel
+assert '.frame(width: 110 * m.s, height: 110 * m.s)' in panel
+assert '.frame(width: 116 * m.s)' in panel
 
 # Preserve the EXACT FIRST 2026-10-19 gradient backdrop behind white dots.
 # Keep high-performance continuous UIKit tracking, original glass panel and ticks.
@@ -178,7 +182,7 @@ assert 'let columns = 11' in palette_src and 'let rows = 11' in palette_src
 assert 'let ticks = 11' in palette_src
 assert 'Color.yellow : Color.white.opacity(0.35)' in palette_src
 assert 'dotsLayer.strokeColor = UIColor.black.withAlphaComponent(0.38).cgColor' not in palette_src
-assert '.frame(width: 200 * m.s)' in panel
+assert '.frame(width: 116 * m.s)' in panel
 assert 'PanelHeader(m, onBack: onBack, onReset:' in panel
 assert 'panel(m, height: m.panelHeight(.custom, drawerCount: count))' in home
 assert 'struct PaletteValuesCapsule:' not in panel
@@ -227,3 +231,13 @@ for x in (.001,.07,.15,.27,.44,.51,.86,.93,.999):
     snapped=round(10*x)/10
     assert abs(x-snapped)<=.05+1e-9
 print("PASS: original palette UI; upper +3%, lower direct -2%, corner detail, release-only snap")
+
+# Screenshot-matched palette artwork is UI-only. Keep the existing frosted
+# glass shell, camera controls, photo style recipe and traditional filters.
+assert 'ScreenshotPaletteArtwork(style: style)' in palette_src
+assert 'case .gold:' in palette_src and 'case .coolRose:' in palette_src
+assert '.init(188, 174, 161)' in palette_src
+assert '.init(203, 174, 177)' in palette_src
+assert 'private let neutralPointLayer = CALayer()' in palette_src
+assert 'neutralPointLayer.position = dotPosition(col: 5, row: 5)' in palette_src
+assert 'let diameter: CGFloat = pressed ? 19 : 15' in palette_src

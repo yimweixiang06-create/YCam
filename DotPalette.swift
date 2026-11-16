@@ -129,20 +129,131 @@ struct SwatchCarousel<Item: Hashable & Identifiable>: View {
 
 struct DotPalette: View {
     @Binding var point: CGPoint
+    let style: CameraStyle
     var colors: [Color]
 
+    // UI artwork only. Original YCam glass, color-rendering pipeline and
+    // photographic-style recipes remain untouched. Gold/Cool Rose palette
+    // references are sampled from user-provided iPhone UI screenshots.
+    @ViewBuilder
+    private var artwork: some View {
+        if style == .gold || style == .coolRose {
+            ScreenshotPaletteArtwork(style: style)
+        } else {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(LinearGradient(colors: colors, startPoint: .top, endPoint: .bottom))
+                .overlay(
+                    LinearGradient(colors: [Color.blue.opacity(0.20), Color.clear, Color.orange.opacity(0.20)],
+                                   startPoint: .leading, endPoint: .trailing)
+                        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                )
+        }
+    }
+
     var body: some View {
-        RoundedRectangle(cornerRadius: 18, style: .continuous)
-            .fill(LinearGradient(colors: colors, startPoint: .top, endPoint: .bottom))
-            .overlay(
-                LinearGradient(colors: [Color.blue.opacity(0.20), Color.clear, Color.orange.opacity(0.20)],
-                               startPoint: .leading, endPoint: .trailing)
-                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-            )
+        artwork
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .strokeBorder(Color.white.opacity(0.26), lineWidth: 0.6)
+            }
             .overlay {
                 DotPaletteTouchSurface(point: $point)
                     .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
             }
+    }
+}
+
+// The 2D square appearance is cached by SwiftUI's Canvas redraw lifecycle;
+// it does not use the selection position, so dragging the white cursor never
+// recolors the background or recomputes the underlying photo filter.
+private struct PaletteRGB {
+    let r: Double
+    let g: Double
+    let b: Double
+
+    init(_ r: Int, _ g: Int, _ b: Int) {
+        self.r = Double(r) / 255
+        self.g = Double(g) / 255
+        self.b = Double(b) / 255
+    }
+
+    private init(r: Double, g: Double, b: Double) {
+        self.r = r
+        self.g = g
+        self.b = b
+    }
+
+    func mixed(with other: PaletteRGB, fraction: Double) -> PaletteRGB {
+        let t = max(0, min(1, fraction))
+        return PaletteRGB(r: r + (other.r - r) * t,
+                          g: g + (other.g - g) * t,
+                          b: b + (other.b - b) * t)
+    }
+
+    var color: Color { Color(red: r, green: g, blue: b) }
+}
+
+private struct PaletteReferenceRow {
+    let y: Double
+    let left: PaletteRGB
+    let right: PaletteRGB
+}
+
+private struct ScreenshotPaletteArtwork: View {
+    let style: CameraStyle
+
+    private var rows: [PaletteReferenceRow] {
+        switch style {
+        case .gold:
+            // Screenshot-derived UI-only greige -> gold -> deep brown.
+            return [
+                .init(y: 0.00, left: .init(188, 174, 161), right: .init(224, 174, 77)),
+                .init(y: 0.18, left: .init(145, 116, 96), right: .init(165, 109, 35)),
+                .init(y: 0.48, left: .init(88, 77, 66), right: .init(95, 65, 30)),
+                .init(y: 0.78, left: .init(48, 38, 30), right: .init(49, 35, 19)),
+                .init(y: 1.00, left: .init(26, 18, 13), right: .init(31, 20, 11))
+            ]
+        case .coolRose:
+            // Screenshot-derived UI-only pale blush -> dusty rose -> plum.
+            return [
+                .init(y: 0.00, left: .init(203, 174, 177), right: .init(221, 210, 199)),
+                .init(y: 0.18, left: .init(176, 122, 128), right: .init(178, 157, 144)),
+                .init(y: 0.48, left: .init(121, 66, 70), right: .init(134, 105, 96)),
+                .init(y: 0.78, left: .init(64, 31, 42), right: .init(70, 34, 48)),
+                .init(y: 1.00, left: .init(37, 16, 28), right: .init(42, 17, 29))
+            ]
+        default:
+            // Caller uses YCam's unchanged gradient for all other styles.
+            return []
+        }
+    }
+
+    var body: some View {
+        let anchors = rows
+        Canvas(opaque: true) { context, size in
+            guard anchors.count >= 2, size.width > 0, size.height > 0 else { return }
+            let strips = 96
+            let bandHeight = size.height / CGFloat(strips)
+            for index in 0..<strips {
+                let t = (Double(index) + 0.5) / Double(strips)
+                let upper = max(1, min(anchors.count - 1,
+                    anchors.firstIndex(where: { $0.y >= t }) ?? anchors.count - 1))
+                let lower = upper - 1
+                let a = anchors[lower]
+                let b = anchors[upper]
+                let fraction = (t - a.y) / max(0.0001, b.y - a.y)
+                let left = a.left.mixed(with: b.left, fraction: fraction).color
+                let right = a.right.mixed(with: b.right, fraction: fraction).color
+                let y = CGFloat(index) * bandHeight
+                let band = Path(CGRect(x: 0, y: y, width: size.width,
+                                       height: bandHeight + 0.7))
+                context.fill(band, with: .linearGradient(
+                    Gradient(colors: [left, right]),
+                    startPoint: CGPoint(x: 0, y: y),
+                    endPoint: CGPoint(x: size.width, y: y)))
+            }
+        }
     }
 }
 
@@ -168,8 +279,9 @@ private struct DotPaletteTouchSurface: UIViewRepresentable {
 private final class DotPaletteTrackingView: UIControl {
     private let columns = 11
     private let rows = 11
-    private let inset: CGFloat = 12
+    private let inset: CGFloat = 9
     private let dotsLayer = CAShapeLayer()
+    private let neutralPointLayer = CALayer()
     private let cursorLayer = CALayer()
     private let feedback = UISelectionFeedbackGenerator()
     private var cursor = CGPoint(x: 0.5, y: 0.5)
@@ -187,9 +299,15 @@ private final class DotPaletteTrackingView: UIControl {
 
         dotsLayer.fillColor = UIColor.white.withAlphaComponent(0.76).cgColor
         layer.addSublayer(dotsLayer)
+        // The small pale dot at the neutral center is part of the reference
+        // square; the large white cursor remains separately draggable.
+        neutralPointLayer.backgroundColor = UIColor.white.withAlphaComponent(0.75).cgColor
+        neutralPointLayer.bounds = CGRect(x: 0, y: 0, width: 5, height: 5)
+        neutralPointLayer.cornerRadius = 2.5
+        layer.addSublayer(neutralPointLayer)
         cursorLayer.backgroundColor = UIColor.white.cgColor
-        cursorLayer.bounds = CGRect(x: 0, y: 0, width: 18, height: 18)
-        cursorLayer.cornerRadius = 9
+        cursorLayer.bounds = CGRect(x: 0, y: 0, width: 15, height: 15)
+        cursorLayer.cornerRadius = 7.5
         cursorLayer.shadowColor = UIColor.black.cgColor
         cursorLayer.shadowOpacity = 0.32
         cursorLayer.shadowRadius = 3
@@ -227,11 +345,12 @@ private final class DotPaletteTrackingView: UIControl {
             for c in 0..<columns {
                 let p = dotPosition(col: c, row: r)
                 path.append(UIBezierPath(ovalIn:
-                    CGRect(x: p.x - 1.4, y: p.y - 1.4, width: 2.8, height: 2.8)))
+                    CGRect(x: p.x - 1.0, y: p.y - 1.0, width: 2.0, height: 2.0)))
             }
         }
         dotsLayer.frame = bounds
         dotsLayer.path = path.cgPath
+        neutralPointLayer.position = dotPosition(col: 5, row: 5)
         updateCursor()
     }
 
@@ -286,7 +405,7 @@ private final class DotPaletteTrackingView: UIControl {
         CATransaction.begin()
         CATransaction.setAnimationDuration(0.12)
         CATransaction.setAnimationTimingFunction(CAMediaTimingFunction(name: .easeOut))
-        let diameter: CGFloat = pressed ? 22 : 18
+        let diameter: CGFloat = pressed ? 19 : 15
         cursorLayer.bounds = CGRect(x: 0, y: 0, width: diameter, height: diameter)
         cursorLayer.cornerRadius = diameter / 2
         CATransaction.commit()

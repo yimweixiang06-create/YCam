@@ -487,10 +487,14 @@ struct CustomPalettePanel: View {
                     valueLabel("调色盘", "\(palette)")
                 }
             }
-            DotPalette(point: $camera.styleSettings.point, colors: settings.style.cardColors)
-                .frame(width: 132 * m.s, height: 132 * m.s)
+            // Reference-style dotted square and compact segmented strength
+            // control inside YCam's existing glass panel (glass unchanged).
+            DotPalette(point: $camera.styleSettings.point,
+                       style: settings.style,
+                       colors: settings.style.cardColors)
+                .frame(width: 110 * m.s, height: 110 * m.s)
             TickSlider(value: $camera.styleSettings.intensity)
-                .frame(width: 200 * m.s)
+                .frame(width: 116 * m.s)
         }
         .padding(.horizontal, 12 * m.s)
         .padding(.vertical, 8 * m.s)
