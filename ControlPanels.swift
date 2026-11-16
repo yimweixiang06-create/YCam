@@ -442,13 +442,11 @@ struct StylesPanel: View {
                                    next.restoreStyleControls()
                                    camera.styleSettings = next
                                }),
-                           cardWidth: 58 * m.s,
-                           cardHeight: 62 * m.s,
-                           spacing: 7 * m.s,
+                           cardWidth: 41 * m.s,
+                           cardHeight: 52 * m.s,
+                           spacing: 8 * m.s,
                            colors: { $0.cardColors },
-                           name: { $0.title },
-                           shortName: { $0.pickerTitle },
-                           symbol: "circle.grid.3x3.fill")
+                           name: { $0.title })
             Button { onCustom() } label: {
                 Text("自定义")
                     .font(.system(size: 13 * m.s, weight: .medium))
@@ -489,9 +487,7 @@ struct CustomPalettePanel: View {
                     valueLabel("调色盘", "\(palette)")
                 }
             }
-            DotPalette(point: $camera.styleSettings.point,
-                       style: settings.style, filter: settings.filter,
-                       intensity: settings.intensity)
+            DotPalette(point: $camera.styleSettings.point, colors: settings.style.cardColors)
                 .frame(width: 132 * m.s, height: 132 * m.s)
             TickSlider(value: $camera.styleSettings.intensity)
                 .frame(width: 200 * m.s)
@@ -527,13 +523,11 @@ struct FiltersPanel: View {
                 .frame(width: 5 * m.s, height: 5 * m.s)
             SwatchCarousel(items: AppleFilter.allCases,
                            selected: $camera.styleSettings.filter,
-                           cardWidth: 58 * m.s,
-                           cardHeight: 62 * m.s,
-                           spacing: 7 * m.s,
+                           cardWidth: 41 * m.s,
+                           cardHeight: 52 * m.s,
+                           spacing: 8 * m.s,
                            colors: { $0.cardColors },
-                           name: { $0.title },
-                           shortName: { $0.title },
-                           symbol: "circle.lefthalf.filled")
+                           name: { $0.title })
             hint("Apple 原有滤镜（鲜明 / 戏剧 / 单色 / 银色调 / 黑白），可以和摄影风格叠加。", m)
         }
         .padding(.horizontal, 12 * m.s)
