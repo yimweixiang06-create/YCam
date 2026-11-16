@@ -215,8 +215,10 @@ def main():
                     else:
                         output=ycam.transform(pixels,ycam.effective(recipes[name]))
                     de=float(np.linalg.norm(ycam.lab(output)-ycam.lab(pixels),axis=1).mean())
+                    input_clipping=float(((pixels<0.003)|(pixels>0.997)).any(axis=1).mean())
                     clipping=float(((output<0.003)|(output>0.997)).any(axis=1).mean())
-                    if not np.isfinite(de) or not np.isfinite(clipping):
+                    clipping_delta=clipping-input_clipping
+                    if not all(np.isfinite(v) for v in (de,input_clipping,clipping,clipping_delta)):
                         raise ValueError("Non-finite color metrics")
                 except Exception as e:
                     reason=str(e)[:75].lower().replace(" ","_")
@@ -243,7 +245,10 @@ def main():
                     "photo_evidence_verified":evidence in ("Commons photo category","camera capture EXIF"),
                     "original_dimensions":[info.get("width"),info.get("height")],
                     "deltaE76_vs_input_not_accuracy_error":round(de,3),
-                    "near_clipping_fraction":round(clipping,4),"verified_official_pair":False})
+                    "near_clipping_fraction":round(clipping,4),
+                    "input_near_clipping_fraction":round(input_clipping,4),
+                    "clipping_change_vs_same_input":round(clipping_delta,4),
+                    "verified_official_pair":False})
     # Cache restores recent accepted source IDs; a missing cache means only within-run novelty is established.
     cumulative += len(samples)
     cumulative_counts.update(counts)
@@ -274,6 +279,50 @@ def main():
         "auto_color_change":False,"ipa_published":False,
         "warning":"Delta E is change from raw image to YCam approximation, NOT error versus Apple/Fuji/Kodak reference.",
         "samples":samples}
+    # A REAL paired-input quality test compares each YCam effect with the same
+    # input photo's own clipping. Different photos assigned round-robin to
+    # different effects are NOT comparable to each other, and not Apple targets.
+    verified_effects=Counter()
+    clipping_flags=[]
+    for photo in samples:
+        if not photo["photo_evidence_verified"]:
+            continue
+        key=photo["evaluated_effect_key"]
+        verified_effects[key]+=1
+        delta=photo["clipping_change_vs_same_input"]
+        if delta>=0.08:
+            clipping_flags.append({
+                "tested_effect_key":key,
+                "source_file_sha1":photo["source_file_sha1"],
+                "source":photo["source"],
+                "baseline_clipping":photo["input_near_clipping_fraction"],
+                "ycamm_output_clipping":photo["near_clipping_fraction"],
+                "incremental_clipping":delta
+            })
+    clipping_flags.sort(key=lambda x:x["incremental_clipping"],reverse=True)
+    quality_review={
+        "run_utc":report["run_utc"],"sample_count":len(samples),
+        "photo_evidence_verified_this_run":sum(verified_effects.values()),
+        "candidate_only_count":len(samples)-sum(verified_effects.values()),
+        "paired_input_test_definition":"Same source pixels vs YCam tested effect; NOT Apple ground truth.",
+        "metrics_pipeline":"tools/style_check.py approximates YCam color math, not an iPhone GPU screenshot",
+        "official_effect_reference_pairs":0,
+        "safe_to_optimize_official_color_accuracy":False,
+        "flag_threshold_added_clipping_fraction":0.08,
+        "flagged_photographic_samples":len(clipping_flags),
+        "per_effect_tested_photographic_samples":dict(verified_effects),
+        "clipping_risk_samples":clipping_flags,
+        "cross_effect_warning":"Photos are assigned round-robin, not the same photo per effect. Do not rank effects by raw output clipping or call this Apple accuracy."
+    }
+    (reportdir/"quality_review.json").write_text(
+        json.dumps(quality_review,ensure_ascii=False,indent=2),encoding="utf-8")
+    quality_md=("# YCam 同源输入画质检查（非苹果准确度）\n\n"
+        +"- 本轮有摄影证据的可用样本："+str(quality_review["photo_evidence_verified_this_run"])+" 张。\n"
+        +"- 相对其**自身未处理输入图**增加≥8%临近裁切像素的样本："
+        +str(len(clipping_flags))+" 张。\n"
+        +"- 原图与另一个风格不是同一输入时，不能比较两者谁更接近苹果。\n"
+        +"- 这不是官方原图与目标风格的配对，也不代表已允许自动修改 LUT。\n")
+    (reportdir/"quality_review.md").write_text(quality_md,encoding="utf-8")
     (reportdir/"latest.json").write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding="utf-8")
     tab="\n".join("| "+n+" | "+str(counts[n])+" |" for n in effect_names)
     md=("# YCam 每 5 分钟照片检查\n\n"+
@@ -296,6 +345,7 @@ def main():
     print("Photo evidence:",dict(photo_qualities))
     print("Scene diversity:",dict(scene_counts))
     print("Rejected:",dict(rejects))
+    print("Added-clipping quality warnings (verified photo vs its own input):",len(clipping_flags))
     return 0
 
 if __name__=="__main__":
