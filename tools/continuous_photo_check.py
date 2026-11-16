@@ -37,6 +37,21 @@ def photo_evidence(page,info):
         return None
     if info.get("mime") not in ("image/jpeg","image/webp","image/png"):
         return None
+    # Wikimedia Commons exposes capture EXIF through iiprop=metadata. Camera
+    # make/model plus an exposure/date field adds explicit real-photo evidence;
+    # software-only metadata is never enough to verify a capture.
+    raw_meta=info.get("metadata") or []
+    if isinstance(raw_meta,list):
+        exif={str(m.get("name","")).lower():str(m.get("value","")) for m in raw_meta if isinstance(m,dict)}
+    elif isinstance(raw_meta,dict):
+        exif={str(k).lower():str(v) for k,v in raw_meta.items()}
+    else:
+        exif={}
+    make=exif.get("make","").strip()
+    model=exif.get("model","").strip()
+    exposure=exif.get("exposuretime","") or exif.get("datetimeoriginal","") or exif.get("isospeedratings","")
+    if make and model and exposure and not re.search(r"(?i)scanner|simulator|synthetic|virtual",model):
+        return "camera capture EXIF"
     if re.search(r"(?i)photograph|photo by|camera|photographs of|landscape photography|portrait photography",categories):
         return "Commons photo category"
     # JPEGs with substantial native resolution may be real photographs,
@@ -50,7 +65,9 @@ def api_pages(term, offset):
     params={"action":"query","format":"json","formatversion":2,"generator":"search",
             "gsrsearch":term+" filetype:bitmap","gsrnamespace":6,"gsrlimit":50,"gsroffset":offset,
             "prop":"imageinfo|categories","cllimit":20,
-            "iiprop":"url|size|mime|sha1|extmetadata","iiurlwidth":330}
+            "iiprop":"url|size|mime|sha1|extmetadata|metadata",
+            "iimetadataversion":2,
+            "iiurlwidth":330}
     url=API+"?"+urllib.parse.urlencode(params)
     request=urllib.request.Request(url,headers={"User-Agent":USER_AGENT,"Accept":"application/json"})
     with urllib.request.urlopen(request,timeout=12) as stream:
@@ -210,7 +227,7 @@ def main():
                 counts[name]+=1
                 scene_counts[query]+=1
                 photo_qualities[evidence]+=1
-                if evidence=="Commons photo category":
+                if evidence in ("Commons photo category","camera capture EXIF"):
                     verified_photos+=1
                 samples.append({
                     "title":page.get("title"),"source":info.get("descriptionurl"),
@@ -223,6 +240,7 @@ def main():
                     "ground_truth_reference_effect_key":None,
                     "source_effect_label_verified":False,
                     "photo_evidence":evidence,
+                    "photo_evidence_verified":evidence in ("Commons photo category","camera capture EXIF"),
                     "original_dimensions":[info.get("width"),info.get("height")],
                     "deltaE76_vs_input_not_accuracy_error":round(de,3),
                     "near_clipping_fraction":round(clipping,4),"verified_official_pair":False})
