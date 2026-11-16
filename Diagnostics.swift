@@ -16,8 +16,12 @@ final class DiagnosticsLog: ObservableObject, @unchecked Sendable {
 
     /// 可以在任意线程调用。
     func add(_ text: String) {
-        let line = "\(Self.formatter.string(from: Date()))  \(text)"
+        // Capture the timestamp immediately but format/publish on the main
+        // queue. Camera capture callbacks should not spend time formatting
+        // diagnostic strings or updating a SwiftUI-observed object.
+        let capturedAt = Date()
         DispatchQueue.main.async {
+            let line = "\(Self.formatter.string(from: capturedAt))  \(text)"
             self.lines.append(line)
             if self.lines.count > 300 { self.lines.removeFirst(self.lines.count - 300) }
         }
