@@ -129,26 +129,118 @@ struct SwatchCarousel<Item: Hashable & Identifiable>: View {
 
 struct DotPalette: View {
     @Binding var point: CGPoint
-    var colors: [Color]
+    var style: CameraStyle
+    var filter: AppleFilter
+    var intensity: Double
 
     var body: some View {
-        RoundedRectangle(cornerRadius: 18, style: .continuous)
-            .fill(LinearGradient(colors: colors, startPoint: .leading, endPoint: .trailing))
-            // Up = brighter, down = deeper, left = quieter colors, right = richer.
-            .overlay(
-                LinearGradient(colors: [Color.white.opacity(0.42), .clear, Color.black.opacity(0.63)],
-                               startPoint: .top, endPoint: .bottom)
-                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-            )
-            .overlay(
-                LinearGradient(colors: [Color.gray.opacity(0.34), .clear, (colors.last ?? .orange).opacity(0.20)],
-                               startPoint: .leading, endPoint: .trailing)
-                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-            )
+        // A real 2D color field: every (tone, color) location has its own
+        // evaluated RGB color, not one swatch expanded over the whole pad.
+        // Moving the white cursor only updates its CALayer, not this image.
+        Image(uiImage: PaletteColorMap.image(style: style, filter: filter, intensity: intensity))
+            .resizable()
+            .interpolation(.high)
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
             .overlay {
                 DotPaletteTouchSurface(point: $point)
                     .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
             }
+    }
+}
+
+/// Cache one 33x33 RGBA color surface per style/filter/5%-strength combination.
+/// Each source cell is evaluated independently for BOTH tone and color axes.
+/// The raster is for the pad's visual guidance only; actual preview/photos
+/// continue to use FilterEngine.process and its full-resolution GPU pipeline.
+private enum PaletteColorMap {
+    private static let side = 33
+    private static let cache: NSCache<NSString, UIImage> = {
+        let result = NSCache<NSString, UIImage>()
+        result.countLimit = 64
+        return result
+    }()
+
+    private static func clamp(_ value: Float) -> Float {
+        min(1, max(0, value))
+    }
+
+    static func image(style: CameraStyle, filter: AppleFilter, intensity: Double) -> UIImage {
+        let strengthStep = Int((min(1, max(0, intensity)) * 20).rounded())
+        let key = NSString(string: "\(style.rawValue)|\(filter.rawValue)|\(strengthStep)")
+        if let existing = cache.object(forKey: key) { return existing }
+
+        let strength = Float(strengthStep) / 20
+        var settings = StyleSettings()
+        settings.style = style
+        settings.filter = filter
+        settings.intensity = Double(strength)
+        let recipe = FilterEngine.effectiveRecipe(for: settings)
+        let filmLut = style.lutName.flatMap { LutLibrary.shared.table(named: $0) }
+
+        var rgba = [UInt8](repeating: 255, count: side * side * 4)
+        for row in 0..<side {
+            let y = Float(row) / Float(side - 1)
+            let tone = (0.5 - y) * 2 * strength
+            for column in 0..<side {
+                let x = Float(column) / Float(side - 1)
+                let color = (x - 0.5) * 2 * strength
+
+                // Multiple source channels vary with the position as well;
+                // this is not a single style.cardColors sample blown up.
+                let sourceR: Float = 0.64 + 0.13 * x + 0.02 * (1 - y)
+                let sourceG: Float = 0.56 + 0.045 * x + 0.025 * (1 - y)
+                let sourceB: Float = 0.66 - 0.15 * x + 0.015 * y
+                var r = sourceR, g = sourceG, b = sourceB
+                if let filmLut {
+                    let mapped = filmLut.sample(r, g, b)
+                    r += (mapped.0 - r) * strength
+                    g += (mapped.1 - g) * strength
+                    b += (mapped.2 - b) * strength
+                }
+                (r, g, b) = FilterEngine.transform(r, g, b, recipe)
+
+                // The same axis directions used by live Core Image controls:
+                // upwards = higher tone, rightwards = higher color.
+                let gamma = 1 - 0.28 * tone
+                let gain = powf(2, 0.08 * tone)
+                r = clamp(powf(clamp(r), gamma) * gain)
+                g = clamp(powf(clamp(g), gamma) * gain)
+                b = clamp(powf(clamp(b), gamma) * gain)
+
+                let luminosity = 0.2126 * r + 0.7152 * g + 0.0722 * b
+                let chroma = max(r, max(g, b)) - min(r, min(g, b))
+                let vibrance = 1 + 0.38 * color * (1 - chroma) * 0.2
+                let saturation = max(0.25, 1 + color * (color >= 0 ? 0.62 : 0.68))
+                let contrast = 1 - 0.14 * tone
+                let scale = vibrance * saturation
+                r = clamp(((luminosity + (r - luminosity) * scale) - 0.5) * contrast + 0.5)
+                g = clamp(((luminosity + (g - luminosity) * scale) - 0.5) * contrast + 0.5)
+                b = clamp(((luminosity + (b - luminosity) * scale) - 0.5) * contrast + 0.5)
+
+                let i = (row * side + column) * 4
+                rgba[i] = UInt8((r * 255).rounded())
+                rgba[i + 1] = UInt8((g * 255).rounded())
+                rgba[i + 2] = UInt8((b * 255).rounded())
+                rgba[i + 3] = 255
+            }
+        }
+
+        let data = Data(rgba)
+        guard let provider = CGDataProvider(data: data as CFData),
+              let cgImage = CGImage(
+                width: side, height: side,
+                bitsPerComponent: 8, bitsPerPixel: 32,
+                bytesPerRow: side * 4,
+                space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.last.rawValue),
+                provider: provider, decode: nil, shouldInterpolate: true, intent: .defaultIntent
+              ) else {
+            // A safe fallback for failed image allocation; never touch the camera.
+            return UIImage()
+        }
+        let result = UIImage(cgImage: cgImage)
+        cache.setObject(result, forKey: key)
+        return result
     }
 }
 

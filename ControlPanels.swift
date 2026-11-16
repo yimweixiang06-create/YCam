@@ -487,7 +487,9 @@ struct CustomPalettePanel: View {
                     valueLabel("调色盘", "\(palette)")
                 }
             }
-            DotPalette(point: $camera.styleSettings.point, colors: settings.style.cardColors)
+            DotPalette(point: $camera.styleSettings.point,
+                       style: settings.style, filter: settings.filter,
+                       intensity: settings.intensity)
                 .frame(width: 132 * m.s, height: 132 * m.s)
             TickSlider(value: $camera.styleSettings.intensity)
                 .frame(width: 200 * m.s)

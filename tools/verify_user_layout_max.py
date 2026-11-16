@@ -148,6 +148,13 @@ assert 'let ticks = 11' in palette_src
 assert 'panel(m, height: m.panelHeight(.custom, drawerCount: count))' in home
 assert '.frame(width: 200 * m.s)' in panel
 assert 'PanelHeader(m, onBack: onBack, onReset:' in panel
-assert 'DotPalette(point: $camera.styleSettings.point, colors: settings.style.cardColors)' in panel
+assert 'DotPalette(point: $camera.styleSettings.point,' in panel
+assert 'style: settings.style, filter: settings.filter,' in panel
+assert 'intensity: settings.intensity)' in panel
+assert 'private enum PaletteColorMap' in palette_src
+assert 'for row in 0..<side' in palette_src and 'for column in 0..<side' in palette_src
+assert 'FilterEngine.transform(r, g, b, recipe)' in palette_src
+assert 'style.cardColors' not in palette_src.split('struct DotPalette: View',1)[1]
+assert '.interpolation(.high)' in palette_src
 assert "DragGesture(minimumDistance: 0, coordinateSpace: .named" not in palette_src
 print("PASS: held preview during capture preset transition; palette cursor stays on visible dots")
