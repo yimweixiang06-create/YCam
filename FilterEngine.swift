@@ -375,6 +375,12 @@ final class FilterEngine {
             // These are YCam approximations, NOT Apple's proprietary coefficients.
             let k = min(1.0, max(0.0, snap.settings.intensity))
             let screenCurve = FilterEngine.screenReferenceCurve(for: snap.settings.style)
+            // Round-one Pearl measurements: 4,096 RGB patches in four screen
+            // photographs and a separate 16-step grayscale strip. The center
+            // reference is only a camera preview, so the baked Pearl default
+            // stays unchanged. These are conservative approximations, NOT
+            // Apple's camera ISP or a device-independent 3D LUT.
+            let isRound1Pearl = snap.settings.style == .pearl
             // Screenshots with palette 75 still show nearly gray at the far
             // left of Cool. Keep the horizontal pad independent from the
             // same linear scaling used for the style's base recipe.
@@ -399,7 +405,23 @@ final class FilterEngine {
             let gammaResponse = response.gamma
             let exposureResponse = response.exposure
 
-            if abs(tone) > 0.0001 {
+            if isRound1Pearl && abs(rawTone) > 0.0001 {
+                // Preserve both end points: do not lift true white to clipping.
+                // Upper and lower endpoints are intentionally asymmetric:
+                // measured upper gray-strip midtones +35..45/255 and lower
+                // -20..25/255 vs the same display chart in Standard.
+                let up = rawTone > 0
+                let shadow = up ? 0.100 : 0.070
+                let midtone = up ? 0.145 : 0.080
+                let highlight = up ? 0.045 : 0.015
+                out = out.applyingFilter("CIToneCurve", parameters: [
+                    "inputPoint0": CIVector(x: 0, y: 0),
+                    "inputPoint1": CIVector(x: 0.18, y: CGFloat(0.18 + rawTone * shadow)),
+                    "inputPoint2": CIVector(x: 0.55, y: CGFloat(0.55 + rawTone * midtone)),
+                    "inputPoint3": CIVector(x: 0.90, y: CGFloat(0.90 + rawTone * highlight)),
+                    "inputPoint4": CIVector(x: 1, y: 1)
+                ])
+            } else if abs(tone) > 0.0001 {
                 if let screenCurve {
                     // Five anchored values protect neutral white paper and
                     // true black, while independently matching the shadows,
@@ -428,18 +450,30 @@ final class FilterEngine {
                     ])
                 }
             }
-            if abs(color) > 0.0001 {
+            if abs(color) > 0.0001 && !isRound1Pearl {
                 // CIVibrance is color-dependent (protects skin better than
                 // blanket desaturation). Keep all positions well above gray.
                 out = out.applyingFilter("CIVibrance", parameters: [
                     "inputAmount": 0.18 * color
                 ])
             }
+            // Color ratio is measured independently at each corner, rather
+            // than applying one global recipe to every photographic style.
+            // The upper-right screen image showed 1.426x chroma but also
+            // substantial channel clipping, so conservatively cap at 1.34x.
+            let pearlVertical = min(1.0, max(0.0, (rawTone + 1.0) * 0.5))
+            let pearlLeft = 0.243 + 0.026 * pearlVertical
+            let pearlRight = 1.160 + 0.180 * pearlVertical
+            let pearlSaturation = color < 0
+                ? 1.0 + (-color) * (pearlLeft - 1.0)
+                : 1.0 + color * (pearlRight - 1.0)
             out = out.applyingFilter("CIColorControls", parameters: [
-                kCIInputSaturationKey: (1 + color * (color >= 0 ? response.right : response.left)) * zoneSaturation,
-                kCIInputContrastKey: 1 - 0.04 * tone + 0.03 * upperRight + 0.04 * upperLeft
+                kCIInputSaturationKey: isRound1Pearl ? pearlSaturation
+                    : (1 + color * (color >= 0 ? response.right : response.left)) * zoneSaturation,
+                kCIInputContrastKey: isRound1Pearl ? 1.0
+                    : 1 - 0.04 * tone + 0.03 * upperRight + 0.04 * upperLeft
             ])
-            if upperLeft > 0.05 {
+            if upperLeft > 0.05 && !isRound1Pearl {
                 // Subtle detail recovery at upper-left; no blur or glow.
                 out = out.applyingFilter("CISharpenLuminance", parameters: [
                     "inputSharpness": 0.16 * upperLeft
