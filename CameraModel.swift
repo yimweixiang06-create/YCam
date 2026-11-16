@@ -160,6 +160,9 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
     private var lastLoggedFrameSize = (width: 0, height: 0)                // 仅 dataQueue
     private var dataIsVideoMode = false                                    // 仅 dataQueue
     private var lastPersonFlag = false                                     // 仅 dataQueue
+    private var captureDroppedFrames = 0                                  // 仅 dataQueue
+    private var lastDropDiagnosticAt: CFTimeInterval = 0                   // 仅 dataQueue
+    private var poolAllocationDrops = 0                                   // 仅 dataQueue
 
     private var zoomBase: CGFloat = 1                                      // sessionQueue
     private var zoomCurrent: CGFloat = 1                                   // sessionQueue
@@ -1436,7 +1439,11 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
                 lastLoggedFrameSize = (srcW, srcH)
                 DiagnosticsLog.shared.add("相机画面尺寸：\(srcW)×\(srcH)，视频模式=\(dataIsVideoMode)")
             }
-            if histogramEnabled, frameCounter % 12 == 0 { updateHistogram(from: source) }
+            // Histogram is a separate Core Image readback. While recording,
+            // lower only its update cadence; never touch movie samples.
+            if histogramEnabled && frameCounter % (recorder.isArmed ? 30 : 12) == 0 {
+                updateHistogram(from: source)
+            }
 
             // No-op style with no depth/lighting: do not render each frame
             // through Core Image. Most standard photo/video previews take
@@ -1479,7 +1486,10 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
             ciContext.render(processed, to: target,
                              bounds: CGRect(x: 0, y: 0, width: width, height: height),
                              colorSpace: Self.sRGB)
-            if fullResolutionForRecording {
+            if fullResolutionForRecording && frameCounter % recorder.previewFrameStride == 0
+                && (displayLayer?.sampleBufferRenderer.isReadyForMoreMediaData ?? true) {
+                // Skip optional preview GPU work if display is backpressured.
+                // Saved frames still flow to AVAssetWriter every time.
                 // Keep the native-size buffer for AVAssetWriter. Only the
                 // VIEWFINDER is reduced, avoiding 4K layer composition while
                 // recording with a photographic style.
@@ -1562,7 +1572,11 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
                 kCVPixelBufferIOSurfacePropertiesKey as String: [String: Any]()
             ]
             var pool: CVPixelBufferPool?
-            CVPixelBufferPoolCreate(kCFAllocatorDefault, nil, attributes as CFDictionary, &pool)
+            let poolAttributes: [String: Any] = [
+                kCVPixelBufferPoolMinimumBufferCountKey as String: 2
+            ]
+            CVPixelBufferPoolCreate(kCFAllocatorDefault, poolAttributes as CFDictionary,
+                                    attributes as CFDictionary, &pool)
             if forRecordingPreview {
                 recordingPreviewPool = pool
                 recordingPreviewPoolSize = (width, height)
@@ -1573,8 +1587,21 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
         }
         guard let pool = (forRecordingPreview ? recordingPreviewPool : pixelPool) else { return nil }
         var buffer: CVPixelBuffer?
-        guard CVPixelBufferPoolCreatePixelBuffer(kCFAllocatorDefault, pool, &buffer) == kCVReturnSuccess,
-              let buffer else { return nil }
+        // Prevent unbounded 4K BGRA allocations on 3 GB/A12 devices.
+        // The limit recycles free buffers instead of growing the pool forever.
+        let maxBuffers = forRecordingPreview ? 4 : (recorder.isArmed ? 8 : 6)
+        let limits: [String: Any] = [
+            kCVPixelBufferPoolAllocationThresholdKey as String: maxBuffers
+        ]
+        let allocation = CVPixelBufferPoolCreatePixelBufferWithAuxAttributes(
+            kCFAllocatorDefault, pool, limits as CFDictionary, &buffer)
+        guard allocation == kCVReturnSuccess, let buffer else {
+            poolAllocationDrops += 1
+            if poolAllocationDrops % 60 == 1 {
+                DiagnosticsLog.shared.add("视频内存缓冲池繁忙：已丢弃 \(poolAllocationDrops) 次分配（保护低内存设备）")
+            }
+            return nil
+        }
         // Output frames are rendered into sRGB; propagate their profile to
         // the preview/video pipeline instead of using untagged buffers.
         CVBufferSetAttachment(buffer, kCVImageBufferCGColorSpaceKey, Self.sRGB, .shouldPropagate)
@@ -1643,6 +1670,19 @@ extension CameraModel: AVCaptureVideoDataOutputSampleBufferDelegate, AVCaptureAu
             handleVideo(sampleBuffer)
         } else if output === audioOutput {
             recorder.appendAudio(sampleBuffer)
+        }
+    }
+
+    // AVFoundation reports capture-side late frames separately from writer
+    // backpressure, so performance failures are visible on iPhone XR too.
+    func captureOutput(_ output: AVCaptureOutput, didDrop sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
+        guard output === videoOutput else { return }
+        captureDroppedFrames += 1
+        let now = CACurrentMediaTime()
+        if now - lastDropDiagnosticAt > 5 {
+            DiagnosticsLog.shared.add("相机采集掉帧：最近 \(captureDroppedFrames) 帧；检查设备温度及滤镜负载")
+            captureDroppedFrames = 0
+            lastDropDiagnosticAt = now
         }
     }
 }
