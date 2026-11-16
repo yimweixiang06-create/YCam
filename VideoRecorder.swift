@@ -119,7 +119,12 @@ final class VideoRecorder {
             completion(.failure(RecorderError.tooShort))
             return
         }
-        if lastVideoPTS.isValid { writer.endSession(atSourceTime: lastVideoPTS) }
+        if lastVideoPTS.isValid {
+            // PTS marks the START of the final frame. Include its duration
+            // instead of truncating the movie at that last frame's start.
+            let frameDuration = CMTime(value: 1, timescale: CMTimeScale(max(1, fps)))
+            writer.endSession(atSourceTime: CMTimeAdd(lastVideoPTS, frameDuration))
+        }
         videoInput?.markAsFinished()
         audioInput?.markAsFinished()
         reset()
