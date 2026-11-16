@@ -133,11 +133,11 @@ struct DotPalette: View {
     var colors: [Color]
 
     // UI artwork only. Original YCam glass, color-rendering pipeline and
-    // photographic-style recipes remain untouched. Gold/Cool Rose palette
-    // references are sampled from user-provided iPhone UI screenshots.
+    // photographic-style recipes remain untouched. Six independent 2D
+    // palettes are sampled from user-provided iPhone UI screenshots.
     @ViewBuilder
     private var artwork: some View {
-        if style == .gold || style == .coolRose {
+        if ScreenshotPaletteArtwork.supports(style) {
             ScreenshotPaletteArtwork(style: style)
         } else {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
@@ -196,35 +196,72 @@ private struct PaletteRGB {
 
 private struct PaletteReferenceRow {
     let y: Double
-    let left: PaletteRGB
-    let right: PaletteRGB
+    let columns: [PaletteRGB]
 }
 
+// Screenshot-observed palette ART ONLY. The unlabelled orange reference is
+// stored in calibration metadata, never guessed into another camera style.
 private struct ScreenshotPaletteArtwork: View {
     let style: CameraStyle
+
+    static func supports(_ style: CameraStyle) -> Bool {
+        switch style {
+        case .gold, .coolRose, .cool, .roseGold, .vibrant, .neutral: return true
+        default: return false
+        }
+    }
 
     private var rows: [PaletteReferenceRow] {
         switch style {
         case .gold:
-            // Screenshot-derived UI-only greige -> gold -> deep brown.
             return [
-                .init(y: 0.00, left: .init(188, 174, 161), right: .init(224, 174, 77)),
-                .init(y: 0.18, left: .init(145, 116, 96), right: .init(165, 109, 35)),
-                .init(y: 0.48, left: .init(88, 77, 66), right: .init(95, 65, 30)),
-                .init(y: 0.78, left: .init(48, 38, 30), right: .init(49, 35, 19)),
-                .init(y: 1.00, left: .init(26, 18, 13), right: .init(31, 20, 11))
+                .init(y: 0.115, columns: [.init(148, 129, 104), .init(153, 117, 72), .init(161, 114, 46), .init(165, 115, 32), .init(167, 116, 23)]),
+                .init(y: 0.300, columns: [.init(118, 104, 89), .init(119, 96, 66), .init(125, 92, 45), .init(130, 92, 34), .init(133, 90, 24)]),
+                .init(y: 0.500, columns: [.init(85, 75, 67), .init(82, 69, 54), .init(89, 67, 39), .init(90, 66, 31), .init(94, 65, 23)]),
+                .init(y: 0.700, columns: [.init(57, 50, 42), .init(56, 47, 36), .init(58, 46, 29), .init(61, 45, 24), .init(63, 45, 19)]),
+                .init(y: 0.885, columns: [.init(34, 27, 19), .init(34, 26, 17), .init(36, 27, 17), .init(37, 26, 15), .init(38, 27, 14)]),
             ]
         case .coolRose:
-            // Screenshot-derived UI-only pale blush -> dusty rose -> plum.
             return [
-                .init(y: 0.00, left: .init(203, 174, 177), right: .init(221, 210, 199)),
-                .init(y: 0.18, left: .init(176, 122, 128), right: .init(178, 157, 144)),
-                .init(y: 0.48, left: .init(121, 66, 70), right: .init(134, 105, 96)),
-                .init(y: 0.78, left: .init(64, 31, 42), right: .init(70, 34, 48)),
-                .init(y: 1.00, left: .init(37, 16, 28), right: .init(42, 17, 29))
+                .init(y: 0.115, columns: [.init(174, 140, 146), .init(174, 145, 145), .init(179, 153, 148), .init(180, 161, 149), .init(172, 166, 153)]),
+                .init(y: 0.300, columns: [.init(155, 96, 102), .init(158, 103, 102), .init(162, 118, 111), .init(158, 137, 124), .init(153, 148, 135)]),
+                .init(y: 0.500, columns: [.init(110, 64, 62), .init(111, 71, 68), .init(118, 87, 80), .init(120, 99, 91), .init(124, 105, 99)]),
+                .init(y: 0.700, columns: [.init(77, 42, 45), .init(76, 41, 46), .init(76, 43, 48), .init(82, 49, 56), .init(86, 53, 59)]),
+                .init(y: 0.885, columns: [.init(48, 24, 36), .init(46, 22, 38), .init(47, 20, 39), .init(50, 20, 36), .init(50, 22, 34)]),
+            ]
+        case .cool:
+            return [
+                .init(y: 0.115, columns: [.init(140, 140, 144), .init(131, 135, 147), .init(121, 138, 158), .init(107, 138, 164), .init(92, 135, 168)]),
+                .init(y: 0.300, columns: [.init(111, 109, 112), .init(104, 106, 114), .init(100, 108, 124), .init(92, 110, 132), .init(81, 109, 134)]),
+                .init(y: 0.500, columns: [.init(79, 78, 79), .init(76, 75, 80), .init(76, 78, 88), .init(72, 78, 92), .init(65, 80, 99)]),
+                .init(y: 0.700, columns: [.init(52, 52, 52), .init(52, 50, 52), .init(52, 50, 56), .init(52, 51, 62), .init(49, 53, 66)]),
+                .init(y: 0.885, columns: [.init(30, 28, 29), .init(30, 27, 30), .init(31, 28, 33), .init(32, 28, 36), .init(32, 29, 40)]),
+            ]
+        case .roseGold:
+            return [
+                .init(y: 0.115, columns: [.init(148, 136, 125), .init(152, 131, 113), .init(161, 130, 110), .init(166, 130, 113), .init(168, 126, 117)]),
+                .init(y: 0.300, columns: [.init(114, 106, 100), .init(120, 102, 89), .init(128, 102, 84), .init(132, 102, 85), .init(134, 99, 85)]),
+                .init(y: 0.500, columns: [.init(82, 78, 72), .init(84, 73, 64), .init(92, 74, 62), .init(92, 72, 58), .init(96, 73, 58)]),
+                .init(y: 0.700, columns: [.init(54, 50, 46), .init(55, 49, 42), .init(61, 48, 39), .init(64, 49, 37), .init(65, 49, 36)]),
+                .init(y: 0.885, columns: [.init(32, 28, 25), .init(32, 27, 23), .init(37, 28, 19), .init(38, 28, 18), .init(39, 28, 18)]),
+            ]
+        case .vibrant:
+            return [
+                .init(y: 0.115, columns: [.init(129, 132, 129), .init(123, 118, 112), .init(131, 101, 92), .init(142, 80, 75), .init(154, 57, 62)]),
+                .init(y: 0.300, columns: [.init(99, 107, 108), .init(90, 99, 95), .init(94, 90, 84), .init(108, 77, 69), .init(117, 61, 57)]),
+                .init(y: 0.500, columns: [.init(71, 79, 79), .init(61, 75, 75), .init(60, 73, 69), .init(65, 66, 60), .init(76, 57, 50)]),
+                .init(y: 0.700, columns: [.init(44, 53, 55), .init(38, 51, 53), .init(36, 53, 53), .init(36, 51, 50), .init(38, 48, 42)]),
+                .init(y: 0.885, columns: [.init(21, 31, 33), .init(19, 31, 33), .init(17, 33, 33), .init(17, 34, 34), .init(17, 33, 33)]),
+            ]
+        case .neutral:
+            return [
+                .init(y: 0.115, columns: [.init(143, 142, 142), .init(141, 142, 147), .init(137, 141, 151), .init(130, 135, 152), .init(120, 126, 147)]),
+                .init(y: 0.300, columns: [.init(110, 110, 112), .init(109, 110, 113), .init(107, 110, 119), .init(103, 108, 121), .init(96, 102, 121)]),
+                .init(y: 0.500, columns: [.init(78, 78, 78), .init(76, 77, 79), .init(78, 80, 87), .init(74, 77, 89), .init(71, 77, 93)]),
+                .init(y: 0.700, columns: [.init(52, 52, 52), .init(51, 51, 53), .init(51, 52, 57), .init(49, 52, 61), .init(47, 51, 63)]),
+                .init(y: 0.885, columns: [.init(29, 29, 29), .init(28, 29, 30), .init(29, 30, 33), .init(27, 30, 37), .init(26, 30, 41)]),
             ]
         default:
-            // Caller uses YCam's unchanged gradient for all other styles.
             return []
         }
     }
@@ -232,26 +269,34 @@ private struct ScreenshotPaletteArtwork: View {
     var body: some View {
         let anchors = rows
         Canvas(opaque: true) { context, size in
-            guard anchors.count >= 2, size.width > 0, size.height > 0 else { return }
-            let strips = 96
-            let bandHeight = size.height / CGFloat(strips)
+            guard anchors.count == 5, size.width > 0, size.height > 0 else { return }
+            // At most 72 horizontal bands, with five RGB sample positions.
+            // No new glass, camera effect, or per-pixel processing cost.
+            let strips = 72
+            let height = size.height / CGFloat(strips)
             for index in 0..<strips {
-                let t = (Double(index) + 0.5) / Double(strips)
+                let y = (Double(index) + 0.5) / Double(strips)
                 let upper = max(1, min(anchors.count - 1,
-                    anchors.firstIndex(where: { $0.y >= t }) ?? anchors.count - 1))
-                let lower = upper - 1
-                let a = anchors[lower]
+                    anchors.firstIndex(where: { $0.y >= y }) ?? anchors.count - 1))
+                let a = anchors[upper - 1]
                 let b = anchors[upper]
-                let fraction = (t - a.y) / max(0.0001, b.y - a.y)
-                let left = a.left.mixed(with: b.left, fraction: fraction).color
-                let right = a.right.mixed(with: b.right, fraction: fraction).color
-                let y = CGFloat(index) * bandHeight
-                let band = Path(CGRect(x: 0, y: y, width: size.width,
-                                       height: bandHeight + 0.7))
+                let fraction = (y - a.y) / max(0.0001, b.y - a.y)
+                let mixed = (0..<5).map { column in
+                    a.columns[column].mixed(with: b.columns[column], fraction: fraction).color
+                }
+                let gradient = Gradient(stops: [
+                    .init(color: mixed[0], location: 0.0),
+                    .init(color: mixed[1], location: 0.30),
+                    .init(color: mixed[2], location: 0.50),
+                    .init(color: mixed[3], location: 0.70),
+                    .init(color: mixed[4], location: 1.0)
+                ])
+                let top = CGFloat(index) * height
+                let band = Path(CGRect(x: 0, y: top, width: size.width,
+                                       height: height + 0.5))
                 context.fill(band, with: .linearGradient(
-                    Gradient(colors: [left, right]),
-                    startPoint: CGPoint(x: 0, y: y),
-                    endPoint: CGPoint(x: size.width, y: y)))
+                    gradient, startPoint: CGPoint(x: 0, y: top),
+                    endPoint: CGPoint(x: size.width, y: top)))
             }
         }
     }

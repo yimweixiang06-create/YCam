@@ -36,6 +36,8 @@ on:
       - "tools/style_check.py"
       - "tools/static_check.py"
       - "tools/verify_user_layout_max.py"
+      - "tools/verify_palette_screenshot_refs.py"
+      - "calibration/iphone_palette_screenshot_rgb5x5_2026-11-16.json"
       - "tools/verify_app_language.py"
       - "tools/verify_filter_separation.py"
       - "tools/verify_traditional_filter_refs.py"
@@ -235,6 +237,7 @@ jobs:
           python3 tools/static_check.py
           python3 tools/verify_neutral_controls.py
           python3 tools/verify_user_layout_max.py
+          python3 tools/verify_palette_screenshot_refs.py
           python3 tools/verify_app_language.py
           python3 tools/verify_filter_separation.py
           python3 tools/verify_traditional_filter_refs.py

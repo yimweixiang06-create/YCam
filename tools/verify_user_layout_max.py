@@ -236,8 +236,14 @@ print("PASS: original palette UI; upper +3%, lower direct -2%, corner detail, re
 # glass shell, camera controls, photo style recipe and traditional filters.
 assert 'ScreenshotPaletteArtwork(style: style)' in palette_src
 assert 'case .gold:' in palette_src and 'case .coolRose:' in palette_src
-assert '.init(188, 174, 161)' in palette_src
-assert '.init(203, 174, 177)' in palette_src
+assert '.init(148, 129, 104)' in palette_src
+assert '.init(174, 140, 146)' in palette_src
 assert 'private let neutralPointLayer = CALayer()' in palette_src
 assert 'neutralPointLayer.position = dotPosition(col: 5, row: 5)' in palette_src
 assert 'let diameter: CGFloat = pressed ? 19 : 15' in palette_src
+
+# The 5x5 color chart is view artwork only; keep YCam outer glass and 11x11 cursor.
+assert 'ScreenshotPaletteArtwork.supports(style)' in palette_src
+assert 'let strips = 72' in palette_src
+assert '.init(color: mixed[4], location: 1.0)' in palette_src
+assert 'case .vibrant:' in palette_src and 'case .neutral:' in palette_src
