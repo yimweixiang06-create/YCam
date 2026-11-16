@@ -28,6 +28,10 @@ on:
       - "Assets.xcassets/**"
       - "YCam.xcodeproj/**"
       - ".github/workflows/build-unsigned-ipa.yml"
+      - "tools/verify_neutral_controls.py"
+      - "tools/style_check.py"
+      - "tools/static_check.py"
+      - "tools/verify_user_layout_max.py"
 
 concurrency:
   group: ycam-build-${{ github.ref }}

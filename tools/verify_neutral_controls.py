@@ -15,8 +15,12 @@ assert "var point = CGPoint(x: 0.5, y: 0.5)" in styles
 assert "var intensity: Double = 1.0" in styles
 assert "next.restoreStyleControls()" in panels
 assert "mutating func restoreStyleControls()" in styles
-assert "Float((s.point.x - 0.5) * 2)" in engine
-assert "Float((0.5 - s.point.y) * 2)" in engine
+# Match the live FilterEngine Snapshot path, not obsolete pre-refactor symbols.
+assert "Double((snap.settings.point.x - 0.5) * 2)" in engine
+assert "Double((0.5 - snap.settings.point.y) * 2)" in engine
+assert "snap.settings.intensity" in engine
+assert 'out.applyingFilter("CIGammaAdjust"' in engine
+assert 'out.applyingFilter("CIVibrance"' in engine
 assert "defaults.color" not in engine and "defaults.tone" not in engine
 recipes = styles.split("var recipe: LookRecipe {", 1)[1].split("// MARK: - 人像光效", 1)[0]
 entries = re.findall(r"^[ ]*case [.](?P<name>[A-Za-z0-9_]+): return LookRecipe[(](?P<recipe>.*)[)]", recipes, re.M)
