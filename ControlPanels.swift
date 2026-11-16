@@ -464,47 +464,73 @@ struct StylesPanel: View {
     }
 }
 
-/// 摄影风格的色调 / 颜色 / 强度可单独调整，支持颜色负值。
+/// 与参考录屏一致：数值胶囊独立浮在取景器上方，避免随拖动重排底部调色盘。
+struct PaletteValuesCapsule: View {
+    @ObservedObject var camera: CameraModel
+    let m: UIMetrics
+
+    var body: some View {
+        let settings = camera.styleSettings
+        let tone = Int(((0.5 - settings.point.y) * 200).rounded())
+        let color = Int(((settings.point.x - 0.5) * 200).rounded())
+        let strength = Int((settings.intensity * 100).rounded())
+        HStack(spacing: 12 * m.s) {
+            valueLabel("色调", tone)
+            valueLabel("颜色", color)
+            valueLabel("调色盘", strength)
+        }
+        .padding(.horizontal, 13 * m.s)
+        .frame(height: 27 * m.s)
+        .background(Capsule().fill(Color(red: 0.11, green: 0.09, blue: 0.12).opacity(0.94)))
+        .overlay(Capsule().strokeBorder(Color.white.opacity(0.10), lineWidth: 0.6))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("色调 \(tone)，颜色 \(color)，调色盘 \(strength)")
+        .allowsHitTesting(false)
+    }
+
+    private func valueLabel(_ label: String, _ value: Int) -> some View {
+        HStack(spacing: 4 * m.s) {
+            Text(label)
+                .foregroundStyle(Color.white.opacity(0.58))
+            Text(value == 0 ? "00" : String(value))
+                .monospacedDigit()
+                .foregroundStyle(Color.white.opacity(0.96))
+        }
+        .font(.system(size: 11 * m.s, weight: .medium))
+        .lineLimit(1)
+    }
+}
+
+/// 摄影风格自定义：独立悬浮点阵、两侧关闭/重置和下方连续渐变浓度滑条。
+/// 与相机预览分层，点阵采用 CALayer 更新，拖动不触发整层 SwiftUI 点阵重绘。
 struct CustomPalettePanel: View {
     @ObservedObject var camera: CameraModel
     let m: UIMetrics
     let onBack: () -> Void
 
     var body: some View {
-        let settings = camera.styleSettings
-        let tone = Int(((0.5 - settings.point.y) * 200).rounded())
-        let color = Int(((settings.point.x - 0.5) * 200).rounded())
-        let palette = Int((settings.intensity * 100).rounded())
-        VStack(spacing: 10 * m.s) {
-            PanelHeader(m, onBack: onBack, onReset: {
-                var next = camera.styleSettings
-                next.restoreStyleControls()
-                camera.styleSettings = next
-            }) {
-                HStack(spacing: 12 * m.s) {
-                    valueLabel("色调", tone == 0 ? "00" : "\(tone)")
-                    valueLabel("颜色", color == 0 ? "00" : "\(color)")
-                    valueLabel("调色盘", "\(palette)")
-                }
+        VStack(spacing: 12 * m.s) {
+            HStack(alignment: .center, spacing: 0) {
+                PanelIconButton(systemName: "xmark", m: m, label: "返回摄影风格", action: onBack)
+                Spacer(minLength: 0)
+                DotPalette(point: $camera.styleSettings.point,
+                           colors: camera.styleSettings.style.cardColors)
+                    .frame(width: 132 * m.s, height: 132 * m.s)
+                    .accessibilityHint("按住调色盘任意位置连续拖动白色圆点，松手停在精确位置")
+                Spacer(minLength: 0)
+                PanelIconButton(systemName: "arrow.counterclockwise", m: m,
+                                label: "重置色调、颜色和强度", action: {
+                    var next = camera.styleSettings
+                    next.restoreStyleControls()
+                    camera.styleSettings = next
+                })
             }
-            DotPalette(point: $camera.styleSettings.point, colors: settings.style.cardColors)
-                .frame(width: 132 * m.s, height: 132 * m.s)
-            TickSlider(value: $camera.styleSettings.intensity)
-                .frame(width: 200 * m.s)
-        }
-        .padding(.horizontal, 12 * m.s)
-        .padding(.vertical, 8 * m.s)
-    }
+            .frame(width: min(m.W - 24 * m.s, 350 * m.s))
 
-    private func valueLabel(_ title: String, _ value: String) -> some View {
-        HStack(spacing: 4) {
-            Text(title)
-                .font(.system(size: 12 * m.s))
-                .foregroundStyle(Color.white.opacity(0.6))
-            Text(value)
-                .font(.system(size: 12 * m.s, weight: .semibold).monospacedDigit())
-                .foregroundStyle(Color.white)
+            TickSlider(value: $camera.styleSettings.intensity)
+                .frame(width: 164 * m.s, height: 30 * m.s)
         }
+        .frame(width: m.W - 18 * m.s)
     }
 }
 
