@@ -126,6 +126,7 @@ def main():
             history=stored.get("seen_ids",[])
             prior_counts=stored.get("effect_counts",{})
             cumulative=int(stored.get("cumulative_candidates",0))
+            verified_photos=int(stored.get("verified_photos",0))
             if not isinstance(history,list) or not isinstance(prior_counts,dict):
                 raise ValueError("invalid cache schema")
         else: raise ValueError("invalid cache schema")
@@ -134,8 +135,12 @@ def main():
         prior_counts={}
         cumulative=0
         restored=False
+    # Legacy cache has no reliable classification; it counts candidates only.
+    if "verified_photos" not in locals():
+        verified_photos=0
     seen=set(history[-80000:])
     cumulative=max(0,cumulative)
+    verified_photos=max(0,verified_photos)
     effect_pairs=recipes_from_swift()
     effect_names=[name for name,_ in effect_pairs]
     recipes=dict(effect_pairs)
@@ -205,10 +210,18 @@ def main():
                 counts[name]+=1
                 scene_counts[query]+=1
                 photo_qualities[evidence]+=1
+                if evidence=="Commons photo category":
+                    verified_photos+=1
                 samples.append({
                     "title":page.get("title"),"source":info.get("descriptionurl"),
                     "license":license_name,"source_file_sha1":file_id,"download_sha256":sha256,
-                    "search_theme":query,"assigned_effect":name,
+                    "search_theme":query,
+                    # This name means what YCam *tested*, NOT the style that created the photo.
+                    "evaluated_effect_key":name,
+                    "evaluated_effect_family":"filter" if name.startswith("filter:") else "style",
+                    "source_photograph_effect_key":None,
+                    "ground_truth_reference_effect_key":None,
+                    "source_effect_label_verified":False,
                     "photo_evidence":evidence,
                     "original_dimensions":[info.get("width"),info.get("height")],
                     "deltaE76_vs_input_not_accuracy_error":round(de,3),
@@ -217,8 +230,9 @@ def main():
     cumulative += len(samples)
     cumulative_counts.update(counts)
     state.write_text(json.dumps({
-        "schema":2,"seen_ids":(history+[x["source_file_sha1"] for x in samples])[-80000:],
+        "schema":3,"seen_ids":(history+[x["source_file_sha1"] for x in samples])[-80000:],
         "cumulative_candidates":cumulative,
+        "verified_photos":verified_photos,
         "effect_counts":dict(cumulative_counts)
     },ensure_ascii=False),encoding="utf-8")
     report={
@@ -226,7 +240,11 @@ def main():
         "actual_valid_unique":len(samples),"seen_cache_restored":restored,
         "cumulative_goal":CUMULATIVE_GOAL,
         "cumulative_photo_candidates":cumulative,
-        "remaining_to_2000":max(0,CUMULATIVE_GOAL-cumulative),
+        "cumulative_photographic_evidence":verified_photos,
+        "minimum_2000_photo_evidence_reached":verified_photos>=CUMULATIVE_GOAL,
+        "minimum_2000_candidates_reached":cumulative>=CUMULATIVE_GOAL,
+        "remaining_to_2000":max(0,CUMULATIVE_GOAL-verified_photos),
+        "tested_effect_vs_source_style":"tested_effect is YCam's test target only, never the source photo's real preset",
         "candidate_evidence":dict(photo_qualities),
         "scene_counts_this_run":{name:scene_counts[name] for name in SCENES},
         "confirmed_official_original_target_pairs":0,
@@ -242,7 +260,8 @@ def main():
     tab="\n".join("| "+n+" | "+str(counts[n])+" |" for n in effect_names)
     md=("# YCam 每 5 分钟照片检查\n\n"+
         "- 每轮目标：200 张；本轮有效候选样本："+str(len(samples))+" 张。\n"+
-        "- 累计目标：2,000 张；可从缓存证明的累计候选样本："+str(cumulative)+" 张；剩余："+str(max(0,CUMULATIVE_GOAL-cumulative))+" 张。\n"+
+        "- 最低门槛：2,000 张有明确摄影证据的照片；累计已保留证据："+str(verified_photos)+" 张；仍需："+str(max(0,CUMULATIVE_GOAL-verified_photos))+" 张。\n"+
+        "- 另有累计可追踪候选图片："+str(cumulative)+" 张（不等于已证实的照片）；不能把候选数字直接当作2,000照片门槛。\n"+
         "- 这些是 YCam 自建的真实照片候选来源，不能冒充 Apple 原厂照片或可信同场景配对；详情看每张样本的 photo_evidence。\n"+
         "- 去重范围："+report["dedup_scope"]+"。\n"+
         "- 官方同场景可信配对：0；不能据此自动调整 Swift/LUT 或发布 IPA。\n"+
@@ -255,6 +274,7 @@ def main():
         with open(summary,"a",encoding="utf-8") as f: f.write(md)
     print("YCam photos %d/%d, categories %d, cache restored=%s"%(len(samples),a.target,len(effect_names),restored))
     print("Cumulative YCam photo candidates:",cumulative,"/",CUMULATIVE_GOAL)
+    print("Verified photographic evidence (new strict gate):",verified_photos,"/",CUMULATIVE_GOAL)
     print("Photo evidence:",dict(photo_qualities))
     print("Scene diversity:",dict(scene_counts))
     print("Rejected:",dict(rejects))
