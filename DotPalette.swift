@@ -133,9 +133,15 @@ struct DotPalette: View {
 
     var body: some View {
         RoundedRectangle(cornerRadius: 18, style: .continuous)
-            .fill(LinearGradient(colors: colors, startPoint: .top, endPoint: .bottom))
+            .fill(LinearGradient(colors: colors, startPoint: .leading, endPoint: .trailing))
+            // Up = brighter, down = deeper, left = quieter colors, right = richer.
             .overlay(
-                LinearGradient(colors: [Color.blue.opacity(0.20), .clear, Color.orange.opacity(0.16)],
+                LinearGradient(colors: [Color.white.opacity(0.42), .clear, Color.black.opacity(0.63)],
+                               startPoint: .top, endPoint: .bottom)
+                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            )
+            .overlay(
+                LinearGradient(colors: [Color.gray.opacity(0.34), .clear, (colors.last ?? .orange).opacity(0.20)],
                                startPoint: .leading, endPoint: .trailing)
                     .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
             )
@@ -162,9 +168,9 @@ private struct DotPaletteTouchSurface: UIViewRepresentable {
     }
 }
 
-/// Cached 11x11 dot path and one cursor layer. Finger motion runs at native
-/// touch speed; Core Image style updates are limited to about 15 per second.
-/// The final snapped position is committed immediately on finger release.
+/// Cached 11x11 decorative dots and one continuous cursor layer. Dots are
+/// visual guides only; the cursor follows touch without snapping. Image
+/// updates are coalesced while final release coordinates are exact.
 @MainActor
 private final class DotPaletteTrackingView: UIControl {
     private let columns = 11
@@ -173,8 +179,7 @@ private final class DotPaletteTrackingView: UIControl {
     private let dotsLayer = CAShapeLayer()
     private let cursorLayer = CALayer()
     private let feedback = UISelectionFeedbackGenerator()
-    private var column = 5
-    private var row = 5
+    private var cursor = CGPoint(x: 0.5, y: 0.5)
     private var touching = false
     private var lastCommitted = CGPoint(x: 0.5, y: 0.5)
     private var lastCommitTime: CFTimeInterval = 0
@@ -201,7 +206,7 @@ private final class DotPaletteTrackingView: UIControl {
         isAccessibilityElement = true
         accessibilityTraits = [.adjustable]
         accessibilityLabel = "摄影风格调色盘"
-        accessibilityHint = "轻点任意小点，或拖动大圆点，吸附到最近的小点"
+        accessibilityHint = "拖动白色圆点：向上提亮，向下压暗，向左淡色，向右浓色；不会吸附网格"
     }
 
     required init?(coder: NSCoder) {
@@ -211,14 +216,13 @@ private final class DotPaletteTrackingView: UIControl {
     func configure(point: CGPoint, onChange: @escaping (CGPoint) -> Void) {
         self.onChange = onChange
         guard !touching else { return }
-        let c = min(columns - 1, max(0, Int((point.x * CGFloat(columns - 1)).rounded())))
-        let r = min(rows - 1, max(0, Int((point.y * CGFloat(rows - 1)).rounded())))
-        if c != column || r != row {
-            column = c
-            row = r
+        let next = CGPoint(x: min(1, max(0, point.x)),
+                           y: min(1, max(0, point.y)))
+        if abs(next.x - cursor.x) > 0.0005 || abs(next.y - cursor.y) > 0.0005 {
+            cursor = next
             updateCursor()
         }
-        lastCommitted = normalizedPoint
+        lastCommitted = cursor
     }
 
     override func layoutSubviews() {
@@ -238,9 +242,11 @@ private final class DotPaletteTrackingView: UIControl {
         updateCursor()
     }
 
-    private var normalizedPoint: CGPoint {
-        CGPoint(x: CGFloat(column) / CGFloat(columns - 1),
-                y: CGFloat(row) / CGFloat(rows - 1))
+    private var normalizedPoint: CGPoint { cursor }
+
+    private func cursorPosition() -> CGPoint {
+        CGPoint(x: inset + cursor.x * max(0, bounds.width - inset * 2),
+                y: inset + cursor.y * max(0, bounds.height - inset * 2))
     }
 
     private func dotPosition(col: Int, row: Int) -> CGPoint {
@@ -253,7 +259,7 @@ private final class DotPaletteTrackingView: UIControl {
     private func updateCursor() {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        cursorLayer.position = dotPosition(col: column, row: row)
+        cursorLayer.position = cursorPosition()
         CATransaction.commit()
         accessibilityValue = "颜色 \(Int((normalizedPoint.x - 0.5) * 200))，色调 \(Int((0.5 - normalizedPoint.y) * 200))"
     }
@@ -261,17 +267,14 @@ private final class DotPaletteTrackingView: UIControl {
     private func moveCursor(to location: CGPoint, forceCommit: Bool) {
         let w = max(1, bounds.width - inset * 2)
         let h = max(1, bounds.height - inset * 2)
-        let c = min(columns - 1, max(0,
-            Int((((location.x - inset) / w) * CGFloat(columns - 1)).rounded())))
-        let r = min(rows - 1, max(0,
-            Int((((location.y - inset) / h) * CGFloat(rows - 1)).rounded())))
-        if c != column || r != row {
-            column = c
-            row = r
+        let next = CGPoint(x: min(1, max(0, (location.x - inset) / w)),
+                           y: min(1, max(0, (location.y - inset) / h)))
+        if abs(next.x - cursor.x) > 0.0001 || abs(next.y - cursor.y) > 0.0001 {
+            cursor = next
             updateCursor()
         }
         let now = CACurrentMediaTime()
-        if forceCommit || now - lastCommitTime >= 1.0 / 15.0 {
+        if forceCommit || now - lastCommitTime >= 1.0 / 30.0 {
             publishSelection(at: now)
         }
     }
@@ -312,13 +315,13 @@ private final class DotPaletteTrackingView: UIControl {
     }
 
     override func accessibilityIncrement() {
-        column = min(columns - 1, column + 1)
+        cursor.x = min(1, cursor.x + 0.05)
         updateCursor()
         publishSelection()
     }
 
     override func accessibilityDecrement() {
-        column = max(0, column - 1)
+        cursor.x = max(0, cursor.x - 0.05)
         updateCursor()
         publishSelection()
     }
@@ -347,10 +350,13 @@ struct TickSlider: View {
                 .gesture(
                     DragGesture(minimumDistance: 0).onChanged { drag in
                         let t = min(1, max(0, drag.location.x / max(1, geo.size.width)))
-                        let snapped = (t * 20).rounded() / 20
-                        if snapped != value {
-                            value = snapped
-                            UISelectionFeedbackGenerator().selectionChanged()
+                        let adjusted = (t * 100).rounded() / 100
+                        if adjusted != value {
+                            let previousStep = Int((value * 10).rounded(.down))
+                            value = adjusted
+                            if Int((adjusted * 10).rounded(.down)) != previousStep {
+                                UISelectionFeedbackGenerator().selectionChanged()
+                            }
                         }
                     }
                 )

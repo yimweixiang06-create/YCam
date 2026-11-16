@@ -21,8 +21,14 @@ final class FilterEngine {
         var needsMask: Bool { settings.lighting != .off || settings.depth > 0.001 }
 
         /// 颜色 / 柔光 / 颗粒都不需要处理（视频模式下可以直接用相机原始帧，省掉整条 GPU 流水线）。
+        var hasPaletteShift: Bool {
+            settings.intensity > 0.001 &&
+                (abs(settings.point.x - 0.5) > 0.0005 || abs(settings.point.y - 0.5) > 0.0005)
+        }
+
         var isPassthroughColor: Bool {
-            cube == nil && recipe.bloom < 0.001 && recipe.grain < 0.001 && recipe.softness < 0.001
+            cube == nil && !hasPaletteShift && recipe.bloom < 0.001 &&
+                recipe.grain < 0.001 && recipe.softness < 0.001
         }
     }
 
@@ -49,7 +55,16 @@ final class FilterEngine {
         version += 1
         let v = version
         pendingBuild?.cancel()
-        // Coalesce rapid touch changes: bake only the latest LUT, off main thread.
+        // Tone/color and portrait options change every touch but must not
+        // rebuild the expensive 33^3 style cube. Apply these on the GPU now.
+        let previous = current
+        if sameBakedStyle(previous.settings, settings) {
+            current = Snapshot(settings: settings, recipe: previous.recipe, cube: previous.cube)
+            lock.unlock()
+            return
+        }
+        // Only changes to the selected style, filter, strength or exposure
+        // need an asynchronous LUT rebuild.
         let work = DispatchWorkItem { [weak self] in
             guard let self else { return }
             self.lock.lock()
@@ -64,7 +79,7 @@ final class FilterEngine {
         }
         pendingBuild = work
         lock.unlock()
-        buildQueue.asyncAfter(deadline: .now() + .milliseconds(32), execute: work)
+        buildQueue.asyncAfter(deadline: .now() + .milliseconds(16), execute: work)
     }
 
     func snapshot() -> Snapshot {
@@ -79,11 +94,22 @@ final class FilterEngine {
         let cur = current
         lock.unlock()
         if cur.settings == settings { return cur }
+        if sameBakedStyle(cur.settings, settings) {
+            return Snapshot(settings: settings, recipe: cur.recipe, cube: cur.cube)
+        }
         return FilterEngine.makeSnapshot(settings)
     }
 
+    private func sameBakedStyle(_ a: StyleSettings, _ b: StyleSettings) -> Bool {
+        a.style == b.style && a.filter == b.filter &&
+            a.intensity == b.intensity && a.exposure == b.exposure
+    }
+
     static func makeSnapshot(_ s: StyleSettings) -> Snapshot {
-        let recipe = effectiveRecipe(for: s)
+        // Build a stable style LUT. The 2D pad is a live GPU adjustment.
+        var base = s
+        base.point = .defaultPoint
+        let recipe = effectiveRecipe(for: base)
         let lut: LutTable? = s.style.lutName.flatMap { LutLibrary.shared.table(named: $0) }
         let strength = Float(min(1, max(0, s.intensity)))
         let cube: Data? = (recipe.isColorIdentity && lut == nil) ? nil : buildCube(recipe, lut: lut, strength: strength)
@@ -96,15 +122,8 @@ final class FilterEngine {
     static func effectiveRecipe(for s: StyleSettings) -> LookRecipe {
         let k = Float(min(1, max(0, s.intensity)))
         var r = s.style.recipe.scaled(by: k).combined(with: s.filter.recipe)
-        let color = Float((s.point.x - 0.5) * 2)
-        let tone = Float((0.5 - s.point.y) * 2)
-        // 色彩控制为风格配方上的温度/品红变化，而非「左边完全去色」的纯度控制。
-        r.temperature += 0.22 * color * k
-        r.tint += 0.08 * color * k
-        r.saturation = max(0, r.saturation * (1 + 0.10 * color * k))
-        // 温和的明暗调整，保留肤色与高光，避免先前 ±0.6EV 的大幅过曝。
-        r.exposure += 0.36 * tone * k + Float(s.exposure)
-        r.contrast -= 0.12 * tone * k
+        // Continuous tone/color controls are applied at render time instead.
+        r.exposure += Float(s.exposure)
         return r
     }
 
@@ -268,6 +287,20 @@ final class FilterEngine {
            ]),
            let result = filter.outputImage {
             out = result
+        }
+        if snap.hasPaletteShift {
+            // All eight compass directions are distinct combinations of
+            // brightness/shadow tone (Y) and color richness (X).
+            let k = min(1.0, max(0.0, snap.settings.intensity))
+            let color = Double((snap.settings.point.x - 0.5) * 2)
+            let tone = Double((0.5 - snap.settings.point.y) * 2)
+            out = out.applyingFilter("CIExposureAdjust", parameters: [
+                kCIInputEVKey: tone * 0.36 * k
+            ])
+            out = out.applyingFilter("CIColorControls", parameters: [
+                kCIInputSaturationKey: max(0.1, 1 + color * (color >= 0 ? 0.45 : 0.35) * k),
+                kCIInputContrastKey: max(0.7, 1 - tone * 0.12 * k)
+            ])
         }
         if snap.recipe.bloom > 0.001 {
             out = FilterEngine.applyBloom(out, amount: snap.recipe.bloom, extent: extent)
