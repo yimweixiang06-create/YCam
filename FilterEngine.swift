@@ -467,12 +467,19 @@ final class FilterEngine {
             let pearlSaturation = color < 0
                 ? 1.0 + (-color) * (pearlLeft - 1.0)
                 : 1.0 + color * (pearlRight - 1.0)
-            out = out.applyingFilter("CIColorControls", parameters: [
-                kCIInputSaturationKey: isRound1Pearl ? pearlSaturation
-                    : (1 + color * (color >= 0 ? response.right : response.left)) * zoneSaturation,
-                kCIInputContrastKey: isRound1Pearl ? 1.0
-                    : 1 - 0.04 * tone + 0.03 * upperRight + 0.04 * upperLeft
-            ])
+            if isRound1Pearl {
+                // Pearl-only branch; other photographic styles keep their
+                // exact, previously verified original color-control code.
+                out = out.applyingFilter("CIColorControls", parameters: [
+                    kCIInputSaturationKey: pearlSaturation,
+                    kCIInputContrastKey: 1.0
+                ])
+            } else {
+                out = out.applyingFilter("CIColorControls", parameters: [
+                    kCIInputSaturationKey: (1 + color * (color >= 0 ? response.right : response.left)) * zoneSaturation,
+                    kCIInputContrastKey: 1 - 0.04 * tone + 0.03 * upperRight + 0.04 * upperLeft
+                ])
+            }
             if upperLeft > 0.05 && !isRound1Pearl {
                 // Subtle detail recovery at upper-left; no blur or glow.
                 out = out.applyingFilter("CISharpenLuminance", parameters: [
