@@ -296,7 +296,7 @@ def main():
                 "source_file_sha1":photo["source_file_sha1"],
                 "source":photo["source"],
                 "baseline_clipping":photo["input_near_clipping_fraction"],
-                "ycamm_output_clipping":photo["near_clipping_fraction"],
+                "ycam_output_clipping":photo["near_clipping_fraction"],
                 "incremental_clipping":delta
             })
     clipping_flags.sort(key=lambda x:x["incremental_clipping"],reverse=True)
