@@ -157,15 +157,19 @@ assert 'shortName: { $0.pickerTitle }' not in panel
 assert 'symbol: "circle.grid.3x3.fill"' not in panel
 assert 'symbol: "circle.lefthalf.filled"' not in panel
 assert 'Text("自定义")' in panel
-assert 'DotPalette(point: $camera.styleSettings.point, colors: settings.style.cardColors)' in panel
+assert 'DotPalette(point: $camera.styleSettings.point, style: settings.style)' in panel
 
-# Restore original gradient dotted pad, WITHOUT invented unified purple mask
-# or 33x33 2D image. Preserve original white dots and yellow intensity ticks.
+# Preserve original square, control dot, shape, panels and 11 yellow ticks.
+# Artwork is now a style-dependent hue/saturation guide, not left-to-right
+# highlight/skin/shadow photos or a shared purple mask.
 assert 'struct DotPalette: View' in palette_src
-assert 'var colors: [Color]' in palette_src
-assert '.fill(LinearGradient(colors: colors, startPoint: .leading, endPoint: .trailing))' in palette_src
-assert 'Color.white.opacity(0.42), .clear, Color.black.opacity(0.63)' in palette_src
-assert 'Color.gray.opacity(0.34), .clear, (colors.last ?? .orange).opacity(0.20)' in palette_src
+assert 'var style: CameraStyle' in palette_src
+assert 'let base = UIColor(style.swatch)' in palette_src
+assert '.fill(LinearGradient(colors: guideColors, startPoint: .leading, endPoint: .trailing))' in palette_src
+assert 'Color.white.opacity(0.11), .clear, Color.black.opacity(0.14)' in palette_src
+assert 'Color.black.opacity(0.63)' not in palette_src
+assert 'Color.white.opacity(0.42)' not in palette_src
+assert 'Image(uiImage: PaletteColorMap.image(' not in palette_src
 assert 'DotPaletteTouchSurface(point: $point)' in palette_src
 assert 'private final class DotPaletteTrackingView: UIControl' in palette_src
 assert 'private let dotsLayer = CAShapeLayer()' in palette_src

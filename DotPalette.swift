@@ -129,20 +129,45 @@ struct SwatchCarousel<Item: Hashable & Identifiable>: View {
 
 struct DotPalette: View {
     @Binding var point: CGPoint
-    var colors: [Color]
+    var style: CameraStyle
+
+    // The original cardColors represent highlight / warm skin / shadow.
+    // They are NOT x-axis positions: using them as a left-to-right gradient
+    // made the custom pad white, yellow, then almost black.
+    // Build a restrained visual guide from the selected style instead.
+    // This is YCam UI artwork, not an Apple preset reference or color target.
+    private var guideColors: [Color] {
+        let base = UIColor(style.swatch)
+        var hue: CGFloat = 0
+        var saturation: CGFloat = 0
+        var brightness: CGFloat = 0
+        var alpha: CGFloat = 0
+        let hasHSB = base.getHue(&hue, saturation: &saturation,
+                                 brightness: &brightness, alpha: &alpha)
+        if !hasHSB { return [Color.gray, Color.gray, Color.gray] }
+
+        // Standard and monochrome are strictly neutral. Other looks retain
+        // only the selected style's hue, not the invented peach skin swatch.
+        let maxSaturation: CGFloat = (style == .standard || style == .monochrome)
+            ? 0 : min(0.32, max(0.10, saturation * 0.70))
+        func guide(_ fraction: CGFloat) -> Color {
+            Color(uiColor: UIColor(hue: hue,
+                                   saturation: maxSaturation * fraction,
+                                   brightness: 0.56,
+                                   alpha: 1))
+        }
+        return [guide(0.04), guide(0.48), guide(1.00)]
+    }
 
     var body: some View {
         RoundedRectangle(cornerRadius: 18, style: .continuous)
-            .fill(LinearGradient(colors: colors, startPoint: .leading, endPoint: .trailing))
-            // Up = brighter, down = deeper, left = quieter colors, right = richer.
+            .fill(LinearGradient(colors: guideColors, startPoint: .leading, endPoint: .trailing))
+            // The X-axis is color richness, not a white/skin/black sample strip.
+            // The Y-axis is only a moderate light/dark cue; never paint black
+            // or blown-out white at a corner of the original dotted pad.
             .overlay(
-                LinearGradient(colors: [Color.white.opacity(0.42), .clear, Color.black.opacity(0.63)],
+                LinearGradient(colors: [Color.white.opacity(0.11), .clear, Color.black.opacity(0.14)],
                                startPoint: .top, endPoint: .bottom)
-                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-            )
-            .overlay(
-                LinearGradient(colors: [Color.gray.opacity(0.34), .clear, (colors.last ?? .orange).opacity(0.20)],
-                               startPoint: .leading, endPoint: .trailing)
                     .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
             )
             .overlay {
