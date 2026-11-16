@@ -110,10 +110,10 @@ enum CameraStyle: String, CaseIterable, Identifiable {
         case .neutral: return "自然 Neutral"
         case .vibrant: return "鲜明 Vibrant"
         case .warm: return "温馨 Warm"
-        case .ethereal: return "空灵 Ethereal"
-        case .dramatic: return "戏剧 Dramatic"
+        case .ethereal: return "缥缈 Ethereal"
+        case .dramatic: return "反差 Rich Contrast"
         case .luminous: return "明亮 Luminous"
-        case .monochrome: return "黑白 Mono"
+        case .monochrome: return "黑白对比 Noir"
         case .fuji400: return "FUJI 400"
         case .kodak800: return "KODAK 800"
         case .fujiCyan: return "FUJI 青调"
@@ -128,6 +128,13 @@ enum CameraStyle: String, CaseIterable, Identifiable {
         case .fujiEterna: return "富士 ETERNA"
         case .fujiEternaBB: return "富士 ETERNA BB"
         }
+    }
+
+    /// Icon-carousel labels are short like the system selector, not long
+    /// bilingual titles squeezed into a photo-card layout.
+    var pickerTitle: String {
+        if isFilm { return title.replacingOccurrences(of: "富士 ", with: "") }
+        return title.components(separatedBy: " ").first ?? title
     }
 
     /// 所有风格的用户调色盘首次进入时都从中性控制点开始。
