@@ -185,25 +185,33 @@ assert 'struct PaletteValuesCapsule:' not in panel
 assert 'PaletteValuesCapsule(camera:' not in home
 assert 'DragGesture(minimumDistance: 0, coordinateSpace: .named' not in palette_src
 
-# Verify active per-pixel tonal response and exact untouched widget layout.
+# User requested EXACT v1.4 palette response and only a mild 6% color boost.
+# Never touch the earliest original UI background, cursor or yellow ticks.
 assert 'if snap.hasPaletteShift {' in engine
-assert 'out = out.applyingFilter("CIToneCurve", parameters: [' in engine
-assert '"inputPoint0": CIVector(x: 0.0, y: 0.0)' in engine
-assert '"inputPoint4": CIVector(x: 1.0, y: 1.0)' in engine
+assert 'out.applyingFilter("CIGammaAdjust"' in engine
+assert '"inputPower": 1 - 0.10 * tone' in engine
+assert 'out.applyingFilter("CIExposureAdjust"' in engine
+assert 'kCIInputEVKey: 0.02 * tone' in engine
+assert 'out.applyingFilter("CIVibrance"' in engine
+assert '"inputAmount": 0.18 * color' in engine
 assert 'kCIInputSaturationKey: 1 + color * (color >= 0 ? 0.36 : 0.24)' in engine
-assert 'if abs(color) > 0.0001 {' in engine
-assert 'out.applyingFilter("CIVibrance"' not in engine
-assert 'kCIInputEVKey: 0.02 * tone' not in engine
+assert 'kCIInputContrastKey: 1 - 0.04 * tone' in engine
+assert 'r.saturation *= (1.0 + 0.06 * k)' in engine
+assert 'out.applyingFilter("CIToneCurve"' not in engine
 
-def bounded_tone(t):
-    return [0.0, .25 + .020*t, .50 + .036*t, .75 + .025*t, 1.0]
-for y in (0.0, 0.5, 1.0):
-    curve=bounded_tone((.5-y)*2)
-    assert curve[0] == 0 and curve[-1] == 1
-    assert all(a < b for a,b in zip(curve,curve[1:]))
-    for x in (0.0, 0.5, 1.0):
-        color=(x-.5)*2
-        sat=1 + color*(.36 if color >= 0 else .24)
-        assert .76 <= sat <= 1.36
-        if x == .5: assert sat == 1.0
-print("PASS: first original palette background; bounded shadow/highlight + hue-neutral color checks")
+# Targeted regression: 0% intensity stays unboosted, non-neutral colors get
+# exactly 6% at full strength. All 9 palette locations remain bounded.
+for intensity in (0.0, 0.25, 0.5, 1.0):
+    boost = 1.0 + 0.06 * intensity
+    assert 1.0 <= boost <= 1.06 + 1e-9
+    for y in (0.0, 0.5, 1.0):
+        tone = (0.5 - y) * 2 * intensity
+        gamma = 1.0 - 0.10 * tone
+        exposure = 0.02 * tone
+        assert 0.9 <= gamma <= 1.1
+        assert -0.02 <= exposure <= 0.02
+        for x in (0.0, 0.5, 1.0):
+            color = (x - 0.5) * 2 * intensity
+            sat = 1.0 + color * (0.36 if color >= 0 else 0.24)
+            assert 0.76 <= sat <= 1.36
+print("PASS: original UI intact; v1.4 color axes restored + 6% colored-look saturation only")

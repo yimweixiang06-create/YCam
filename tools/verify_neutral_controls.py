@@ -19,13 +19,16 @@ assert "mutating func restoreStyleControls()" in styles
 assert "Double((snap.settings.point.x - 0.5) * 2)" in engine
 assert "Double((0.5 - snap.settings.point.y) * 2)" in engine
 assert "snap.settings.intensity" in engine
-# The v1.11 tonal path uses anchored, five-point curves instead of
-# gamma/exposure, and left/right apply hue-neutral saturation only.
-assert 'out.applyingFilter("CIToneCurve"' in engine
-assert '"inputPoint0": CIVector(x: 0.0, y: 0.0)' in engine
-assert '"inputPoint4": CIVector(x: 1.0, y: 1.0)' in engine
+# The user's preferred v1.4 palette axes are restored verbatim.
+# Only colored looks gain 6% strength in the baked recipe; grayscale/standard
+# keep their original look, and the existing slider still controls intensity.
+assert 'out.applyingFilter("CIGammaAdjust"' in engine
+assert 'out.applyingFilter("CIExposureAdjust"' in engine
+assert 'out.applyingFilter("CIVibrance"' in engine
 assert 'kCIInputSaturationKey: 1 + color * (color >= 0 ? 0.36 : 0.24)' in engine
-assert 'out.applyingFilter("CIVibrance"' not in engine
+assert 'r.saturation *= (1.0 + 0.06 * k)' in engine
+assert 'let colorStyle = s.style != .standard && s.style != .monochrome' in engine
+assert 's.filter != .silvertone && s.filter != .noir' in engine
 assert "defaults.color" not in engine and "defaults.tone" not in engine
 recipes = styles.split("var recipe: LookRecipe {", 1)[1].split("// MARK: - 人像光效", 1)[0]
 entries = re.findall(r"^[ ]*case [.](?P<name>[A-Za-z0-9_]+): return LookRecipe[(](?P<recipe>.*)[)]", recipes, re.M)
