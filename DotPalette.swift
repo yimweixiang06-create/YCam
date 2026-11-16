@@ -25,30 +25,42 @@ struct DotGrid: View {
 
 // MARK: - 卡片 + 可横向滑动的轮播（摄影风格 / 滤镜通用）
 
+/// Compact iOS-style symbolic swatch: icon ABOVE label. No photo cards.
 struct SwatchCard: View {
-    let colors: [Color]
-    let preview: UIImage?
+    let artwork: UIImage
+    let label: String
+    let symbol: String
     let selected: Bool
 
     var body: some View {
-        ZStack {
-            if let preview {
-                // Same real camera frame, each thumbnail rendered by its own YCam look.
-                Image(uiImage: preview)
+        VStack(spacing: 4) {
+            ZStack {
+                Circle().fill(Color.white.opacity(selected ? 0.18 : 0.09))
+                Image(uiImage: artwork)
                     .resizable()
                     .scaledToFill()
-            } else {
-                // First-frame/camera-permission fallback, never official Apple data.
-                RoundedRectangle(cornerRadius: 11, style: .continuous)
-                    .fill(LinearGradient(colors: colors, startPoint: .top, endPoint: .bottom))
+                    .frame(width: 32, height: 32)
+                    .clipShape(Circle())
+                Image(systemName: symbol)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(Color.white.opacity(0.93))
+                    .shadow(color: Color.black.opacity(0.50), radius: 1)
             }
+            .frame(width: 36, height: 36)
+            .overlay {
+                Circle().strokeBorder(Color.white.opacity(selected ? 0.92 : 0.22),
+                                      lineWidth: selected ? 1.7 : 0.7)
+            }
+            Text(label)
+                .font(.system(size: 9, weight: selected ? .semibold : .medium))
+                .foregroundStyle(Color.white.opacity(selected ? 1 : 0.70))
+                .lineLimit(2)
+                .minimumScaleFactor(0.76)
+                .multilineTextAlignment(.center)
+                .frame(height: 21, alignment: .top)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 11, style: .continuous)
-                .stroke(Color.white.opacity(selected ? 0.90 : 0.18), lineWidth: selected ? 1.5 : 0.6)
-        )
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -59,9 +71,10 @@ struct SwatchCarousel<Item: Hashable & Identifiable>: View {
     let cardWidth: CGFloat
     let cardHeight: CGFloat
     let spacing: CGFloat
-    let colors: (Item) -> [Color]
-    let previews: (Item) -> UIImage?
+    let artwork: (Item) -> UIImage
     let name: (Item) -> String
+    let shortName: (Item) -> String
+    let symbol: String
 
     @State private var anchorIndex = 0
     @State private var drag: CGFloat = 0
@@ -73,7 +86,8 @@ struct SwatchCarousel<Item: Hashable & Identifiable>: View {
         GeometryReader { geo in
             ZStack {
                 ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
-                    SwatchCard(colors: colors(item), preview: previews(item), selected: item == selected)
+                    SwatchCard(artwork: artwork(item), label: shortName(item),
+                               symbol: symbol, selected: item == selected)
                         .frame(width: cardWidth, height: cardHeight)
                         .position(x: geo.size.width / 2 + CGFloat(index - anchorIndex) * step + drag,
                                   y: geo.size.height / 2)
@@ -139,55 +153,6 @@ struct SwatchCarousel<Item: Hashable & Identifiable>: View {
     }
 }
 
-/// Offline snapshots for selector cards, from ONE user-owned camera frame.
-/// No network permissions, no reused Apple visual assets and no 3D LUT rebuilds
-/// on the camera preview thread. The cards show YCam's effects, not Apple truth.
-enum SwatchPhotoRenderer {
-    private static let width = 60
-    private static let height = 78
-    private static let rgbSpace = CGColorSpace(name: CGColorSpace.sRGB)!
-    private static let rgbaBitmap = CGBitmapInfo(rawValue:
-        CGBitmapInfo.byteOrder32Big.rawValue | CGImageAlphaInfo.premultipliedLast.rawValue)
-
-    static func render(_ frame: CGImage, recipe: LookRecipe, lutName: String?) -> UIImage? {
-        var bytes = [UInt8](repeating: 0, count: width * height * 4)
-        bytes.withUnsafeMutableBytes { raw in
-            guard let context = CGContext(data: raw.baseAddress, width: width, height: height,
-                                          bitsPerComponent: 8, bytesPerRow: width * 4,
-                                          space: rgbSpace, bitmapInfo: rgbaBitmap.rawValue) else { return }
-            context.interpolationQuality = .high
-            let factor = max(CGFloat(width) / CGFloat(frame.width),
-                             CGFloat(height) / CGFloat(frame.height))
-            let w = CGFloat(frame.width) * factor
-            let h = CGFloat(frame.height) * factor
-            context.draw(frame, in: CGRect(x: (CGFloat(width) - w) / 2,
-                                            y: (CGFloat(height) - h) / 2, width: w, height: h))
-        }
-        let lut = lutName.flatMap { LutLibrary.shared.table(named: $0) }
-        for offset in stride(from: 0, to: bytes.count, by: 4) {
-            let alpha = Float(bytes[offset + 3]) / 255
-            guard alpha > 0 else { continue }
-            var r = min(1, Float(bytes[offset]) / (255 * alpha))
-            var g = min(1, Float(bytes[offset + 1]) / (255 * alpha))
-            var b = min(1, Float(bytes[offset + 2]) / (255 * alpha))
-            if let lut { (r, g, b) = lut.sample(r, g, b) }
-            (r, g, b) = FilterEngine.transform(r, g, b, recipe)
-            bytes[offset] = UInt8((max(0, min(1, r)) * alpha * 255).rounded())
-            bytes[offset + 1] = UInt8((max(0, min(1, g)) * alpha * 255).rounded())
-            bytes[offset + 2] = UInt8((max(0, min(1, b)) * alpha * 255).rounded())
-        }
-        guard let provider = CGDataProvider(data: Data(bytes) as CFData),
-              let output = CGImage(width: width, height: height,
-                                   bitsPerComponent: 8, bitsPerPixel: 32,
-                                   bytesPerRow: width * 4, space: rgbSpace,
-                                   bitmapInfo: rgbaBitmap, provider: provider,
-                                   decode: nil, shouldInterpolate: true, intent: .defaultIntent) else {
-            return nil
-        }
-        return UIImage(cgImage: output)
-    }
-}
-
 // MARK: - 摄影风格色调板：横向颜色 −100...100，纵向色调 +100...−100
 
 struct DotPalette: View {
@@ -207,12 +172,12 @@ struct DotPalette: View {
                 .resizable()
                 .interpolation(.high)
                 .saturation(style == .monochrome ? 0 : 1.04)
-                .opacity(0.92)
+                .opacity(0.97)
                 .allowsHitTesting(false)
             LinearGradient(stops: [
                 .init(color: Color.white.opacity(0.04), location: 0),
                 .init(color: .clear, location: 0.42),
-                .init(color: Color.black.opacity(0.14), location: 1)
+                .init(color: Color.black.opacity(0.34), location: 1)
             ], startPoint: .top, endPoint: .bottom)
             .allowsHitTesting(false)
         }
@@ -253,6 +218,20 @@ private enum PaletteColorMap {
         let recipe = FilterEngine.effectiveRecipe(for: settings)
         let filmLut = style.lutName.flatMap { LutLibrary.shared.table(named: $0) }
 
+        // Give each style a dominant source hue; averaging equally weighted
+        // skin, sky and gray made every palette look identically beige.
+        let representative = UIColor(style.swatch)
+        var sr: CGFloat = 0, sg: CGFloat = 0, sb: CGFloat = 0, sa: CGFloat = 0
+        let found = representative.getRed(&sr, green: &sg, blue: &sb, alpha: &sa)
+        let primary = found
+            ? (Float(sr), Float(sg), Float(sb))
+            : (Float(0.56), Float(0.55), Float(0.56))
+        let examples: [(Float, Float, Float, Float)] = [
+            (primary.0, primary.1, primary.2, 0.72),
+            (0.90, 0.52, 0.58, 0.12), // skin
+            (0.44, 0.71, 0.88, 0.10), // sky
+            (0.68, 0.70, 0.71, 0.06)  // gray
+        ]
         var rgba = [UInt8](repeating: 255, count: side * side * 4)
         for row in 0..<side {
             let y = Float(row) / Float(side - 1)
@@ -261,14 +240,8 @@ private enum PaletteColorMap {
                 let x = Float(column) / Float(side - 1)
                 let color = (x - 0.5) * 2 * strength
 
-                // Sample three meaningful scene colors (skin / sky / neutral)
-                // separately at EVERY coordinate. They are visual examples,
-                // not a claim of a frame's actual pixels or official Apple LUT.
-                let examples: [(Float, Float, Float, Float)] = [
-                    (0.90, 0.52, 0.58, 0.48),
-                    (0.44, 0.71, 0.88, 0.32),
-                    (0.68, 0.70, 0.71, 0.20)
-                ]
+                let axes = FilterEngine.paletteAxes(style: style,
+                                                    tone: Double(tone), color: Double(color))
                 var sumR: Float = 0, sumG: Float = 0, sumB: Float = 0
                 for (sr, sg, sb, weight) in examples {
                     var r = sr, g = sg, b = sb
@@ -279,17 +252,17 @@ private enum PaletteColorMap {
                         b += (mapped.2 - b) * strength
                     }
                     (r, g, b) = FilterEngine.transform(r, g, b, recipe)
-                    let gamma = 1 - 0.10 * tone
-                    let gain = powf(2, 0.02 * tone)
+                    let gamma = Float(axes.gamma)
+                    let gain = powf(2, Float(axes.exposure))
                     r = clamp(powf(clamp(r), gamma) * gain)
                     g = clamp(powf(clamp(g), gamma) * gain)
                     b = clamp(powf(clamp(b), gamma) * gain)
 
                     let luminosity = 0.2126 * r + 0.7152 * g + 0.0722 * b
                     let chroma = max(r, max(g, b)) - min(r, min(g, b))
-                    let vibrance = 1 + 0.18 * color * (1 - chroma) * 0.2
-                    let saturation = 1 + color * (color >= 0 ? 0.36 : 0.24)
-                    let contrast = 1 - 0.04 * tone
+                    let vibrance = 1 + Float(axes.vibrance) * (1 - chroma)
+                    let saturation = Float(axes.saturation)
+                    let contrast = Float(axes.contrast)
                     let scale = vibrance * saturation
                     sumR += clamp(((luminosity + (r - luminosity) * scale) - 0.5) * contrast + 0.5) * weight
                     sumG += clamp(((luminosity + (g - luminosity) * scale) - 0.5) * contrast + 0.5) * weight
@@ -319,6 +292,17 @@ private enum PaletteColorMap {
         let result = UIImage(cgImage: cgImage)
         cache.setObject(result, forKey: key)
         return result
+    }
+}
+
+/// Matching circular selector icons use each effect's own 2D colour field.
+/// No camera frame, enlarged photo, or uniform rectangle is used.
+enum PaletteIconArtwork {
+    static func style(_ style: CameraStyle) -> UIImage {
+        PaletteColorMap.image(style: style, filter: .original, intensity: 1)
+    }
+    static func filter(_ filter: AppleFilter) -> UIImage {
+        PaletteColorMap.image(style: .standard, filter: filter, intensity: 1)
     }
 }
 
@@ -362,7 +346,10 @@ private final class DotPaletteTrackingView: UIControl {
         isOpaque = false
         isMultipleTouchEnabled = false
 
-        dotsLayer.fillColor = UIColor.white.withAlphaComponent(0.76).cgColor
+        // Dark outline keeps each point visible on the brightest palettes.
+        dotsLayer.fillColor = UIColor.white.withAlphaComponent(0.93).cgColor
+        dotsLayer.strokeColor = UIColor.black.withAlphaComponent(0.38).cgColor
+        dotsLayer.lineWidth = 0.55
         layer.addSublayer(dotsLayer)
         cursorLayer.backgroundColor = UIColor.white.cgColor
         cursorLayer.bounds = CGRect(x: 0, y: 0, width: 18, height: 18)
