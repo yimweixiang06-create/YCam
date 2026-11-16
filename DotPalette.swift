@@ -134,17 +134,40 @@ struct DotPalette: View {
     var intensity: Double
 
     var body: some View {
-        // A real 2D color field: every (tone, color) location has its own
-        // evaluated RGB color, not one swatch expanded over the whole pad.
-        // Moving the white cursor only updates its CALayer, not this image.
-        Image(uiImage: PaletteColorMap.image(style: style, filter: filter, intensity: intensity))
-            .resizable()
-            .interpolation(.high)
-            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .overlay {
-                DotPaletteTouchSurface(point: $point)
-                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-            }
+        // iOS 27-inspired palette field, compared with the user's actual
+        // camera recording: soft smoked-rose at the top, charcoal-plum below.
+        // Keep the tiny 11x11 dots and precise touch cursor on their own
+        // pre-existing CALayers. No expensive live backdrop blur or glare.
+        let shape = RoundedRectangle(cornerRadius: 18, style: .continuous)
+        ZStack {
+            shape.fill(
+                LinearGradient(stops: [
+                    .init(color: Color(red: 0.39, green: 0.33, blue: 0.37), location: 0),
+                    .init(color: Color(red: 0.32, green: 0.24, blue: 0.29), location: 0.35),
+                    .init(color: Color(red: 0.22, green: 0.14, blue: 0.20), location: 0.68),
+                    .init(color: Color(red: 0.11, green: 0.08, blue: 0.13), location: 1)
+                ], startPoint: .topLeading, endPoint: .bottomTrailing)
+            )
+            // Preserve each style's calculated two-axis color field, but
+            // use it only as a restrained tint over the system-like backdrop.
+            Image(uiImage: PaletteColorMap.image(style: style, filter: filter, intensity: intensity))
+                .resizable()
+                .interpolation(.high)
+                .saturation(0.70)
+                .opacity(0.18)
+                .allowsHitTesting(false)
+            LinearGradient(stops: [
+                .init(color: Color.white.opacity(0.055), location: 0),
+                .init(color: .clear, location: 0.33),
+                .init(color: Color.black.opacity(0.23), location: 1)
+            ], startPoint: .top, endPoint: .bottom)
+            .allowsHitTesting(false)
+        }
+        .clipShape(shape)
+        .overlay {
+            DotPaletteTouchSurface(point: $point)
+                .clipShape(shape)
+        }
     }
 }
 
