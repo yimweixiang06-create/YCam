@@ -133,14 +133,10 @@ struct DotPalette: View {
 
     var body: some View {
         RoundedRectangle(cornerRadius: 18, style: .continuous)
-            .fill(LinearGradient(colors: [
-                Color(red: 0.24, green: 0.17, blue: 0.22),
-                (colors.last ?? .pink).opacity(0.63),
-                Color(red: 0.12, green: 0.10, blue: 0.15)
-            ], startPoint: .topLeading, endPoint: .bottomTrailing))
+            .fill(LinearGradient(colors: colors, startPoint: .leading, endPoint: .trailing))
             // Up = brighter, down = deeper, left = quieter colors, right = richer.
             .overlay(
-                LinearGradient(colors: [Color.white.opacity(0.22), .clear, Color.black.opacity(0.56)],
+                LinearGradient(colors: [Color.white.opacity(0.42), .clear, Color.black.opacity(0.63)],
                                startPoint: .top, endPoint: .bottom)
                     .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
             )
@@ -188,9 +184,6 @@ private final class DotPaletteTrackingView: UIControl {
     private var lastCommitted = CGPoint(x: 0.5, y: 0.5)
     private var lastCommitTime: CFTimeInterval = 0
     private var lastDrawnSize = CGSize.zero
-    private var lastHapticColumn = -1
-    private var lastHapticRow = -1
-    private var lastHapticTime: CFTimeInterval = 0
     private var onChange: ((CGPoint) -> Void)?
 
     override init(frame: CGRect) {
@@ -202,10 +195,8 @@ private final class DotPaletteTrackingView: UIControl {
         dotsLayer.fillColor = UIColor.white.withAlphaComponent(0.76).cgColor
         layer.addSublayer(dotsLayer)
         cursorLayer.backgroundColor = UIColor.white.cgColor
-        cursorLayer.bounds = CGRect(x: 0, y: 0, width: 19, height: 19)
-        cursorLayer.cornerRadius = 9.5
-        cursorLayer.borderWidth = 1.2
-        cursorLayer.borderColor = UIColor.white.withAlphaComponent(0.86).cgColor
+        cursorLayer.bounds = CGRect(x: 0, y: 0, width: 18, height: 18)
+        cursorLayer.cornerRadius = 9
         cursorLayer.shadowColor = UIColor.black.cgColor
         cursorLayer.shadowOpacity = 0.32
         cursorLayer.shadowRadius = 3
@@ -215,7 +206,7 @@ private final class DotPaletteTrackingView: UIControl {
         isAccessibilityElement = true
         accessibilityTraits = [.adjustable]
         accessibilityLabel = "摄影风格调色盘"
-        accessibilityHint = "轻点任意位置或按住白色圆点连续拖动；白点实时跟随手指，松手停在当前颜色，不吸附网格"
+        accessibilityHint = "拖动白色圆点：向上提亮，向下压暗，向左淡色，向右浓色；不会吸附网格"
     }
 
     required init?(coder: NSCoder) {
@@ -283,22 +274,8 @@ private final class DotPaletteTrackingView: UIControl {
             updateCursor()
         }
         let now = CACurrentMediaTime()
-        // 点阵与白色手柄只移动一个 CALayer，不逐帧重绘 SwiftUI。
-        // GPU 上的色调/颜色使用轻量实时参数；LUT 重建不由点阵位置触发。
-        if forceCommit || now - lastCommitTime >= 1.0 / 60.0 {
+        if forceCommit || now - lastCommitTime >= 1.0 / 30.0 {
             publishSelection(at: now)
-        }
-        if touching {
-            let col = Int((next.x * CGFloat(columns - 1)).rounded())
-            let row = Int((next.y * CGFloat(rows - 1)).rounded())
-            if (col != lastHapticColumn || row != lastHapticRow) &&
-                now - lastHapticTime >= 0.07 {
-                lastHapticColumn = col
-                lastHapticRow = row
-                lastHapticTime = now
-                feedback.selectionChanged()
-                feedback.prepare()
-            }
         }
     }
 
@@ -314,9 +291,9 @@ private final class DotPaletteTrackingView: UIControl {
         // Animate only the CALayer: camera preview/SwiftUI hierarchy stays
         // fixed while the user's finger moves across the palette.
         CATransaction.begin()
-        CATransaction.setAnimationDuration(UIAccessibility.isReduceMotionEnabled ? 0 : 0.10)
+        CATransaction.setAnimationDuration(0.12)
         CATransaction.setAnimationTimingFunction(CAMediaTimingFunction(name: .easeOut))
-        let diameter: CGFloat = pressed ? 29 : 19
+        let diameter: CGFloat = pressed ? 22 : 18
         cursorLayer.bounds = CGRect(x: 0, y: 0, width: diameter, height: diameter)
         cursorLayer.cornerRadius = diameter / 2
         CATransaction.commit()
@@ -325,8 +302,6 @@ private final class DotPaletteTrackingView: UIControl {
     override func beginTracking(_ touch: UITouch, with event: UIEvent?) -> Bool {
         touching = true
         feedback.prepare()
-        lastHapticColumn = -1
-        lastHapticRow = -1
         animateCursorPress(true)
         moveCursor(to: touch.location(in: self), forceCommit: true)
         return true
@@ -367,59 +342,50 @@ private final class DotPaletteTrackingView: UIControl {
     }
 }
 
-// MARK: - 摄影风格强度：参考录屏的渐变胶囊轨道与白色手柄，连续拖动。
+// MARK: - 刻度滑块（“调色盘浓度”，淡 → 浓：− ||||||||| +）
 
 struct TickSlider: View {
     @Binding var value: Double      // 0...1
+    private let ticks = 11
 
     var body: some View {
         HStack(spacing: 10) {
-            Text("−").font(.system(size: 17, weight: .medium)).opacity(0.85)
+            Text("−").font(.system(size: 17, weight: .medium)).opacity(0.8)
             GeometryReader { geo in
-                let travel = max(0, geo.size.width - 18)
-                ZStack {
-                    Capsule()
-                        .fill(LinearGradient(
-                            colors: [Color(red: 0.18, green: 0.28, blue: 0.38),
-                                     Color(red: 0.36, green: 0.25, blue: 0.34),
-                                     Color(red: 0.74, green: 0.47, blue: 0.53)],
-                            startPoint: .leading, endPoint: .trailing))
-                        .frame(height: 17)
-                        .overlay(Capsule().strokeBorder(Color.white.opacity(0.22), lineWidth: 0.7))
-                    Circle()
-                        .fill(Color.white)
-                        .frame(width: 18, height: 18)
-                        .shadow(color: .black.opacity(0.36), radius: 2, y: 1)
-                        .position(x: 9 + CGFloat(min(1, max(0, value))) * travel,
-                                  y: geo.size.height / 2)
-                        .allowsHitTesting(false)
+                HStack(spacing: 0) {
+                    ForEach(0..<ticks, id: \.self) { i in
+                        Capsule()
+                            .fill(Double(i) / Double(ticks - 1) <= value + 0.001 ? Color.yellow : Color.white.opacity(0.35))
+                            .frame(width: 2, height: 15)
+                            .frame(maxWidth: .infinity)
+                    }
                 }
                 .frame(width: geo.size.width, height: geo.size.height)
                 .contentShape(Rectangle())
                 .gesture(
-                    DragGesture(minimumDistance: 0)
-                        .onChanged { drag in
-                            let next = min(1, max(0, (drag.location.x - 9) / max(1, travel)))
-                            let adjusted = (next * 100).rounded() / 100
-                            guard adjusted != value else { return }
+                    DragGesture(minimumDistance: 0).onChanged { drag in
+                        let t = min(1, max(0, drag.location.x / max(1, geo.size.width)))
+                        let adjusted = (t * 100).rounded() / 100
+                        if adjusted != value {
                             let previousStep = Int((value * 10).rounded(.down))
                             value = adjusted
                             if Int((adjusted * 10).rounded(.down)) != previousStep {
                                 UISelectionFeedbackGenerator().selectionChanged()
                             }
                         }
+                    }
                 )
             }
-            .frame(height: 30)
-            Text("+").font(.system(size: 17, weight: .medium)).opacity(0.85)
+            .frame(height: 26)
+            Text("+").font(.system(size: 17, weight: .medium)).opacity(0.8)
         }
         .foregroundStyle(Color.white)
         .accessibilityElement()
         .accessibilityLabel("调色盘浓度")
         .accessibilityValue("\(Int((value * 100).rounded()))%")
         .accessibilityAdjustableAction { direction in
-            let delta = direction == .increment ? 0.01 : -0.01
-            value = min(1, max(0, ((value + delta) * 100).rounded() / 100))
+            let delta = direction == .increment ? 0.1 : -0.1
+            value = min(1, max(0, (value + delta) * 10).rounded() / 10)
         }
     }
 }

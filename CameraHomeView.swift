@@ -201,18 +201,9 @@ struct CameraHomeView: View {
         return ZStack {
             // 顶部采用左右分区：视频参数在左，相机控制在右；录制计时独占中间。
             if !camera.isRecording {
-                if sheet == .custom {
-                    // 参考录屏：数值在取景画面上缘以独立小胶囊显示，
-                    // 避免跟随下方拖动点阵重新布局。
-                    PaletteValuesCapsule(camera: camera, m: m)
-                        .position(x: m.W / 2,
-                                  y: m.isLandscape ? m.vfTop(pinned: false) - 23 * m.s :
-                                      m.vfTop(pinned: false) - 27 * m.s)
-                } else {
-                    topCapsule(m)
-                        .position(x: m.W - (camera.mode == .video ? 57 : 73) * m.s,
-                                  y: m.capsuleCenterY)
-                }
+                topCapsule(m)
+                    .position(x: m.W - (camera.mode == .video ? 57 : 73) * m.s,
+                              y: m.capsuleCenterY)
                 if sheet == .closed {
                     if camera.mode == .video {
                         videoQuickControls(m)
@@ -556,11 +547,7 @@ struct CameraHomeView: View {
     private func bottomControls(_ m: UIMetrics) -> some View {
         let idle = sheet == .closed
         let panelTop = m.H - m.panelBottomGap - m.panelHeight(sheet, drawerCount: layout.drawer.count)
-        // ViewBuilder 中使用单个不可变表达式，避免以赋值语句充当 View。
-        let shutterY = (sheet == .custom && !m.isLandscape)
-            ? min(previewFrame(m).maxY - 70 * m.s,
-                  m.H - m.panelBottomGap - 331 * m.s)
-            : (idle ? m.shutterCenterY : panelTop - 67 * m.s)
+        let shutterY = idle ? m.shutterCenterY : panelTop - 67 * m.s
         if sheet != .drawer && sheet != .edit {
             shutterButton(m)
                 .position(x: m.isLandscape ? m.W - 74 * m.s : m.W / 2,
@@ -728,12 +715,9 @@ struct CameraHomeView: View {
                 StylesPanel(camera: camera, m: m, onBack: { go(.drawer) }, onCustom: { go(.custom) })
             }
         case .custom:
-            // 不再给调色盘包一整块 250pt 磨砂底板；仅保留视频里的
-            // 独立白色控制点、关闭/重置按钮及渐变强度滑条。
-            CustomPalettePanel(camera: camera, m: m, onBack: { go(.styles) })
-                .position(x: m.W / 2,
-                          y: m.isLandscape ? m.H / 2 + 18 * m.s :
-                              m.H - m.panelBottomGap - 180 * m.s)
+            panel(m, height: m.panelHeight(.custom, drawerCount: count)) {
+                CustomPalettePanel(camera: camera, m: m, onBack: { go(.styles) })
+            }
         case .filters:
             panel(m, height: m.panelHeight(.filters, drawerCount: count)) {
                 FiltersPanel(camera: camera, m: m, onBack: { go(.drawer) })

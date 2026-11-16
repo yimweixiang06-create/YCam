@@ -137,7 +137,17 @@ assert "currentGeneration == latestGeneration" in model
 assert "private final class DotPaletteTrackingView: UIControl" in palette_src
 assert "private let dotsLayer = CAShapeLayer()" in palette_src
 assert "private let cursorLayer = CALayer()" in palette_src
-# The active touch implementation publishes at up to 60 Hz, not old 15 Hz.
-assert "lastCommitTime >= 1.0 / 60.0" in palette_src
+# Restored original dot-grid design. Cursor layer follows the finger immediately;
+# the SwiftUI colour parameter commit was originally limited to 30 Hz.
+assert "lastCommitTime >= 1.0 / 30.0" in palette_src
+assert "private let dotsLayer = CAShapeLayer()" in palette_src
+assert "struct PaletteValuesCapsule:" not in panel
+assert "PaletteValuesCapsule(camera:" not in home
+assert 'Color.yellow : Color.white.opacity(0.35)' in palette_src
+assert 'let ticks = 11' in palette_src
+assert 'panel(m, height: m.panelHeight(.custom, drawerCount: count))' in home
+assert '.frame(width: 200 * m.s)' in panel
+assert 'PanelHeader(m, onBack: onBack, onReset:' in panel
+assert 'DotPalette(point: $camera.styleSettings.point, colors: settings.style.cardColors)' in panel
 assert "DragGesture(minimumDistance: 0, coordinateSpace: .named" not in palette_src
 print("PASS: held preview during capture preset transition; palette cursor stays on visible dots")
