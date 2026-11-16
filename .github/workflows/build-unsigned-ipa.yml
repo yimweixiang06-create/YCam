@@ -35,6 +35,7 @@ on:
       - "tools/static_check.py"
       - "tools/verify_user_layout_max.py"
       - "tools/verify_app_language.py"
+      - "tools/verify_filter_separation.py"
 
 concurrency:
   group: ycam-build-${{ github.ref }}
@@ -232,6 +233,7 @@ jobs:
           python3 tools/verify_neutral_controls.py
           python3 tools/verify_user_layout_max.py
           python3 tools/verify_app_language.py
+          python3 tools/verify_filter_separation.py
           python3 tools/style_check.py > "$OUTPUT_DIR/logs/style-check.log"
           tail -n 8 "$OUTPUT_DIR/logs/style-check.log"
 

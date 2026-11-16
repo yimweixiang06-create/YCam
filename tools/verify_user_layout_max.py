@@ -185,37 +185,45 @@ assert 'struct PaletteValuesCapsule:' not in panel
 assert 'PaletteValuesCapsule(camera:' not in home
 assert 'DragGesture(minimumDistance: 0, coordinateSpace: .named' not in palette_src
 
-# Preserve the original camera UI and v1.4 color response at all ordinary
-# points. At upper-right prevent washed-out contrast; at lower-left protect
-# shadow levels. Colored looks add 3% only (not the earlier 6%).
-assert 'if snap.hasPaletteShift {' in engine
+# Preserve the original panel and earliest gradient; only palette math changes.
+assert 'r.saturation *= (1.0 + 0.03 * k)' not in engine
+assert 'let zoneSaturation = 1.0 + (rawTone >= 0 ? 0.03 : 0.02) * rawTone' in engine
+assert 'kCIInputSaturationKey: (1 + color * (color >= 0 ? 0.36 : 0.24)) * zoneSaturation' in engine
+assert 'let upperLeft = max(0.0, -color) * max(0.0, rawTone)' in engine
+assert 'let lowerLeft = max(0.0, -color) * max(0.0, -rawTone)' in engine
+assert 'let lowerRight = max(0.0, color) * max(0.0, -rawTone)' in engine
+assert '0.50 * lowerLeft - 0.50 * lowerRight' in engine
+assert '"inputSharpness": 0.16 * upperLeft' in engine
 assert 'out.applyingFilter("CIGammaAdjust"' in engine
-assert '"inputPower": 1 - 0.10 * tone' in engine
 assert 'out.applyingFilter("CIExposureAdjust"' in engine
-assert 'kCIInputEVKey: 0.02 * tone' in engine
-assert 'out.applyingFilter("CIVibrance"' in engine
-assert '"inputAmount": 0.18 * color' in engine
-assert 'kCIInputSaturationKey: 1 + color * (color >= 0 ? 0.36 : 0.24)' in engine
-assert 'kCIInputContrastKey: 1 - 0.04 * tone + 0.03 * upperRight' in engine
-assert 'r.saturation *= (1.0 + 0.03 * k)' in engine
-assert 'out.applyingFilter("CIToneCurve"' not in engine
 
-for intensity in (0.0, .25, .5, 1.0):
-    assert 1.0 <= 1 + 0.03 * intensity <= 1.03 + 1e-9
-    for y in (0.0, .25, .5, .75, 1.0):
-        raw = (0.5 - y) * 2 * intensity
-        for x in (0.0, .25, .5, .75, 1.0):
-            color = (x-.5)*2*intensity
-            upper = max(0.0, color)*max(0.0, raw)
-            lower = max(0.0, -color)*max(0.0, -raw)
-            tone = raw*(1.0-.28*upper-.40*lower)
-            gamma = 1.0-.10*tone
-            exposure = .02*tone
-            contrast = 1.0-.04*tone+.03*upper
-            assert .9 <= gamma <= 1.1
-            assert -.02 <= exposure <= .02
-            assert .96 <= contrast <= 1.04
-            if upper == 0 and lower == 0: assert abs(tone-raw)<1e-9
-            if x==1 and y==0: assert abs(tone-raw*.72)<1e-9 or intensity!=1
-            if x==0 and y==1: assert abs(tone-raw*.60)<1e-9 or intensity!=1
-print("PASS: original camera UI unchanged; 3% color boost; diagonal shadows and upper-right contrast bounded")
+# The white circle follows touch freely, then springs to the closest dot
+# only after release. Never round during dragging or add a permanent line.
+assert 'private func snapToNearestDot()' in palette_src
+assert 'CASpringAnimation(keyPath: "position")' in palette_src
+assert 'cursor = next' in palette_src
+assert 'snapToNearestDot()' in palette_src
+assert 'let columns = 11' in palette_src and 'let rows = 11' in palette_src
+assert '.fill(LinearGradient(colors: colors, startPoint: .top, endPoint: .bottom))' in palette_src
+
+for intensity in (0,.25,.5,1):
+    for y in (0,.1,.5,.9,1):
+        tone=(.5-y)*2*intensity
+        factor=1+(.03 if tone>=0 else .02)*tone
+        assert .98-1e-9 <= factor <= 1.03+1e-9
+        if y<.5: assert factor >= 1
+        if y>.5: assert factor <= 1
+        if y==.5: assert factor==1
+        for x in (0,.25,.5,.75,1):
+            color=(x-.5)*2*intensity
+            ur=max(0,color)*max(0,tone)
+            ul=max(0,-color)*max(0,tone)
+            ll=max(0,-color)*max(0,-tone)
+            lr=max(0,color)*max(0,-tone)
+            adjusted=tone*(1-.28*ur-.28*ul-.50*ll-.50*lr)
+            assert abs(adjusted)<=abs(tone)+1e-9
+            if intensity==1 and y==1 and x in (0,1): assert abs(adjusted+.5)<1e-9
+for x in (.001,.07,.15,.27,.44,.51,.86,.93,.999):
+    snapped=round(10*x)/10
+    assert abs(x-snapped)<=.05+1e-9
+print("PASS: original palette UI; upper +3%, lower direct -2%, corner detail, release-only snap")

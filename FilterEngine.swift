@@ -122,15 +122,8 @@ final class FilterEngine {
     static func effectiveRecipe(for s: StyleSettings) -> LookRecipe {
         let k = Float(min(1, max(0, s.intensity)))
         var r = s.style.recipe.scaled(by: k).combined(with: s.filter.recipe)
-        // Keep the user's preferred v1.4 recipe; only 3% additional color.
-        // Keep neutral Original and the monochrome options untouched.
-        // Strength fades with the existing slider; no new tint or exposure.
-        let colorStyle = s.style != .standard && s.style != .monochrome
-        let colorFilter = s.filter != .original && s.filter != .mono &&
-            s.filter != .silvertone && s.filter != .noir
-        if colorStyle || colorFilter {
-            r.saturation *= (1.0 + 0.03 * k)
-        }
+        // Preserve v1.4 recipe colors. The +3% / -2% applies only to
+        // the live upper/lower palette halves, not all filters globally.
         // Continuous tone/color controls are applied at render time instead.
         r.exposure += Float(s.exposure)
         return r
@@ -306,12 +299,15 @@ final class FilterEngine {
             let k = min(1.0, max(0.0, snap.settings.intensity))
             let color = min(1.0, max(-1.0, Double((snap.settings.point.x - 0.5) * 2))) * k
             let rawTone = min(1.0, max(-1.0, Double((0.5 - snap.settings.point.y) * 2))) * k
-            // Reduce the washed/soft appearance only in upper-right and
-            // prevent over-darkening only in lower-left. All other points
-            // retain the v1.4 response. No image blur or tint is introduced.
             let upperRight = max(0.0, color) * max(0.0, rawTone)
+            let upperLeft = max(0.0, -color) * max(0.0, rawTone)
             let lowerLeft = max(0.0, -color) * max(0.0, -rawTone)
-            let tone = rawTone * (1.0 - 0.28 * upperRight - 0.40 * lowerLeft)
+            let lowerRight = max(0.0, color) * max(0.0, -rawTone)
+            // Reduce wash at the top, and preserve shadows at BOTH bottom corners.
+            let tone = rawTone * (1.0 - 0.28 * upperRight - 0.28 * upperLeft
+                                 - 0.50 * lowerLeft - 0.50 * lowerRight)
+            // Continuous upper +3% and lower DIRECT -2% (center is neutral).
+            let zoneSaturation = 1.0 + (rawTone >= 0 ? 0.03 : 0.02) * rawTone
 
             if abs(tone) > 0.0001 {
                 // Downward drag reduces midtone luminance gently without
@@ -331,9 +327,15 @@ final class FilterEngine {
                 ])
             }
             out = out.applyingFilter("CIColorControls", parameters: [
-                kCIInputSaturationKey: 1 + color * (color >= 0 ? 0.36 : 0.24),
-                kCIInputContrastKey: 1 - 0.04 * tone + 0.03 * upperRight
+                kCIInputSaturationKey: (1 + color * (color >= 0 ? 0.36 : 0.24)) * zoneSaturation,
+                kCIInputContrastKey: 1 - 0.04 * tone + 0.03 * upperRight + 0.04 * upperLeft
             ])
+            if upperLeft > 0.05 {
+                // Subtle detail recovery at upper-left; no blur or glow.
+                out = out.applyingFilter("CISharpenLuminance", parameters: [
+                    "inputSharpness": 0.16 * upperLeft
+                ])
+            }
         }
         if snap.recipe.bloom > 0.001 {
             out = FilterEngine.applyBloom(out, amount: snap.recipe.bloom, extent: extent)

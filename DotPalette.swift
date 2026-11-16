@@ -162,9 +162,8 @@ private struct DotPaletteTouchSurface: UIViewRepresentable {
     }
 }
 
-/// Cached 11x11 decorative dots and one continuous cursor layer. Dots are
-/// visual guides only; the cursor follows touch without snapping. Image
-/// updates are coalesced while final release coordinates are exact.
+/// Cached original 11x11 dotted background with free movement while held.
+/// On release only, smoothly spring the white circle to the nearest dot.
 @MainActor
 private final class DotPaletteTrackingView: UIControl {
     private let columns = 11
@@ -200,7 +199,7 @@ private final class DotPaletteTrackingView: UIControl {
         isAccessibilityElement = true
         accessibilityTraits = [.adjustable]
         accessibilityLabel = "摄影风格调色盘"
-        accessibilityHint = "拖动白色圆点：向上提亮，向下压暗，向左淡色，向右浓色；不会吸附网格"
+        accessibilityHint = "拖动时自由移动，松手后自动吸附到最近的小圆点"
     }
 
     required init?(coder: NSCoder) {
@@ -306,21 +305,48 @@ private final class DotPaletteTrackingView: UIControl {
         return true
     }
 
-    override func endTracking(_ touch: UITouch?, with event: UIEvent?) {
-        if let touch {
-            moveCursor(to: touch.location(in: self), forceCommit: true)
-        } else {
-            publishSelection()
+    private func snapToNearestDot() {
+        let destination = CGPoint(
+            x: (cursor.x * CGFloat(columns - 1)).rounded() / CGFloat(columns - 1),
+            y: (cursor.y * CGFloat(rows - 1)).rounded() / CGFloat(rows - 1)
+        )
+        let from = cursorPosition()
+        cursor = destination
+        let to = cursorPosition()
+
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        cursorLayer.position = to
+        if hypot(to.x - from.x, to.y - from.y) > 0.1 {
+            // A single short travel path, with no permanent line or added UI.
+            let motion = CASpringAnimation(keyPath: "position")
+            motion.fromValue = NSValue(cgPoint: from)
+            motion.toValue = NSValue(cgPoint: to)
+            motion.mass = 0.65
+            motion.stiffness = 300
+            motion.damping = 24
+            motion.initialVelocity = 0
+            motion.duration = min(0.30, motion.settlingDuration)
+            motion.isRemovedOnCompletion = true
+            cursorLayer.add(motion, forKey: "snapOnRelease")
         }
+        CATransaction.commit()
+        accessibilityValue = "颜色 \(Int((cursor.x - 0.5) * 200))，色调 \(Int((0.5 - cursor.y) * 200))"
+        publishSelection()
+    }
+
+    override func endTracking(_ touch: UITouch?, with event: UIEvent?) {
+        if let touch { moveCursor(to: touch.location(in: self), forceCommit: false) }
         touching = false
         animateCursorPress(false)
+        snapToNearestDot()
         feedback.selectionChanged()
     }
 
     override func cancelTracking(with event: UIEvent?) {
         touching = false
         animateCursorPress(false)
-        publishSelection()
+        snapToNearestDot()
     }
 
     override func accessibilityIncrement() {
