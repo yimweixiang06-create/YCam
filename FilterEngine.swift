@@ -122,14 +122,14 @@ final class FilterEngine {
     static func effectiveRecipe(for s: StyleSettings) -> LookRecipe {
         let k = Float(min(1, max(0, s.intensity)))
         var r = s.style.recipe.scaled(by: k).combined(with: s.filter.recipe)
-        // The user's preferred v1.4 color recipe, just 6% more saturation.
+        // Keep the user's preferred v1.4 recipe; only 3% additional color.
         // Keep neutral Original and the monochrome options untouched.
         // Strength fades with the existing slider; no new tint or exposure.
         let colorStyle = s.style != .standard && s.style != .monochrome
         let colorFilter = s.filter != .original && s.filter != .mono &&
             s.filter != .silvertone && s.filter != .noir
         if colorStyle || colorFilter {
-            r.saturation *= (1.0 + 0.06 * k)
+            r.saturation *= (1.0 + 0.03 * k)
         }
         // Continuous tone/color controls are applied at render time instead.
         r.exposure += Float(s.exposure)
@@ -305,7 +305,13 @@ final class FilterEngine {
             // These are YCam approximations, NOT Apple's proprietary coefficients.
             let k = min(1.0, max(0.0, snap.settings.intensity))
             let color = min(1.0, max(-1.0, Double((snap.settings.point.x - 0.5) * 2))) * k
-            let tone = min(1.0, max(-1.0, Double((0.5 - snap.settings.point.y) * 2))) * k
+            let rawTone = min(1.0, max(-1.0, Double((0.5 - snap.settings.point.y) * 2))) * k
+            // Reduce the washed/soft appearance only in upper-right and
+            // prevent over-darkening only in lower-left. All other points
+            // retain the v1.4 response. No image blur or tint is introduced.
+            let upperRight = max(0.0, color) * max(0.0, rawTone)
+            let lowerLeft = max(0.0, -color) * max(0.0, -rawTone)
+            let tone = rawTone * (1.0 - 0.28 * upperRight - 0.40 * lowerLeft)
 
             if abs(tone) > 0.0001 {
                 // Downward drag reduces midtone luminance gently without
@@ -326,7 +332,7 @@ final class FilterEngine {
             }
             out = out.applyingFilter("CIColorControls", parameters: [
                 kCIInputSaturationKey: 1 + color * (color >= 0 ? 0.36 : 0.24),
-                kCIInputContrastKey: 1 - 0.04 * tone
+                kCIInputContrastKey: 1 - 0.04 * tone + 0.03 * upperRight
             ])
         }
         if snap.recipe.bloom > 0.001 {

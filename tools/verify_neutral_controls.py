@@ -20,13 +20,15 @@ assert "Double((snap.settings.point.x - 0.5) * 2)" in engine
 assert "Double((0.5 - snap.settings.point.y) * 2)" in engine
 assert "snap.settings.intensity" in engine
 # The user's preferred v1.4 palette axes are restored verbatim.
-# Only colored looks gain 6% strength in the baked recipe; grayscale/standard
+# Only colored looks gain 3% strength in the baked recipe; grayscale/standard
 # keep their original look, and the existing slider still controls intensity.
 assert 'out.applyingFilter("CIGammaAdjust"' in engine
 assert 'out.applyingFilter("CIExposureAdjust"' in engine
 assert 'out.applyingFilter("CIVibrance"' in engine
 assert 'kCIInputSaturationKey: 1 + color * (color >= 0 ? 0.36 : 0.24)' in engine
-assert 'r.saturation *= (1.0 + 0.06 * k)' in engine
+assert 'let upperRight = max(0.0, color) * max(0.0, rawTone)' in engine
+assert 'let lowerLeft = max(0.0, -color) * max(0.0, -rawTone)' in engine
+assert 'r.saturation *= (1.0 + 0.03 * k)' in engine
 assert 'let colorStyle = s.style != .standard && s.style != .monochrome' in engine
 assert 's.filter != .silvertone && s.filter != .noir' in engine
 assert "defaults.color" not in engine and "defaults.tone" not in engine

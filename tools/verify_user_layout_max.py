@@ -185,8 +185,9 @@ assert 'struct PaletteValuesCapsule:' not in panel
 assert 'PaletteValuesCapsule(camera:' not in home
 assert 'DragGesture(minimumDistance: 0, coordinateSpace: .named' not in palette_src
 
-# User requested EXACT v1.4 palette response and only a mild 6% color boost.
-# Never touch the earliest original UI background, cursor or yellow ticks.
+# Preserve the original camera UI and v1.4 color response at all ordinary
+# points. At upper-right prevent washed-out contrast; at lower-left protect
+# shadow levels. Colored looks add 3% only (not the earlier 6%).
 assert 'if snap.hasPaletteShift {' in engine
 assert 'out.applyingFilter("CIGammaAdjust"' in engine
 assert '"inputPower": 1 - 0.10 * tone' in engine
@@ -195,23 +196,26 @@ assert 'kCIInputEVKey: 0.02 * tone' in engine
 assert 'out.applyingFilter("CIVibrance"' in engine
 assert '"inputAmount": 0.18 * color' in engine
 assert 'kCIInputSaturationKey: 1 + color * (color >= 0 ? 0.36 : 0.24)' in engine
-assert 'kCIInputContrastKey: 1 - 0.04 * tone' in engine
-assert 'r.saturation *= (1.0 + 0.06 * k)' in engine
+assert 'kCIInputContrastKey: 1 - 0.04 * tone + 0.03 * upperRight' in engine
+assert 'r.saturation *= (1.0 + 0.03 * k)' in engine
 assert 'out.applyingFilter("CIToneCurve"' not in engine
 
-# Targeted regression: 0% intensity stays unboosted, non-neutral colors get
-# exactly 6% at full strength. All 9 palette locations remain bounded.
-for intensity in (0.0, 0.25, 0.5, 1.0):
-    boost = 1.0 + 0.06 * intensity
-    assert 1.0 <= boost <= 1.06 + 1e-9
-    for y in (0.0, 0.5, 1.0):
-        tone = (0.5 - y) * 2 * intensity
-        gamma = 1.0 - 0.10 * tone
-        exposure = 0.02 * tone
-        assert 0.9 <= gamma <= 1.1
-        assert -0.02 <= exposure <= 0.02
-        for x in (0.0, 0.5, 1.0):
-            color = (x - 0.5) * 2 * intensity
-            sat = 1.0 + color * (0.36 if color >= 0 else 0.24)
-            assert 0.76 <= sat <= 1.36
-print("PASS: original UI intact; v1.4 color axes restored + 6% colored-look saturation only")
+for intensity in (0.0, .25, .5, 1.0):
+    assert 1.0 <= 1 + 0.03 * intensity <= 1.03 + 1e-9
+    for y in (0.0, .25, .5, .75, 1.0):
+        raw = (0.5 - y) * 2 * intensity
+        for x in (0.0, .25, .5, .75, 1.0):
+            color = (x-.5)*2*intensity
+            upper = max(0.0, color)*max(0.0, raw)
+            lower = max(0.0, -color)*max(0.0, -raw)
+            tone = raw*(1.0-.28*upper-.40*lower)
+            gamma = 1.0-.10*tone
+            exposure = .02*tone
+            contrast = 1.0-.04*tone+.03*upper
+            assert .9 <= gamma <= 1.1
+            assert -.02 <= exposure <= .02
+            assert .96 <= contrast <= 1.04
+            if upper == 0 and lower == 0: assert abs(tone-raw)<1e-9
+            if x==1 and y==0: assert abs(tone-raw*.72)<1e-9 or intensity!=1
+            if x==0 and y==1: assert abs(tone-raw*.60)<1e-9 or intensity!=1
+print("PASS: original camera UI unchanged; 3% color boost; diagonal shadows and upper-right contrast bounded")
