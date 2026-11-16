@@ -149,8 +149,13 @@ def main():
     deadline=time.monotonic()+a.seconds
     slot=int(time.time()//300)
     scenes=SCENES[slot%len(SCENES):]+SCENES[:slot%len(SCENES)]
+    # First pass limits each of 20 scene groups to 10 accepted photos;
+    # second pass uses remaining time to fill unmet quotas across groups.
+    scene_counts=Counter()
+    quota_per_scene=max(1,a.target//len(scenes))
+    search_plan=[(name,False) for name in scenes]+[(name,True) for name in scenes]
     if not a.offline:
-        for index,query in enumerate(scenes):
+        for index,(query,backfill) in enumerate(search_plan):
             if len(samples)>=a.target or time.monotonic()>=deadline: break
             offset=((slot//len(scenes)+index)%8)*50
             try: pages=api_pages(query,offset)
@@ -159,6 +164,7 @@ def main():
                 continue
             for page in pages:
                 if len(samples)>=a.target or time.monotonic()>=deadline: break
+                if not backfill and scene_counts[query]>=quota_per_scene: break
                 info=(page.get("imageinfo") or [{}])[0]
                 if info.get("mime") not in MIMES:
                     rejects["mime"]+=1
@@ -197,6 +203,7 @@ def main():
                     continue
                 seen.add(file_id)
                 counts[name]+=1
+                scene_counts[query]+=1
                 photo_qualities[evidence]+=1
                 samples.append({
                     "title":page.get("title"),"source":info.get("descriptionurl"),
@@ -221,6 +228,7 @@ def main():
         "cumulative_photo_candidates":cumulative,
         "remaining_to_2000":max(0,CUMULATIVE_GOAL-cumulative),
         "candidate_evidence":dict(photo_qualities),
+        "scene_counts_this_run":{name:scene_counts[name] for name in SCENES},
         "confirmed_official_original_target_pairs":0,
         "reference_label":"YCam independently sourced photo candidates; NOT Apple factory samples",
         "dedup_scope":"run plus restored recent history" if restored else "current run only",
@@ -248,6 +256,7 @@ def main():
     print("YCam photos %d/%d, categories %d, cache restored=%s"%(len(samples),a.target,len(effect_names),restored))
     print("Cumulative YCam photo candidates:",cumulative,"/",CUMULATIVE_GOAL)
     print("Photo evidence:",dict(photo_qualities))
+    print("Scene diversity:",dict(scene_counts))
     print("Rejected:",dict(rejects))
     return 0
 
