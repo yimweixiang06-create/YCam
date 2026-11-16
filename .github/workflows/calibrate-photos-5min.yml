@@ -1,0 +1,63 @@
+name: YCam 5-minute photo color checks
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+# Run at most one photo check at once; do not accumulate parallel jobs.
+concurrency:
+  group: ycam-five-minute-photo-check
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  sample-and-verify:
+    name: Sample up to 200 licensed photos across 38 effects
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Checkout YCam
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install image processing
+        run: python -m pip install --disable-pip-version-check --quiet numpy pillow
+
+      # Keep recent accepted source hashes across runs; report cache misses honestly.
+      - name: Restore recent photo hashes
+        uses: actions/cache/restore@v4
+        with:
+          path: .cache/ycam_photo_seen.json
+          key: ycam-photo-seen-${{ github.run_id }}
+          restore-keys: |
+            ycam-photo-seen-
+
+      - name: Collect and check up to 200 unique licensed photos
+        run: python tools/continuous_photo_check.py --target 200 --seconds 150
+
+      - name: Save photo hashes
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .cache/ycam_photo_seen.json
+          key: ycam-photo-seen-${{ github.run_id }}
+
+      - name: Publish auditable photo and per-effect report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ycam-photo-audit-${{ github.run_id }}
+          path: reports/continuous/
+          if-no-files-found: warn
+          retention-days: 3
+
+# Unpaired web photos are only robustness samples, NOT authoritative color truth.
+# No automatic Swift/LUT tuning or IPA publishing without verified same-scene pairs.
