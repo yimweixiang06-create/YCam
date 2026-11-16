@@ -168,8 +168,9 @@ assert '.interpolation(.high)' in palette_src
 assert 'struct SwatchCard: View' in palette_src
 assert 'Image(systemName: symbol)' in palette_src
 assert 'Text(label)' in palette_src
-assert 'PaletteIconArtwork.style($0)' in panel
-assert 'PaletteIconArtwork.filter($0)' in panel
+assert panel.count('colors: { $0.cardColors }') == 2
+assert 'Circle().fill(LinearGradient(colors: colors,' not in palette_src  # multiline gradient
+assert 'startPoint: .topLeading, endPoint: .bottomTrailing' in palette_src
 assert 'shortName: { $0.pickerTitle }' in panel
 assert 'SwatchPhotoRenderer' not in palette_src
 assert 'styleCardPreviews' not in model
