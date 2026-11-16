@@ -19,11 +19,38 @@ SCENES=[
     "food photography","market street photography","waterfall river","autumn trees"]
 MIMES={"image/jpeg","image/png","image/webp"}
 MAX_BYTES=1500000
+CUMULATIVE_GOAL=2000
+REJECTED_ART_PATTERNS=re.compile(
+    r"(?i)(painting|watercolou?r|drawing|illustration|sketch|cartoon|"
+    r"diagram|poster|logo|icon|render(?:ing)?|screenshot|collage|"
+    r"engraving|lithograph|woodcut|sculpture|artwork|digital art|map of)"
+)
+
+def photo_evidence(page,info):
+    """Conservative metadata screen. Not a visual or Apple-origin guarantee."""
+    title=page.get("title","")
+    categories=" ".join(x.get("title","") for x in page.get("categories",[]))
+    if REJECTED_ART_PATTERNS.search(title+" "+categories):
+        return None
+    width,height=info.get("width",0),info.get("height",0)
+    if min(width,height)<480:
+        return None
+    if info.get("mime") not in ("image/jpeg","image/webp","image/png"):
+        return None
+    if re.search(r"(?i)photograph|photo by|camera|photographs of|landscape photography|portrait photography",categories):
+        return "Commons photo category"
+    # JPEGs with substantial native resolution may be real photographs,
+    # but cannot be definitively called verified photographs from metadata alone.
+    if info.get("mime")=="image/jpeg" and width>=1000 and height>=700:
+        return "high-resolution JPEG photo candidate (unverified)"
+    return None
+
 
 def api_pages(term, offset):
     params={"action":"query","format":"json","formatversion":2,"generator":"search",
-            "gsrsearch":term,"gsrnamespace":6,"gsrlimit":50,"gsroffset":offset,
-            "prop":"imageinfo","iiprop":"url|mime|sha1|extmetadata","iiurlwidth":320}
+            "gsrsearch":term+" filetype:bitmap","gsrnamespace":6,"gsrlimit":50,"gsroffset":offset,
+            "prop":"imageinfo|categories","cllimit":20,
+            "iiprop":"url|size|mime|sha1|extmetadata","iiurlwidth":330}
     url=API+"?"+urllib.parse.urlencode(params)
     request=urllib.request.Request(url,headers={"User-Agent":USER_AGENT,"Accept":"application/json"})
     with urllib.request.urlopen(request,timeout=12) as stream:
@@ -40,7 +67,7 @@ def permitted_license(info):
 
 def download_pixels(url,timeout):
     parsed=urllib.parse.urlparse(url)
-    if parsed.scheme!="https" or parsed.hostname not in {"upload.wikimedia.org","commons.wikimedia.org"}:
+    if parsed.scheme!="https" or parsed.hostname not in {"upload.wikimedia.org","thumb.wikimedia.org","commons.wikimedia.org"}:
         raise ValueError("Image host not approved")
     req=urllib.request.Request(url,headers={"User-Agent":USER_AGENT})
     with urllib.request.urlopen(req,timeout=timeout) as stream:
@@ -90,19 +117,34 @@ def main():
     state.parent.mkdir(parents=True,exist_ok=True)
     restored=state.exists()
     try:
-        history=json.loads(state.read_text()) if restored else []
-        if not isinstance(history,list): raise ValueError("history is not a list")
-    except (OSError,ValueError):
+        stored=json.loads(state.read_text()) if restored else {}
+        if isinstance(stored,list):    # migration from legacy: those samples were not photo-verified
+            history=stored
+            prior_counts={}
+            cumulative=0
+        elif isinstance(stored,dict):
+            history=stored.get("seen_ids",[])
+            prior_counts=stored.get("effect_counts",{})
+            cumulative=int(stored.get("cumulative_candidates",0))
+            if not isinstance(history,list) or not isinstance(prior_counts,dict):
+                raise ValueError("invalid cache schema")
+        else: raise ValueError("invalid cache schema")
+    except (OSError,ValueError,TypeError):
         history=[]
+        prior_counts={}
+        cumulative=0
         restored=False
     seen=set(history[-80000:])
+    cumulative=max(0,cumulative)
     effect_pairs=recipes_from_swift()
     effect_names=[name for name,_ in effect_pairs]
     recipes=dict(effect_pairs)
     lut_names=ycam.lut_names()
     luts={name:ycam.load_lut(lut) for name,lut in lut_names.items()}
     counts=Counter()
+    cumulative_counts=Counter(prior_counts)
     rejects=Counter()
+    photo_qualities=Counter()
     samples=[]
     deadline=time.monotonic()+a.seconds
     slot=int(time.time()//300)
@@ -125,6 +167,10 @@ def main():
                 if not allowed:
                     rejects["unknown_or_restricted_license"]+=1
                     continue
+                evidence=photo_evidence(page,info)
+                if evidence is None:
+                    rejects["not_verifiable_as_photo_or_too_small"]+=1
+                    continue
                 file_id=info.get("sha1")
                 if not file_id or file_id in seen:
                     rejects["duplicate_or_missing_id"]+=1
@@ -135,7 +181,7 @@ def main():
                     continue
                 try:
                     pixels,sha256=download_pixels(url,min(10,max(2,deadline-time.monotonic())))
-                    name=min(effect_names,key=lambda n:(counts[n],effect_names.index(n)))
+                    name=min(effect_names,key=lambda n:(cumulative_counts[n]+counts[n],effect_names.index(n)))
                     if name in luts:
                         output=ycam.lut_apply(luts[name],pixels)
                     else:
@@ -145,23 +191,41 @@ def main():
                     if not np.isfinite(de) or not np.isfinite(clipping):
                         raise ValueError("Non-finite color metrics")
                 except Exception as e:
-                    rejects["image_or_metrics_"+type(e).__name__]+=1
+                    reason=str(e)[:75].lower().replace(" ","_")
+                    reason=re.sub(r"[^a-z0-9_]+","_",reason)
+                    rejects["image_or_metrics_"+type(e).__name__+"_"+reason]+=1
                     continue
                 seen.add(file_id)
                 counts[name]+=1
+                photo_qualities[evidence]+=1
                 samples.append({
                     "title":page.get("title"),"source":info.get("descriptionurl"),
                     "license":license_name,"source_file_sha1":file_id,"download_sha256":sha256,
                     "search_theme":query,"assigned_effect":name,
+                    "photo_evidence":evidence,
+                    "original_dimensions":[info.get("width"),info.get("height")],
                     "deltaE76_vs_input_not_accuracy_error":round(de,3),
                     "near_clipping_fraction":round(clipping,4),"verified_official_pair":False})
     # Cache restores recent accepted source IDs; a missing cache means only within-run novelty is established.
-    state.write_text(json.dumps((history+[x["source_file_sha1"] for x in samples])[-80000:]),encoding="utf-8")
+    cumulative += len(samples)
+    cumulative_counts.update(counts)
+    state.write_text(json.dumps({
+        "schema":2,"seen_ids":(history+[x["source_file_sha1"] for x in samples])[-80000:],
+        "cumulative_candidates":cumulative,
+        "effect_counts":dict(cumulative_counts)
+    },ensure_ascii=False),encoding="utf-8")
     report={
         "run_utc":datetime.now(timezone.utc).isoformat(),"target":a.target,
         "actual_valid_unique":len(samples),"seen_cache_restored":restored,
+        "cumulative_goal":CUMULATIVE_GOAL,
+        "cumulative_photo_candidates":cumulative,
+        "remaining_to_2000":max(0,CUMULATIVE_GOAL-cumulative),
+        "candidate_evidence":dict(photo_qualities),
+        "confirmed_official_original_target_pairs":0,
+        "reference_label":"YCam independently sourced photo candidates; NOT Apple factory samples",
         "dedup_scope":"run plus restored recent history" if restored else "current run only",
         "category_count":len(effect_names),"counts":{name:counts[name] for name in effect_names},
+        "cumulative_counts":{name:cumulative_counts[name] for name in effect_names},
         "reject_reasons":dict(rejects),"official_paired_references":0,
         "auto_color_change":False,"ipa_published":False,
         "warning":"Delta E is change from raw image to YCam approximation, NOT error versus Apple/Fuji/Kodak reference.",
@@ -169,7 +233,9 @@ def main():
     (reportdir/"latest.json").write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding="utf-8")
     tab="\n".join("| "+n+" | "+str(counts[n])+" |" for n in effect_names)
     md=("# YCam 每 5 分钟照片检查\n\n"+
-        "- 目标：200 张；本轮实际取得、合法许可、去重并分析："+str(len(samples))+" 张。\n"+
+        "- 每轮目标：200 张；本轮有效候选样本："+str(len(samples))+" 张。\n"+
+        "- 累计目标：2,000 张；可从缓存证明的累计候选样本："+str(cumulative)+" 张；剩余："+str(max(0,CUMULATIVE_GOAL-cumulative))+" 张。\n"+
+        "- 这些是 YCam 自建的真实照片候选来源，不能冒充 Apple 原厂照片或可信同场景配对；详情看每张样本的 photo_evidence。\n"+
         "- 去重范围："+report["dedup_scope"]+"。\n"+
         "- 官方同场景可信配对：0；不能据此自动调整 Swift/LUT 或发布 IPA。\n"+
         "- Delta E 是效果变化幅度，不是与原厂效果的准确度误差。\n"+
@@ -180,6 +246,8 @@ def main():
     if summary:
         with open(summary,"a",encoding="utf-8") as f: f.write(md)
     print("YCam photos %d/%d, categories %d, cache restored=%s"%(len(samples),a.target,len(effect_names),restored))
+    print("Cumulative YCam photo candidates:",cumulative,"/",CUMULATIVE_GOAL)
+    print("Photo evidence:",dict(photo_qualities))
     print("Rejected:",dict(rejects))
     return 0
 
