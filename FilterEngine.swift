@@ -108,7 +108,7 @@ final class FilterEngine {
     static func makeSnapshot(_ s: StyleSettings) -> Snapshot {
         // Build a stable style LUT. The 2D pad is a live GPU adjustment.
         var base = s
-        base.point = .defaultPoint
+        base.point = StyleSettings.defaultPoint
         let recipe = effectiveRecipe(for: base)
         let lut: LutTable? = s.style.lutName.flatMap { LutLibrary.shared.table(named: $0) }
         let strength = Float(min(1, max(0, s.intensity)))
