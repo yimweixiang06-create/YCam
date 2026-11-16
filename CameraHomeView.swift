@@ -556,14 +556,11 @@ struct CameraHomeView: View {
     private func bottomControls(_ m: UIMetrics) -> some View {
         let idle = sheet == .closed
         let panelTop = m.H - m.panelBottomGap - m.panelHeight(sheet, drawerCount: layout.drawer.count)
-        let shutterY: CGFloat
-        if sheet == .custom && !m.isLandscape {
-            // 自定义调色时快门保持在取景器内，为下方自由拖动点阵留空。
-            shutterY = min(previewFrame(m).maxY - 70 * m.s,
-                           m.H - m.panelBottomGap - 331 * m.s)
-        } else {
-            shutterY = idle ? m.shutterCenterY : panelTop - 67 * m.s
-        }
+        // ViewBuilder 中使用单个不可变表达式，避免以赋值语句充当 View。
+        let shutterY = (sheet == .custom && !m.isLandscape)
+            ? min(previewFrame(m).maxY - 70 * m.s,
+                  m.H - m.panelBottomGap - 331 * m.s)
+            : (idle ? m.shutterCenterY : panelTop - 67 * m.s)
         if sheet != .drawer && sheet != .edit {
             shutterButton(m)
                 .position(x: m.isLandscape ? m.W - 74 * m.s : m.W / 2,
