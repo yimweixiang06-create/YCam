@@ -195,8 +195,8 @@ private final class DotPaletteTrackingView: UIControl {
         dotsLayer.fillColor = UIColor.white.withAlphaComponent(0.76).cgColor
         layer.addSublayer(dotsLayer)
         cursorLayer.backgroundColor = UIColor.white.cgColor
-        cursorLayer.bounds = CGRect(x: 0, y: 0, width: 14, height: 14)
-        cursorLayer.cornerRadius = 7
+        cursorLayer.bounds = CGRect(x: 0, y: 0, width: 18, height: 18)
+        cursorLayer.cornerRadius = 9
         cursorLayer.shadowColor = UIColor.black.cgColor
         cursorLayer.shadowOpacity = 0.32
         cursorLayer.shadowRadius = 3
@@ -287,9 +287,22 @@ private final class DotPaletteTrackingView: UIControl {
         onChange?(next)
     }
 
+    private func animateCursorPress(_ pressed: Bool) {
+        // Animate only the CALayer: camera preview/SwiftUI hierarchy stays
+        // fixed while the user's finger moves across the palette.
+        CATransaction.begin()
+        CATransaction.setAnimationDuration(0.12)
+        CATransaction.setAnimationTimingFunction(CAMediaTimingFunction(name: .easeOut))
+        let diameter: CGFloat = pressed ? 22 : 18
+        cursorLayer.bounds = CGRect(x: 0, y: 0, width: diameter, height: diameter)
+        cursorLayer.cornerRadius = diameter / 2
+        CATransaction.commit()
+    }
+
     override func beginTracking(_ touch: UITouch, with event: UIEvent?) -> Bool {
         touching = true
         feedback.prepare()
+        animateCursorPress(true)
         moveCursor(to: touch.location(in: self), forceCommit: true)
         return true
     }
@@ -306,11 +319,13 @@ private final class DotPaletteTrackingView: UIControl {
             publishSelection()
         }
         touching = false
+        animateCursorPress(false)
         feedback.selectionChanged()
     }
 
     override func cancelTracking(with event: UIEvent?) {
         touching = false
+        animateCursorPress(false)
         publishSelection()
     }
 

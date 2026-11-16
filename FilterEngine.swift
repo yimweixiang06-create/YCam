@@ -289,17 +289,33 @@ final class FilterEngine {
             out = result
         }
         if snap.hasPaletteShift {
-            // All eight compass directions are distinct combinations of
-            // brightness/shadow tone (Y) and color richness (X).
+            // Second calibration: independent 2D axes, continuous across
+            // all 8 directions, no abrupt steps or LUT rebuilds on touch.
+            // Tone is a midtone curve (protecting bright skies better than
+            // the former +/-0.36 EV exposure adjustment); color is a
+            // skin-tone-aware vibrance adjustment plus calibrated saturation.
             let k = min(1.0, max(0.0, snap.settings.intensity))
-            let color = Double((snap.settings.point.x - 0.5) * 2)
-            let tone = Double((0.5 - snap.settings.point.y) * 2)
-            out = out.applyingFilter("CIExposureAdjust", parameters: [
-                kCIInputEVKey: tone * 0.36 * k
-            ])
+            let color = min(1.0, max(-1.0, Double((snap.settings.point.x - 0.5) * 2))) * k
+            let tone = min(1.0, max(-1.0, Double((0.5 - snap.settings.point.y) * 2))) * k
+
+            if abs(tone) > 0.0001 {
+                out = out.applyingFilter("CIGammaAdjust", parameters: [
+                    "inputPower": 1 - 0.28 * tone
+                ])
+                out = out.applyingFilter("CIExposureAdjust", parameters: [
+                    kCIInputEVKey: 0.08 * tone
+                ])
+            }
+            if abs(color) > 0.0001 {
+                // Apple Core Image CIVibrance selectively strengthens colors
+                // while reducing unwanted skin-tone shifts.
+                out = out.applyingFilter("CIVibrance", parameters: [
+                    "inputAmount": 0.38 * color
+                ])
+            }
             out = out.applyingFilter("CIColorControls", parameters: [
-                kCIInputSaturationKey: max(0.1, 1 + color * (color >= 0 ? 0.45 : 0.35) * k),
-                kCIInputContrastKey: max(0.7, 1 - tone * 0.12 * k)
+                kCIInputSaturationKey: max(0.25, 1 + color * (color >= 0 ? 0.62 : 0.68)),
+                kCIInputContrastKey: 1 - 0.14 * tone
             ])
         }
         if snap.recipe.bloom > 0.001 {
