@@ -66,8 +66,16 @@ struct CameraHomeView: View {
             switch phase {
             case .active:
                 Task { await camera.requestAndStart() }
-            default:
+            case .background:
+                // Stop camera recording when the app actually leaves the
+                // foreground, not during a transient Control Center overlay.
                 camera.sceneWillResignActive()
+            case .inactive:
+                // Screen-recording Control Center interactions can briefly
+                // deactivate the scene. Avoid tearing down AVFoundation.
+                break
+            @unknown default:
+                break
             }
         }
         .onChange(of: gridOn) { _, value in
