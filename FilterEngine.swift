@@ -263,6 +263,40 @@ final class FilterEngine {
         return floats.withUnsafeBufferPointer { Data(buffer: $0) }
     }
 
+    /// Shared two-dimensional style controls for both live pixels and the
+    /// palette artwork. These are YCam responsiveness fixes, NOT Apple's private
+    /// tone/color algorithms or calibration against official source pairs.
+    struct PaletteAxes {
+        let gamma: Double
+        let exposure: Double
+        let contrast: Double
+        let saturation: Double
+        let vibrance: Double
+    }
+
+    static func paletteAxes(style: CameraStyle, tone: Double, color: Double) -> PaletteAxes {
+        let t = max(-1.0, min(1.0, tone))
+        let c = max(-1.0, min(1.0, color))
+        // Up is visibly lighter and softer; down is deeper with preserved
+        // gradation. The previous ±0.02 EV looked identical at all corners.
+        let exposure = (t >= 0 ? 0.40 : 0.52) * t
+        let gamma = 1.0 - 0.18 * t
+        var contrast = 1.0 - 0.16 * t
+        if style == .dramatic {
+            contrast += 0.13 * max(0, -t) + 0.05 * max(0, c)
+        } else if style == .ethereal {
+            contrast -= 0.07 * max(0, t)
+        } else if style == .monochrome {
+            // In monochrome, right means HARDER grayscale, never artificial color.
+            contrast += 0.22 * c
+        }
+        let saturation = style == .monochrome
+            ? 1.0 : (1.0 + c * (c >= 0 ? 0.75 : 0.54))
+        let vibrance = style == .monochrome ? 0.0 : 0.30 * c
+        return PaletteAxes(gamma: gamma, exposure: exposure,
+                           contrast: contrast, saturation: saturation, vibrance: vibrance)
+    }
+
     // MARK: Core Image pipeline
 
     /// 对一帧（或整张照片）应用当前风格。任何一步失败都会退回上一步结果，保证预览不会变黑。
@@ -289,35 +323,29 @@ final class FilterEngine {
             out = result
         }
         if snap.hasPaletteShift {
-            // Color is evaluated by Core Image for every pixel, not taken from
-            // a single palette dot or applied as a uniform RGB overlay.
-            // The style's baked LUT stays fixed during touch; the 2D pad
-            // only modulates tone / chroma with conservative skin-safe limits.
-            // These are YCam approximations, NOT Apple's proprietary coefficients.
+            // Apply TWO INDEPENDENT axes to every original pixel; never paint
+            // an entire frame with the selected dot's RGB colour.
             let k = min(1.0, max(0.0, snap.settings.intensity))
             let color = min(1.0, max(-1.0, Double((snap.settings.point.x - 0.5) * 2))) * k
             let tone = min(1.0, max(-1.0, Double((0.5 - snap.settings.point.y) * 2))) * k
+            let axes = FilterEngine.paletteAxes(style: snap.settings.style, tone: tone, color: color)
 
             if abs(tone) > 0.0001 {
-                // Downward drag reduces midtone luminance gently without
-                // crushing petals, faces, shadows or blue-sky gradations.
                 out = out.applyingFilter("CIGammaAdjust", parameters: [
-                    "inputPower": 1 - 0.10 * tone
+                    "inputPower": axes.gamma
                 ])
                 out = out.applyingFilter("CIExposureAdjust", parameters: [
-                    kCIInputEVKey: 0.02 * tone
+                    kCIInputEVKey: axes.exposure
                 ])
             }
-            if abs(color) > 0.0001 {
-                // CIVibrance is color-dependent (protects skin better than
-                // blanket desaturation). Keep all positions well above gray.
+            if abs(color) > 0.0001 && axes.vibrance != 0 {
                 out = out.applyingFilter("CIVibrance", parameters: [
-                    "inputAmount": 0.18 * color
+                    "inputAmount": axes.vibrance
                 ])
             }
             out = out.applyingFilter("CIColorControls", parameters: [
-                kCIInputSaturationKey: 1 + color * (color >= 0 ? 0.36 : 0.24),
-                kCIInputContrastKey: 1 - 0.04 * tone
+                kCIInputSaturationKey: axes.saturation,
+                kCIInputContrastKey: axes.contrast
             ])
         }
         if snap.recipe.bloom > 0.001 {
