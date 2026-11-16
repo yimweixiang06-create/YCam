@@ -30,8 +30,10 @@ assert 'let upperRight = max(0.0, color) * max(0.0, rawTone)' in engine
 assert 'let lowerLeft = max(0.0, -color) * max(0.0, -rawTone)' in engine
 assert 'r.saturation *= (1.0 + 0.03 * k)' not in engine
 assert 'let zoneSaturation = 1.0 + (rawTone >= 0 ? 0.03 : 0.02) * rawTone' in engine
-assert 'let colorStyle = s.style != .standard && s.style != .monochrome' in engine
-assert 's.filter != .silvertone && s.filter != .noir' in engine
+assert 'let colorStyle = s.style != .standard && s.style != .monochrome' not in engine
+assert 's.filter != .silvertone && s.filter != .noir' not in engine
+assert 'let upperLeft = max(0.0, -color) * max(0.0, rawTone)' in engine
+assert 'let lowerRight = max(0.0, color) * max(0.0, -rawTone)' in engine
 assert "defaults.color" not in engine and "defaults.tone" not in engine
 recipes = styles.split("var recipe: LookRecipe {", 1)[1].split("// MARK: - 人像光效", 1)[0]
 entries = re.findall(r"^[ ]*case [.](?P<name>[A-Za-z0-9_]+): return LookRecipe[(](?P<recipe>.*)[)]", recipes, re.M)
