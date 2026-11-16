@@ -446,6 +446,7 @@ struct StylesPanel: View {
                            cardHeight: 52 * m.s,
                            spacing: 8 * m.s,
                            colors: { $0.cardColors },
+                           previews: { camera.styleCardPreviews[$0.rawValue] },
                            name: { $0.title })
             Button { onCustom() } label: {
                 Text("自定义")
@@ -529,6 +530,7 @@ struct FiltersPanel: View {
                            cardHeight: 52 * m.s,
                            spacing: 8 * m.s,
                            colors: { $0.cardColors },
+                           previews: { camera.filterCardPreviews[$0.rawValue] },
                            name: { $0.title })
             hint("Apple 原有滤镜（鲜明 / 戏剧 / 单色 / 银色调 / 黑白），可以和摄影风格叠加。", m)
         }
