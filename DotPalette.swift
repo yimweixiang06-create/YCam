@@ -134,7 +134,7 @@ struct DotPalette: View {
 
     // UI artwork only. Original YCam glass, color-rendering pipeline and
     // photographic-style recipes remain untouched. Six independent 2D
-    // palettes are sampled from user-provided iPhone UI screenshots.
+    // palettes are sampled from user-provided iPhone UI screenshots and Pearl video.
     @ViewBuilder
     private var artwork: some View {
         if ScreenshotPaletteArtwork.supports(style) {
@@ -199,20 +199,37 @@ private struct PaletteReferenceRow {
     let columns: [PaletteRGB]
 }
 
-// Screenshot-observed palette ART ONLY. The unlabelled orange reference is
-// stored in calibration metadata, never guessed into another camera style.
+// Screenshot-observed palette ART ONLY. Pearl uses user video; Warm uses
+// a provisional amber-color reference pending screenshot label confirmation.
+// Neither changes the captured image, style recipe, filter, or YCam glass.
 private struct ScreenshotPaletteArtwork: View {
     let style: CameraStyle
 
     static func supports(_ style: CameraStyle) -> Bool {
         switch style {
-        case .gold, .coolRose, .cool, .roseGold, .vibrant, .neutral: return true
+        case .gold, .coolRose, .cool, .roseGold, .vibrant, .neutral, .pearl, .warm: return true
         default: return false
         }
     }
 
     private var rows: [PaletteReferenceRow] {
         switch style {
+        case .pearl:
+            return [
+                .init(y: 0.115, columns: [.init(161, 120, 124), .init(164, 124, 127), .init(167, 134, 130), .init(166, 142, 132), .init(154, 145, 132)]),
+                .init(y: 0.300, columns: [.init(142, 82, 87), .init(144, 88, 88), .init(151, 102, 96), .init(142, 118, 104), .init(138, 128, 115)]),
+                .init(y: 0.500, columns: [.init(95, 52, 52), .init(99, 58, 57), .init(104, 70, 64), .init(106, 81, 74), .init(107, 86, 79)]),
+                .init(y: 0.700, columns: [.init(68, 36, 39), .init(68, 36, 40), .init(67, 37, 41), .init(70, 41, 47), .init(75, 44, 50)]),
+                .init(y: 0.885, columns: [.init(43, 22, 31), .init(43, 20, 33), .init(42, 20, 33), .init(44, 20, 34), .init(43, 20, 32)]),
+            ]
+        case .warm:
+            return [
+                .init(y: 0.115, columns: [.init(133, 131, 133), .init(127, 120, 119), .init(128, 106, 96), .init(133, 91, 66), .init(139, 77, 40)]),
+                .init(y: 0.300, columns: [.init(105, 105, 107), .init(100, 98, 99), .init(102, 90, 86), .init(106, 80, 66), .init(108, 70, 48)]),
+                .init(y: 0.500, columns: [.init(77, 77, 78), .init(73, 73, 75), .init(74, 72, 72), .init(76, 64, 61), .init(78, 59, 48)]),
+                .init(y: 0.700, columns: [.init(50, 51, 53), .init(48, 49, 53), .init(47, 49, 53), .init(48, 48, 50), .init(52, 44, 42)]),
+                .init(y: 0.885, columns: [.init(28, 29, 31), .init(27, 28, 30), .init(26, 29, 33), .init(25, 29, 33), .init(28, 29, 33)]),
+            ]
         case .gold:
             return [
                 .init(y: 0.115, columns: [.init(148, 129, 104), .init(153, 117, 72), .init(161, 114, 46), .init(165, 115, 32), .init(167, 116, 23)]),
@@ -285,11 +302,11 @@ private struct ScreenshotPaletteArtwork: View {
                     a.columns[column].mixed(with: b.columns[column], fraction: fraction).color
                 }
                 let gradient = Gradient(stops: [
-                    .init(color: mixed[0], location: 0.0),
-                    .init(color: mixed[1], location: 0.30),
-                    .init(color: mixed[2], location: 0.50),
-                    .init(color: mixed[3], location: 0.70),
-                    .init(color: mixed[4], location: 1.0)
+                    .init(color: mixed[0], location: 0.115),
+                    .init(color: mixed[1], location: 0.310),
+                    .init(color: mixed[2], location: 0.500),
+                    .init(color: mixed[3], location: 0.690),
+                    .init(color: mixed[4], location: 0.885)
                 ])
                 let top = CGFloat(index) * height
                 let band = Path(CGRect(x: 0, y: top, width: size.width,

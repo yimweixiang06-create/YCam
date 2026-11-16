@@ -245,5 +245,12 @@ assert 'let diameter: CGFloat = pressed ? 19 : 15' in palette_src
 # The 5x5 color chart is view artwork only; keep YCam outer glass and 11x11 cursor.
 assert 'ScreenshotPaletteArtwork.supports(style)' in palette_src
 assert 'let strips = 72' in palette_src
-assert '.init(color: mixed[4], location: 1.0)' in palette_src
+assert '.init(color: mixed[4], location: 0.885)' in palette_src
 assert 'case .vibrant:' in palette_src and 'case .neutral:' in palette_src
+
+# Pearl uses the real user video, Warm uses an explicitly provisional warm
+# preview-only matrix; neither modifies image rendering, glass or filters.
+assert 'case .pearl:' in palette_src and 'case .warm:' in palette_src
+assert 'case .pearl, .warm: return true' not in palette_src or 'case .pearl, .warm:' not in palette_src
+assert '.init(161, 120, 124)' in palette_src
+assert '.init(133, 131, 133)' in palette_src
