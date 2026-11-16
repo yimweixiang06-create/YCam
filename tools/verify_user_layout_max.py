@@ -142,10 +142,8 @@ assert '.fill(LinearGradient(colors: colors, startPoint: .top, endPoint: .bottom
 assert 'SwatchCard(colors: colors(item), selected: item == selected)' in palette_src
 assert 'Image(systemName: symbol)' not in palette_src
 assert 'SwatchPhotoRenderer' not in palette_src
-# The original SwatchCard must remain a gradient; only the custom palette
-# may use the restrained 2D raster from the user's selected v1.5 background.
-assert 'private enum PaletteColorMap {' in palette_src
-assert 'Image(uiImage: PaletteColorMap.image(style: style, filter: filter, intensity: intensity))' in palette_src
+# The first dotted backdrop is a lightweight gradient, not a bitmap renderer.
+assert 'private enum PaletteColorMap {' not in palette_src
 assert 'previews: (Item)' not in palette_src
 assert 'shortName: (Item)' not in palette_src
 assert 'styleCardPreviews' not in model and 'filterCardPreviews' not in model
@@ -160,23 +158,17 @@ assert 'shortName: { $0.pickerTitle }' not in panel
 assert 'symbol: "circle.grid.3x3.fill"' not in panel
 assert 'symbol: "circle.lefthalf.filled"' not in panel
 assert 'Text("自定义")' in panel
-assert 'DotPalette(point: $camera.styleSettings.point, style: settings.style,' in panel
-assert 'filter: settings.filter, intensity: settings.intensity)' in panel
+assert 'DotPalette(point: $camera.styleSettings.point, colors: settings.style.cardColors)' in panel
 
-# User-selected sober iOS27-inspired palette artwork from v1.5,
-# NOT the made-up pastel style swatch from v1.10. Preserve original panel,
-# card dimensions, white dot, 11x11 dots and yellow 11-tick intensity slider.
+# Preserve the EXACT FIRST 2026-10-19 gradient backdrop behind white dots.
+# Keep high-performance continuous UIKit tracking, original glass panel and ticks.
 assert 'struct DotPalette: View' in palette_src
-assert 'var style: CameraStyle' in palette_src
-assert 'var filter: AppleFilter' in palette_src
-assert 'var intensity: Double' in palette_src
-assert 'Color(red: 0.39, green: 0.33, blue: 0.37)' in palette_src
-assert 'Color(red: 0.11, green: 0.08, blue: 0.13)' in palette_src
-assert '.opacity(0.18)' in palette_src
-assert 'Image(uiImage: PaletteColorMap.image(style: style, filter: filter, intensity: intensity))' in palette_src
+assert 'var colors: [Color]' in palette_src
+assert '.fill(LinearGradient(colors: colors, startPoint: .top, endPoint: .bottom))' in palette_src
+assert 'LinearGradient(colors: [Color.blue.opacity(0.20), Color.clear, Color.orange.opacity(0.20)]' in palette_src
+assert 'Image(uiImage: PaletteColorMap.image(' not in palette_src
+assert 'Color(red: 0.39, green: 0.33, blue: 0.37)' not in palette_src
 assert 'private var guideColors' not in palette_src
-assert 'let base = UIColor(style.swatch)' not in palette_src
-assert 'Color.black.opacity(0.63)' not in palette_src
 assert 'DotPaletteTouchSurface(point: $point)' in palette_src
 assert 'private final class DotPaletteTrackingView: UIControl' in palette_src
 assert 'private let dotsLayer = CAShapeLayer()' in palette_src
@@ -193,18 +185,25 @@ assert 'struct PaletteValuesCapsule:' not in panel
 assert 'PaletteValuesCapsule(camera:' not in home
 assert 'DragGesture(minimumDistance: 0, coordinateSpace: .named' not in palette_src
 
-# Original palette UI must stay untouched; inspect the *active* color path.
-# v1.3's older hard-coded paletteAxes assertions caused CI to abort before
-# Xcode whenever the user-requested gentler palette math was restored.
+# Verify active per-pixel tonal response and exact untouched widget layout.
 assert 'if snap.hasPaletteShift {' in engine
-assert 'let color = min(1.0, max(-1.0, Double((snap.settings.point.x - 0.5) * 2))) * k' in engine
-assert 'let tone = min(1.0, max(-1.0, Double((0.5 - snap.settings.point.y) * 2))) * k' in engine
-assert '"inputPower": 1 - 0.10 * tone' in engine
-assert 'kCIInputEVKey: 0.02 * tone' in engine
-assert 'if color > 0.0001 {' in engine
-assert '"inputAmount": 0.18 * color' in engine
+assert 'out = out.applyingFilter("CIToneCurve", parameters: [' in engine
+assert '"inputPoint0": CIVector(x: 0.0, y: 0.0)' in engine
+assert '"inputPoint4": CIVector(x: 1.0, y: 1.0)' in engine
 assert 'kCIInputSaturationKey: 1 + color * (color >= 0 ? 0.36 : 0.24)' in engine
-assert 'kCIInputContrastKey: 1 - 0.04 * tone' in engine
-assert 'if abs(color) > 0.0001 {' not in engine
-assert 'kCIInputEVKey: axes.exposure' not in engine
-print("PASS: original style/filter UI preserved; gentle palette axes and no negative vibrance verified")
+assert 'if abs(color) > 0.0001 {' in engine
+assert 'out.applyingFilter("CIVibrance"' not in engine
+assert 'kCIInputEVKey: 0.02 * tone' not in engine
+
+def bounded_tone(t):
+    return [0.0, .25 + .020*t, .50 + .036*t, .75 + .025*t, 1.0]
+for y in (0.0, 0.5, 1.0):
+    curve=bounded_tone((.5-y)*2)
+    assert curve[0] == 0 and curve[-1] == 1
+    assert all(a < b for a,b in zip(curve,curve[1:]))
+    for x in (0.0, 0.5, 1.0):
+        color=(x-.5)*2
+        sat=1 + color*(.36 if color >= 0 else .24)
+        assert .76 <= sat <= 1.36
+        if x == .5: assert sat == 1.0
+print("PASS: first original palette background; bounded shadow/highlight + hue-neutral color checks")

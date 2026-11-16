@@ -289,37 +289,30 @@ final class FilterEngine {
             out = result
         }
         if snap.hasPaletteShift {
-            // Color is evaluated by Core Image for every pixel, not taken from
-            // a single palette dot or applied as a uniform RGB overlay.
-            // The style's baked LUT stays fixed during touch; the 2D pad
-            // only modulates tone / chroma with conservative skin-safe limits.
-            // These are YCam approximations, NOT Apple's proprietary coefficients.
+            // Bounded YCam color adjustment; not an Apple reference LUT.
+            // Each camera pixel retains its individual RGB source.
             let k = min(1.0, max(0.0, snap.settings.intensity))
             let color = min(1.0, max(-1.0, Double((snap.settings.point.x - 0.5) * 2))) * k
             let tone = min(1.0, max(-1.0, Double((0.5 - snap.settings.point.y) * 2))) * k
 
             if abs(tone) > 0.0001 {
-                // Downward drag reduces midtone luminance gently without
-                // crushing petals, faces, shadows or blue-sky gradations.
-                out = out.applyingFilter("CIGammaAdjust", parameters: [
-                    "inputPower": 1 - 0.10 * tone
-                ])
-                out = out.applyingFilter("CIExposureAdjust", parameters: [
-                    kCIInputEVKey: 0.02 * tone
-                ])
-            }
-            if color > 0.0001 {
-                // Boost only toward the right. Negative CIVibrance selectively
-                // desaturates hues and can leave an unwanted warm/yellow cast.
-                // Left must use uniform saturation reduction without hue bias.
-                out = out.applyingFilter("CIVibrance", parameters: [
-                    "inputAmount": 0.18 * color
+                // Anchored endpoints protect black and white, while preserving
+                // the shadow and highlight gradations when dragging vertically.
+                out = out.applyingFilter("CIToneCurve", parameters: [
+                    "inputPoint0": CIVector(x: 0.0, y: 0.0),
+                    "inputPoint1": CIVector(x: 0.25, y: 0.25 + 0.020 * tone),
+                    "inputPoint2": CIVector(x: 0.50, y: 0.50 + 0.036 * tone),
+                    "inputPoint3": CIVector(x: 0.75, y: 0.75 + 0.025 * tone),
+                    "inputPoint4": CIVector(x: 1.0, y: 1.0)
                 ])
             }
-            out = out.applyingFilter("CIColorControls", parameters: [
-                kCIInputSaturationKey: 1 + color * (color >= 0 ? 0.36 : 0.24),
-                kCIInputContrastKey: 1 - 0.04 * tone
-            ])
+            if abs(color) > 0.0001 {
+                // Neutral grays stay gray; left/right never inject extra yellow
+                // or use color-dependent vibrance on people/sky.
+                out = out.applyingFilter("CIColorControls", parameters: [
+                    kCIInputSaturationKey: 1 + color * (color >= 0 ? 0.36 : 0.24)
+                ])
+            }
         }
         if snap.recipe.bloom > 0.001 {
             out = FilterEngine.applyBloom(out, amount: snap.recipe.bloom, extent: extent)
