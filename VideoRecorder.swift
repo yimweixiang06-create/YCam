@@ -27,9 +27,13 @@ final class VideoRecorder {
     // Recorder is confined to CameraModel.dataQueue. A video-mode preview
     // can stay low-resolution until an actual recording is armed.
     var isArmed: Bool { armed }
+    // Reduce display-only work during 60fps filtered recording while
+    // preserving every full-resolution frame offered to AVAssetWriter.
+    var previewFrameStride: Int { fps >= 60 ? 2 : 1 }
     private var sessionStart: CMTime?
     private var lastVideoPTS = CMTime.invalid
     private var videoFrames = 0
+    private var writerBackpressureDrops = 0
     private var failure: Error?
     private var fps = 30
     private var captureOrientation: UIInterfaceOrientation = .portrait
@@ -63,7 +67,10 @@ final class VideoRecorder {
             writer.startSession(atSourceTime: pts)
             sessionStart = pts
         }
-        guard videoInput.isReadyForMoreMediaData else { return }
+        guard videoInput.isReadyForMoreMediaData else {
+            writerBackpressureDrops += 1
+            return
+        }
         if lastVideoPTS.isValid, CMTimeCompare(pts, lastVideoPTS) <= 0 { return }
         if adaptor.append(pixelBuffer, withPresentationTime: pts) {
             lastVideoPTS = pts
@@ -89,6 +96,9 @@ final class VideoRecorder {
     /// 结束录制。completion 可能在任意线程被调用。
     func finish(_ completion: @escaping (Result<URL, Error>) -> Void) {
         armed = false
+        if writerBackpressureDrops > 0 {
+            DiagnosticsLog.shared.add("视频编码器忙：跳过了 \(writerBackpressureDrops) 帧；请检查录制规格/设备负载")
+        }
         guard let writer, let url = outputURL else {
             let error = failure ?? RecorderError.tooShort
             reset()
@@ -220,6 +230,7 @@ final class VideoRecorder {
         sessionStart = nil
         lastVideoPTS = .invalid
         videoFrames = 0
+        writerBackpressureDrops = 0
         failure = nil
     }
 }
