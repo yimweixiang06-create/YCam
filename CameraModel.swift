@@ -1508,12 +1508,14 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
                                          colorSpace: Self.sRGB)
                         display(previewBuffer, pts: pts)
                     } else {
-                        display(target, pts: pts)
+                        // A saturated preview pool is not a reason to push a
+                        // huge 4K frame through the UI. Retain the previously
+                        // displayed frame while every saved movie frame proceeds.
                     }
                 } else {
                     display(target, pts: pts)
                 }
-            } else {
+            } else if !fullResolutionForRecording {
                 display(target, pts: pts)
             }
             recorder.appendVideo(target, pts: pts)
