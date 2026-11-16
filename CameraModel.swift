@@ -125,7 +125,13 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
     private var isConfigured = false                                       // sessionQueue
     private var currentHardwareMode: CaptureMode?                         // sessionQueue
     private var isStarting = false                                         // 主线程
-    private let ciContext = CIContext(options: [.cacheIntermediates: false])
+    // Explicit Apple's default extended-linear-sRGB working space.
+    // Captured stills retain their source ICC profile on export.
+    private let ciContext = CIContext(options: [
+        .cacheIntermediates: false,
+        .workingColorSpace: CGColorSpace(name: CGColorSpace.extendedLinearSRGB)!,
+        .outputColorSpace: CGColorSpace(name: CGColorSpace.sRGB)!
+    ])
     private let recorder = VideoRecorder()                                 // 仅 dataQueue
     private weak var displayLayer: AVSampleBufferDisplayLayer?
     private weak var previewView: FilteredPreviewView?
@@ -246,7 +252,9 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
             if self.isRecording { self.stopRecording() }
             self.message = "相机发生错误，正在尝试恢复"
             self.sessionQueue.async {
-                if self.isConfigured, !self.session.isRunning { self.session.startRunning() }
+                guard self.isConfigured else { return }
+                if !self.session.isRunning { self.session.startRunning() }
+                if let device = self.videoInput?.device { self.restoreAutomaticCaptureModes(device) }
             }
         })
         observers.append(nc.addObserver(forName: AVCaptureSession.wasInterruptedNotification, object: session, queue: .main) { [weak self] note in
@@ -260,7 +268,9 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
             guard let self else { return }
             DiagnosticsLog.shared.add("相机打断结束，恢复运行")
             self.sessionQueue.async {
-                if self.isConfigured, !self.session.isRunning { self.session.startRunning() }
+                guard self.isConfigured else { return }
+                if !self.session.isRunning { self.session.startRunning() }
+                if let device = self.videoInput?.device { self.restoreAutomaticCaptureModes(device) }
             }
         })
         observers.append(nc.addObserver(forName: AVCaptureDevice.subjectAreaDidChangeNotification, object: nil, queue: nil) { [weak self] _ in
@@ -289,6 +299,7 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
         }
         if withAudio { addAudioIfNeeded() }
         if !session.isRunning { session.startRunning() }
+        if let device = videoInput?.device { restoreAutomaticCaptureModes(device) }
         DiagnosticsLog.shared.add("相机会话：running=\(session.isRunning)，预设=\(session.sessionPreset.rawValue)，设备=\(videoInput?.device.localizedName ?? "无")，实况支持=\(photoOutput.isLivePhotoCaptureSupported)，麦克风=\(audioInput != nil)")
         publishCapabilities()
         scheduleFrameWatchdog()
@@ -677,7 +688,31 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
         // state after switching devices; that can turn neutral highlights
         // warm/yellow when the ambient light suddenly changes.
         applyWhiteBalance(whiteBalanceKelvin, device)
+        restoreAutomaticCaptureModes(device)
         applyNight(nightEnabled, device)
+    }
+
+    /// Restore continuous ambient adaptation without overriding manual
+    /// shutter or Kelvin choices. Called only on sessionQueue.
+    private func restoreAutomaticCaptureModes(_ device: AVCaptureDevice) {
+        do {
+            try device.lockForConfiguration()
+            defer { device.unlockForConfiguration() }
+            if shutterSeconds == nil,
+               device.isExposureModeSupported(.continuousAutoExposure),
+               device.exposureMode != .continuousAutoExposure {
+                device.exposureMode = .continuousAutoExposure
+                DiagnosticsLog.shared.add("环境光变化：恢复连续自动曝光")
+            }
+            if whiteBalanceKelvin == nil,
+               device.isWhiteBalanceModeSupported(.continuousAutoWhiteBalance),
+               device.whiteBalanceMode != .continuousAutoWhiteBalance {
+                device.whiteBalanceMode = .continuousAutoWhiteBalance
+                DiagnosticsLog.shared.add("环境光变化：恢复连续自动白平衡")
+            }
+        } catch {
+            DiagnosticsLog.shared.add("环境光自适应恢复失败：\(error.localizedDescription)")
+        }
     }
 
     // MARK: Flash / night
@@ -875,9 +910,16 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
                     device.focusPointOfInterest = devicePoint
                     device.focusMode = .autoFocus
                 }
-                if !manualShutter, device.isExposurePointOfInterestSupported, device.isExposureModeSupported(.autoExpose) {
-                    device.exposurePointOfInterest = devicePoint
-                    device.exposureMode = .autoExpose
+                if !manualShutter, device.isExposurePointOfInterestSupported {
+                    // Continue to adapt after tapping instead of locking an
+                    // old exposure when the ambient light suddenly changes.
+                    if device.isExposureModeSupported(.continuousAutoExposure) {
+                        device.exposurePointOfInterest = devicePoint
+                        device.exposureMode = .continuousAutoExposure
+                    } else if device.isExposureModeSupported(.autoExpose) {
+                        device.exposurePointOfInterest = devicePoint
+                        device.exposureMode = .autoExpose
+                    }
                 }
                 device.isSubjectAreaChangeMonitoringEnabled = true
                 device.unlockForConfiguration()
@@ -1475,6 +1517,7 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
                 kCVPixelBufferPixelFormatTypeKey as String: Int(kCVPixelFormatType_32BGRA),
                 kCVPixelBufferWidthKey as String: width,
                 kCVPixelBufferHeightKey as String: height,
+                kCVPixelBufferMetalCompatibilityKey as String: true,
                 kCVPixelBufferIOSurfacePropertiesKey as String: [String: Any]()
             ]
             var pool: CVPixelBufferPool?
@@ -1484,7 +1527,11 @@ final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
         }
         guard let pool = pixelPool else { return nil }
         var buffer: CVPixelBuffer?
-        guard CVPixelBufferPoolCreatePixelBuffer(kCFAllocatorDefault, pool, &buffer) == kCVReturnSuccess else { return nil }
+        guard CVPixelBufferPoolCreatePixelBuffer(kCFAllocatorDefault, pool, &buffer) == kCVReturnSuccess,
+              let buffer else { return nil }
+        // Output frames are rendered into sRGB; propagate their profile to
+        // the preview/video pipeline instead of using untagged buffers.
+        CVBufferSetAttachment(buffer, kCVImageBufferCGColorSpaceKey, Self.sRGB, .shouldPropagate)
         return buffer
     }
 
