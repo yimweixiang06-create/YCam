@@ -192,11 +192,13 @@ assert 'DragGesture(minimumDistance: 0, coordinateSpace: .named' not in palette_
 # Preserve the original panel and earliest gradient; only palette math changes.
 assert 'r.saturation *= (1.0 + 0.03 * k)' not in engine
 assert 'let zoneSaturation = 1.0 + (rawTone >= 0 ? 0.03 : 0.02) * rawTone' in engine
-assert 'kCIInputSaturationKey: (1 + color * (color >= 0 ? 0.36 : 0.24)) * zoneSaturation' in engine
+assert 'kCIInputSaturationKey: (1 + color * (color >= 0 ? response.right : response.left)) * zoneSaturation' in engine
+assert 'default: return PhotoStyleResponse(gamma: 0.10, left: 0.24, right: 0.36)' in engine
 assert 'let upperLeft = max(0.0, -color) * max(0.0, rawTone)' in engine
 assert 'let lowerLeft = max(0.0, -color) * max(0.0, -rawTone)' in engine
 assert 'let lowerRight = max(0.0, color) * max(0.0, -rawTone)' in engine
-assert '0.50 * lowerLeft - 0.50 * lowerRight' in engine
+assert 'let lowerCorner = response.isReferenceDerived ? 0.12 : 0.50' in engine
+assert 'lowerCorner * lowerLeft - lowerCorner * lowerRight' in engine
 assert '"inputSharpness": 0.16 * upperLeft' in engine
 assert 'out.applyingFilter("CIGammaAdjust"' in engine
 assert 'out.applyingFilter("CIExposureAdjust"' in engine

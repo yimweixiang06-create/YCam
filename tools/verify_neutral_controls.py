@@ -19,13 +19,15 @@ assert "mutating func restoreStyleControls()" in styles
 assert "Double((snap.settings.point.x - 0.5) * 2)" in engine
 assert "Double((0.5 - snap.settings.point.y) * 2)" in engine
 assert "snap.settings.intensity" in engine
-# The user's preferred v1.4 palette axes are restored verbatim.
-# Original filter recipes are no longer globally boosted. Only the live
-# palette upper/lower axes adjust saturation by +3% / -2% at full strength.
+# The original neutral point and upper +3% / lower direct -2% rule remain,
+# but the per-style color response has been calibrated from user's screenshots.
+# Unreferenced styles still use the original 0.24 / 0.36 saturation coefficients.
 assert 'out.applyingFilter("CIGammaAdjust"' in engine
 assert 'out.applyingFilter("CIExposureAdjust"' in engine
 assert 'out.applyingFilter("CIVibrance"' in engine
-assert 'kCIInputSaturationKey: (1 + color * (color >= 0 ? 0.36 : 0.24)) * zoneSaturation' in engine
+assert 'kCIInputSaturationKey: (1 + color * (color >= 0 ? response.right : response.left)) * zoneSaturation' in engine
+assert 'default: return PhotoStyleResponse(gamma: 0.10, left: 0.24, right: 0.36)' in engine
+assert 'let response = FilterEngine.photoStyleResponse(for: snap.settings.style)' in engine
 assert 'let upperRight = max(0.0, color) * max(0.0, rawTone)' in engine
 assert 'let lowerLeft = max(0.0, -color) * max(0.0, -rawTone)' in engine
 assert 'r.saturation *= (1.0 + 0.03 * k)' not in engine
