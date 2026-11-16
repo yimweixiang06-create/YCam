@@ -27,6 +27,8 @@ on:
       - "Info.plist"
       - "Assets.xcassets/**"
       - "YCam.xcodeproj/**"
+      - "android/**"
+      - ".github/workflows/build-android-apk.yml"
       - "en.lproj/**"
       - "zh-Hans.lproj/**"
       - ".github/workflows/build-unsigned-ipa.yml"

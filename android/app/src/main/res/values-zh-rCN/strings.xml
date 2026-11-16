@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">YCam 安卓版</string>
+    <string name="photo">照片</string>
+    <string name="video">视频</string>
+    <string name="take_photo">拍照</string>
+    <string name="start_video">录像</string>
+    <string name="stop_video">停止</string>
+    <string name="switch_camera">切换镜头</string>
+    <string name="flash_off">闪光灯关</string>
+    <string name="flash_on">闪光灯开</string>
+    <string name="torch_off">手电筒关</string>
+    <string name="torch_on">手电筒开</string>
+    <string name="camera_permission">YCam 需要相机权限。</string>
+    <string name="audio_permission">麦克风权限可选；未授权时录像无声音。</string>
+    <string name="camera_starting">正在启动相机…</string>
+    <string name="camera_unavailable">此设备相机不可用。</string>
+    <string name="photo_saved">照片已保存到图库。</string>
+    <string name="video_saved">视频已保存到图库。</string>
+    <string name="saving">正在保存…</string>
+    <string name="capture_failed">拍摄失败。</string>
+    <string name="recording">正在录像…</string>
+    <string name="please_wait">请稍候…</string>
+    <string name="open_gallery">打开刚拍摄的内容</string>
+    <string name="mode_unavailable">此镜头不支持该拍摄模式。</string>
+    <string name="preview_notice">Android 预览版：支持拍照录像，尚未移植 iOS 的全部滤镜</string>
+</resources>
