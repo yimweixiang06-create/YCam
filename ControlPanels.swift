@@ -442,12 +442,13 @@ struct StylesPanel: View {
                                    next.restoreStyleControls()
                                    camera.styleSettings = next
                                }),
-                           cardWidth: 41 * m.s,
-                           cardHeight: 52 * m.s,
-                           spacing: 8 * m.s,
-                           colors: { $0.cardColors },
-                           previews: { camera.styleCardPreviews[$0.rawValue] },
-                           name: { $0.title })
+                           cardWidth: 58 * m.s,
+                           cardHeight: 66 * m.s,
+                           spacing: 7 * m.s,
+                           artwork: { PaletteIconArtwork.style($0) },
+                           name: { $0.title },
+                           shortName: { $0.pickerTitle },
+                           symbol: "circle.grid.3x3.fill")
             Button { onCustom() } label: {
                 Text("自定义")
                     .font(.system(size: 13 * m.s, weight: .medium))
@@ -526,12 +527,13 @@ struct FiltersPanel: View {
                 .frame(width: 5 * m.s, height: 5 * m.s)
             SwatchCarousel(items: AppleFilter.allCases,
                            selected: $camera.styleSettings.filter,
-                           cardWidth: 41 * m.s,
-                           cardHeight: 52 * m.s,
-                           spacing: 8 * m.s,
-                           colors: { $0.cardColors },
-                           previews: { camera.filterCardPreviews[$0.rawValue] },
-                           name: { $0.title })
+                           cardWidth: 58 * m.s,
+                           cardHeight: 66 * m.s,
+                           spacing: 7 * m.s,
+                           artwork: { PaletteIconArtwork.filter($0) },
+                           name: { $0.title },
+                           shortName: { $0.title },
+                           symbol: "circle.lefthalf.filled")
             hint("Apple 原有滤镜（鲜明 / 戏剧 / 单色 / 银色调 / 黑白），可以和摄影风格叠加。", m)
         }
         .padding(.horizontal, 12 * m.s)
