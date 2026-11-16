@@ -443,7 +443,7 @@ struct StylesPanel: View {
                                    camera.styleSettings = next
                                }),
                            cardWidth: 58 * m.s,
-                           cardHeight: 66 * m.s,
+                           cardHeight: 62 * m.s,
                            spacing: 7 * m.s,
                            artwork: { PaletteIconArtwork.style($0) },
                            name: { $0.title },
@@ -528,7 +528,7 @@ struct FiltersPanel: View {
             SwatchCarousel(items: AppleFilter.allCases,
                            selected: $camera.styleSettings.filter,
                            cardWidth: 58 * m.s,
-                           cardHeight: 66 * m.s,
+                           cardHeight: 62 * m.s,
                            spacing: 7 * m.s,
                            artwork: { PaletteIconArtwork.filter($0) },
                            name: { $0.title },
