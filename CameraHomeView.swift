@@ -134,7 +134,7 @@ struct CameraHomeView: View {
             .allowsHitTesting(false)
     }
 
-    /// 全屏触摸层：点按 = 对焦 / 收起面板；左右滑 = 切换 视频 · 照片 · 人像；向上滑 = 打开抽屉；向下滑 = 收起；双指捏合 = 变焦。
+    /// 全屏触摸层：点按 = 对焦；摄影风格/调色盘仅顶部返回键可以退出；其他面板保留原操作。
     private func touchLayer(_ m: UIMetrics) -> some View {
         TouchCatcher(
             onTap: { point in handleTap(point, m) },
@@ -147,6 +147,9 @@ struct CameraHomeView: View {
     }
 
     private func handleSwipe(_ translation: CGSize) {
+        // 摄影风格和自定义调色盘不可被取景器滑动手势关闭。
+        // Only their own PanelHeader back buttons may navigate away.
+        guard sheet != .styles && sheet != .custom else { return }
         // 录制期间只允许取景器捏合/对焦，不切换模式或展开抽屉。
         guard !camera.isRecording && !camera.isFinalizingVideo else { return }
         let dx = translation.width
@@ -162,8 +165,8 @@ struct CameraHomeView: View {
 
     private func handleTap(_ point: CGPoint, _ m: UIMetrics) {
         let rect = previewFrame(m)
-        // 点在取景区域时始终尝试对焦；面板如果打开也只需要点一次。
-        if sheet != .closed { go(.closed) }
+        // 对焦与面板导航分离：调色时点取景器只对焦，不再退出风格页。
+        if sheet != .closed && sheet != .styles && sheet != .custom { go(.closed) }
         guard rect.contains(point) else { return }
         camera.focus(atViewPoint: CGPoint(x: point.x - rect.minX, y: point.y - rect.minY), viewSize: rect.size)
         let mark = FocusMark(point: point)
@@ -675,6 +678,7 @@ struct CameraHomeView: View {
     }
 
     private func selectMode(_ target: CaptureMode) {
+        guard sheet != .styles && sheet != .custom else { return }
         guard target != camera.mode else { return }
         if camera.isRecording || camera.isFinalizingVideo || camera.isCapturingPhoto || camera.timerCountdown != nil {
             camera.message = "正在拍摄、录制或倒计时，完成后才能切换模式"
@@ -689,7 +693,14 @@ struct CameraHomeView: View {
 
     // MARK: 底部面板（高斯磨砂）
 
-    private func go(_ target: Sheet) {
+    private func go(_ target: Sheet, fromStyleBack: Bool = false) {
+        // While editing a Photographic Style, prevent the drawer, top capsule,
+        // focus taps and other controls from dismissing the panel. The
+        // dedicated back button remains the only exit, while "Custom" still
+        // moves from the style selector into the palette editor.
+        if (sheet == .styles || sheet == .custom) && !fromStyleBack {
+            guard sheet == .styles && target == .custom else { return }
+        }
         guard !camera.isRecording || target == .closed else { return }
         // 面板变形的玻璃层不接管手势；轻量动画可以避免高频反复触发。
         guard target != sheet else { return }
@@ -712,11 +723,11 @@ struct CameraHomeView: View {
             }
         case .styles:
             panel(m, height: m.panelHeight(.styles, drawerCount: count)) {
-                StylesPanel(camera: camera, m: m, onBack: { go(.drawer) }, onCustom: { go(.custom) })
+                StylesPanel(camera: camera, m: m, onBack: { go(.drawer, fromStyleBack: true) }, onCustom: { go(.custom) })
             }
         case .custom:
             panel(m, height: m.panelHeight(.custom, drawerCount: count)) {
-                CustomPalettePanel(camera: camera, m: m, onBack: { go(.styles) })
+                CustomPalettePanel(camera: camera, m: m, onBack: { go(.styles, fromStyleBack: true) })
             }
         case .filters:
             panel(m, height: m.panelHeight(.filters, drawerCount: count)) {
@@ -768,7 +779,9 @@ struct CameraHomeView: View {
                     .contentShape(Rectangle())
                     .gesture(
                         DragGesture(minimumDistance: 12).onEnded { value in
-                            if value.translation.height > 30 { go(.closed) }
+                            if value.translation.height > 30 && sheet != .styles && sheet != .custom {
+                                go(.closed)
+                            }
                         }
                     )
             }
