@@ -35,7 +35,8 @@
     "Only CPU proxy for CIToneCurve/CIVibrance/CIColorControls, no exact Core Image/GPU validation",
     "JPEG captures and partial fiducial recovery limit pixel accuracy",
     "No scene-matched native-vs-YCam iPhone photo pairs and no real iOS device ΔE2000 evaluation",
-    "The strongest full-model solution was blended conservatively before deployment"
+    "The strongest full-model solution was blended conservatively before deployment",
+    "Internal 24-color style-difference QA rejected 50% Amber blend as too close to Gold (DeltaE76 about 3.8); 30% blend selected for re-test."
   ],
   "results": {
     "coolRose": {
@@ -82,9 +83,9 @@
       "heldout_patches": 256,
       "holdout_dE76_proxy_before": 18.581,
       "holdout_dE76_proxy_best_unblended": 18.243,
-      "holdout_dE76_proxy_deployed": 18.392,
-      "holdout_proxy_reduction_percent": 1.02,
-      "blend_strength": 0.5,
+      "holdout_dE76_proxy_deployed": 18.451,
+      "holdout_proxy_reduction_percent": 0.7,
+      "blend_strength": 0.3,
       "old": {
         "exposure": -0.03,
         "contrast": 0.1,
@@ -94,12 +95,12 @@
         "whiteRoll": 0.09
       },
       "new": {
-        "exposure": -0.00937,
-        "contrast": 0.09141,
-        "saturation": 1.05532,
-        "temperature": 0.30807,
-        "tint": 0.10468,
-        "whiteRoll": 0.09475
+        "exposure": -0.01762,
+        "contrast": 0.09485,
+        "saturation": 1.06519,
+        "temperature": 0.31284,
+        "tint": 0.10681,
+        "whiteRoll": 0.09285
       }
     }
   },
