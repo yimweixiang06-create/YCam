@@ -1,0 +1,131 @@
+{
+  "schema": 1,
+  "date": "2026-11-17",
+  "scope": "Independent photo source QUALITY gate on user-shot iPhone 16 Pro JPGs already uploaded to conversation; NOT fidelity measurement",
+  "rgb_chart_patches_each": 4096,
+  "photos": [
+    {
+      "filename": "IMG_6707.jpg",
+      "reliable_patches": 2054,
+      "downweighted_patches": 2042,
+      "style_association": "coolRose:inferred",
+      "photo_exif_srgb": true,
+      "embedded_icc_profile": false,
+      "exposure_white_balance_capture_timestamp_present": false
+    },
+    {
+      "filename": "IMG_6708.jpg",
+      "reliable_patches": 2112,
+      "downweighted_patches": 1984,
+      "style_association": "unverified",
+      "photo_exif_srgb": true,
+      "embedded_icc_profile": false,
+      "exposure_white_balance_capture_timestamp_present": false
+    },
+    {
+      "filename": "IMG_6709.jpg",
+      "reliable_patches": 3150,
+      "downweighted_patches": 946,
+      "style_association": "unverified",
+      "photo_exif_srgb": true,
+      "embedded_icc_profile": false,
+      "exposure_white_balance_capture_timestamp_present": false
+    },
+    {
+      "filename": "IMG_6723.jpg",
+      "reliable_patches": 3212,
+      "downweighted_patches": 884,
+      "style_association": "unverified",
+      "photo_exif_srgb": true,
+      "embedded_icc_profile": false,
+      "exposure_white_balance_capture_timestamp_present": false
+    },
+    {
+      "filename": "IMG_6724.jpg",
+      "reliable_patches": 2056,
+      "downweighted_patches": 2040,
+      "style_association": "unverified",
+      "photo_exif_srgb": true,
+      "embedded_icc_profile": false,
+      "exposure_white_balance_capture_timestamp_present": false
+    },
+    {
+      "filename": "IMG_6729.jpg",
+      "reliable_patches": 2473,
+      "downweighted_patches": 1623,
+      "style_association": "amber:inferred",
+      "photo_exif_srgb": true,
+      "embedded_icc_profile": false,
+      "exposure_white_balance_capture_timestamp_present": false
+    },
+    {
+      "filename": "IMG_6730.jpg",
+      "reliable_patches": 2330,
+      "downweighted_patches": 1766,
+      "style_association": "unverified",
+      "photo_exif_srgb": true,
+      "embedded_icc_profile": false,
+      "exposure_white_balance_capture_timestamp_present": false
+    },
+    {
+      "filename": "IMG_6731.jpg",
+      "reliable_patches": 1705,
+      "downweighted_patches": 2391,
+      "style_association": "unverified",
+      "photo_exif_srgb": true,
+      "embedded_icc_profile": false,
+      "exposure_white_balance_capture_timestamp_present": false
+    },
+    {
+      "filename": "IMG_6732.jpg",
+      "reliable_patches": 3129,
+      "downweighted_patches": 967,
+      "style_association": "unverified",
+      "photo_exif_srgb": true,
+      "embedded_icc_profile": false,
+      "exposure_white_balance_capture_timestamp_present": false
+    },
+    {
+      "filename": "IMG_6736.jpg",
+      "reliable_patches": 1518,
+      "downweighted_patches": 2578,
+      "style_association": "unverified",
+      "photo_exif_srgb": true,
+      "embedded_icc_profile": false,
+      "exposure_white_balance_capture_timestamp_present": false
+    }
+  ],
+  "total_photos": 10,
+  "total_patch_positions": 40960,
+  "proxy_reliable_count": 23739,
+  "downweighted_count": 17221,
+  "reference_confidence": "Only Cool Rose IMG_6707 and Amber IMG_6729 associated by adjacent screenshots. Neither filename/EXIF alone confirms style and slider settings. Screen recording shows browser in viewfinder, not a 4096-patch per-style target.",
+  "available_color_metadata": "EXIF ColorSpace=1 (sRGB) and pixel dimensions; no usable exposure, WB, timestamp or device camera settings, and no embedded ICC in the shared JPEGs.",
+  "color_accuracy_limitations": [
+    "Standard baseline was photographed in a different session from candidate Apple styles",
+    "Automatic exposure/white balance and monitor spectrum/profile were not locked or measured",
+    "Some pixel-to-patch alignments are approximate and many points have channel clipping",
+    "RGB photo proxy differences cannot establish exact Apple Photographic Style ISP or on-device YCam fidelity",
+    "3000 trillion repeated surrogate comparisons are computationally impractical and cannot resolve insufficient ground truth"
+  ],
+  "validation_additional": {
+    "resample_count": 10000,
+    "sample_size_with_replacement_each": 1024,
+    "style": "coolRose",
+    "old_proxy_dE76": 15.02442,
+    "new_proxy_dE76": 14.93102,
+    "proxy_improvement_percent": 0.6216,
+    "resample_improvement_positive_percent": 100,
+    "resample_gain_95pct": [
+      0.08502,
+      0.10183
+    ],
+    "interpretation": "Same-image bootstrap sensitivity check, NOT 10000 independent photos, Apple deltaE2000, or guaranteed percentage accuracy"
+  },
+  "production_decision": {
+    "new_recipe_change": false,
+    "reason": "Do not make new global style/color changes or claim 1:1 Apple accuracy without photo/slider correspondence and matched, controlled Standard + native style + YCam photo pairs.",
+    "existing_profiles_unchanged": true
+  },
+  "privacy": "Derived aggregate metadata only. Raw private phone photos, video and EXIF are not committed to GitHub."
+}
