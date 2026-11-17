@@ -1,76 +1,73 @@
-name: YCam 5-minute photo color checks
+name: YCam iPhone16Pro 50M five-minute color checks
 
 on:
   schedule:
     - cron: "*/5 * * * *"
   workflow_dispatch:
-  # Also verify the pipeline once when its own implementation is updated.
   push:
     branches: [main]
     paths:
       - ".github/workflows/calibrate-photos-5min.yml"
-      - "tools/continuous_photo_check.py"
-      - "tools/calibration_gate.py"
-      - "calibration/reference_pairs.json"
+      - "tools/ycam_50m_photo_proxy.py"
+      - "calibration/iphone16pro_50m_sufficient_stats.json"
 
-# Run at most one photo check at once; do not accumulate parallel jobs.
 concurrency:
-  group: ycam-five-minute-photo-check
+  group: ycam-iphone16pro-50m-five-minute
   cancel-in-progress: false
 
 permissions:
   contents: read
+  actions: write
 
 jobs:
-  sample-and-verify:
-    name: Sample up to 200 licensed photos across 38 effects
-    # Stable image; do not silently migrate color jobs to a new OS mid-study.
+  iPhone16Pro-color-proxy:
+    name: Compare 50M candidate color parameters using user's own iPhone16Pro chart
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - name: Checkout YCam
-        uses: actions/checkout@v5
+      - name: Checkout current camera source
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
-      - name: Setup Python
+      - name: Set up numerical runtime
         uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
-      - name: Install image processing
-        run: python -m pip install --disable-pip-version-check --quiet numpy pillow
+      - name: Install numerical dependency
+        run: python -m pip install --disable-pip-version-check --quiet numpy
 
-      # Keep recent accepted source hashes across runs; report cache misses honestly.
-      - name: Restore recent photo hashes
-        uses: actions/cache/restore@v5
-        with:
-          path: .cache/ycam_photo_seen.json
-          key: ycam-photo-seen-${{ github.run_id }}
-          restore-keys: |
-            ycam-photo-seen-
+      - name: Compute actual candidate count on user's chart-derived statistics
+        env:
+          OPENBLAS_NUM_THREADS: "1"
+          OMP_NUM_THREADS: "1"
+        run: python tools/ycam_50m_photo_proxy.py --target 50000000 --seconds 155
 
-      - name: Collect and check up to 200 unique licensed photos
-        run: python tools/continuous_photo_check.py --target 200 --seconds 200
-
-      - name: Verify minimum 2000 photos and prevent wrong-filter calibration
-        run: python tools/calibration_gate.py
-
-      - name: Save photo hashes
-        if: always()
-        uses: actions/cache/save@v5
-        with:
-          path: .cache/ycam_photo_seen.json
-          key: ycam-photo-seen-${{ github.run_id }}
-
-      - name: Publish auditable photo and per-effect report
+      - name: Upload auditable real-count surrogate color check report
         if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: ycam-photo-audit-${{ github.run_id }}
-          path: reports/continuous/
+          name: ycam-iphone16pro-50m
+          path: reports/iphone16pro_50m/latest.json
           if-no-files-found: warn
           retention-days: 3
 
-# This job saves evidence only: it is NOT an auto-publish job.
-# No Swift/LUT changes before >=2,000 strictly photo-evidenced samples,
-# exact original-vs-effect preset pairing and an independently better holdout.
-# Real iOS builds happen only on actual tested application source changes.
+      - name: Disable repeated checking when cutoff November 18 at 15:00 MYT arrives
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if python3 - <<'PY'
+          from datetime import datetime, timezone
+          raise SystemExit(0 if datetime.now(timezone.utc) >= datetime(2026,11,18,7,0,tzinfo=timezone.utc) else 1)
+          PY
+          then
+            echo "Deadline reached. Disabling the five-minute workflow."
+            gh api -X PUT "repos/$GITHUB_REPOSITORY/actions/workflows/calibrate-photos-5min.yml/disable" || echo "::warning::Could not auto-disable; the Python cutoff prevents additional computations."
+          fi
+
+# The old workflow that fetched Wikimedia Commons photos has been replaced.
+# Only derived parameters computed from user's iPhone16Pro RGB chart photos are used.
+# 50 million means first-order quadratic candidate SCORES, not actual Apple
+# camera photo renders. This workflow never edits Styles.swift or publishes IPA.
