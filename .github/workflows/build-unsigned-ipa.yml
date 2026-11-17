@@ -41,6 +41,8 @@ on:
       - "tools/verify_style_independence.py"
       - "tools/verify_xr_performance.py"
       - "tools/verify_screenshot_tone_fit.py"
+      - "tools/verify_iphone16pro_113_live_recipe.py"
+      - "calibration/iphone16pro_113_reverified_style_recipe_2026-11-18.json"
       - "calibration/iphone_screen_tone_and_chroma_45_2026-11-16.json"
       - "tools/verify_apple_camera_apis.py"
       - "calibration/iphone_photo_style_scene_response_2026-11-16.json"
