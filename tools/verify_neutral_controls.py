@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check every YCam style defaults to tone 0 / color 0 / palette 100 without built-in blur."""
+"""Verify screenshot-backed entry defaults and untouched neutral fallbacks (no added blur)."""
 import re
 from pathlib import Path
 
@@ -8,9 +8,29 @@ styles = (root / "Styles.swift").read_text()
 engine = (root / "FilterEngine.swift").read_text()
 panels = (root / "ControlPanels.swift").read_text()
 body = styles.split("var referenceControls:", 1)[1].split("var isFilm:", 1)[0]
-assert "(0, 0, 1.0)" in body
-assert "case .pearl: return (45, 90" not in body
-assert "case .coolRose: return (35, -20" not in body
+expected = {
+    "pearl": (18, 0, 1.0),
+    "amber": (100, 100, 1.0),
+    "gold": (20, 10, 0.85),
+    "roseGold": (-20, -20, 0.75),
+    "coolRose": (35, -10, 0.75),
+    "neutral": (-70, -15, 1.0),
+    "vibrant": (-30, 33, 1.0),
+    "radiant": (35, 30, 1.0),
+    "warm": (-75, -20, 1.0),
+}
+observed = {
+    name: (int(tone), int(color), float(intensity))
+    for name, tone, color, intensity in re.findall(
+        r"case \\.(\\w+): return \\(\\s*(-?\\d+)\\s*,\\s*(-?\\d+)\\s*,\\s*([0-9.]+)\\s*\\)", body
+    )
+}
+assert observed == expected, (observed, expected)
+assert "default: return (0, 0, 1.0)" in body
+assert all(-100 <= tone <= 100 and -100 <= color <= 100 and 0 < strength <= 1
+           for tone, color, strength in observed.values())
+assert "case .coolRose: return (100, 100, 0.75)" not in body
+assert "case .roseGold: return (8, -1, 1.0)" not in body
 assert "var point = CGPoint(x: 0.5, y: 0.5)" in styles
 assert "var intensity: Double = 1.0" in styles
 assert "next.restoreStyleControls()" in panels
@@ -44,4 +64,4 @@ assert len(entries) == 28, f"Expected 28 styles, got {len(entries)}"
 for name, recipe in entries:
     assert "softness:" not in recipe, f"{name} has unexpected soft focus"
     assert "bloom:" not in recipe, f"{name} has unexpected blurred bloom"
-print(f"PASS: {len(entries)} styles use tone 0 / color 0 / palette 100, without default spatial blur.")
+print(f"PASS: {len(expected)} independently observed style entry controls; other styles neutral; {len(entries)} recipes without spatial blur.")

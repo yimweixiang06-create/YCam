@@ -130,11 +130,24 @@ enum CameraStyle: String, CaseIterable, Identifiable {
         }
     }
 
-    /// 所有风格的用户调色盘首次进入时都从中性控制点开始。
-    /// 色调 0 / 颜色 0 / 调色盘 100，只是 YCam 的 UI 控件默认位置；
-    /// 风格本身的配方仍然生效，用户可自行拖动圆点并调节强度。
+    /// 用户最新 iPhone 风格录屏中的「进入时白点/调色板」参考值。
+    /// 按原片时间顺序：重复进入同一风格时以最后一次可见的稳定数值为准。
+    /// 每个风格独立配置；配方及 LUT 保持原样，不能将某一风格的颜色套给其他风格。
+    /// 未能明确对应到 YCam 风格名称的截图保留中性默认值，绝不猜测。
+    /// 数据和局限：calibration/latest_style_entry_values_2026-11-17.json
     var referenceControls: (tone: Int, color: Int, intensity: Double) {
-        (0, 0, 1.0)
+        switch self {
+        case .pearl: return (18, 0, 1.0)
+        case .amber: return (100, 100, 1.0)
+        case .gold: return (20, 10, 0.85)
+        case .roseGold: return (-20, -20, 0.75)
+        case .coolRose: return (35, -10, 0.75)
+        case .neutral: return (-70, -15, 1.0)
+        case .vibrant: return (-30, 33, 1.0)
+        case .radiant: return (35, 30, 1.0)
+        case .warm: return (-75, -20, 1.0)
+        default: return (0, 0, 1.0)
+        }
     }
 
     var isFilm: Bool {
@@ -347,7 +360,7 @@ struct StyleSettings: Equatable {
 
     static let defaultPoint = CGPoint(x: 0.5, y: 0.5)
 
-    /// 每次选风格或点重置，色调和颜色回到零，强度回到 100。
+    /// 每次选风格或点重置，恢复该风格最新截图支持的进入位置和强度。
     mutating func restoreStyleControls() {
         let reference = style.referenceControls
         point = CGPoint(x: CGFloat(reference.color + 100) / 200,

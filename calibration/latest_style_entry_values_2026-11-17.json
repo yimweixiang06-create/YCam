@@ -1,63 +1,168 @@
 {
-  "schema": 1,
+  "schema": 2,
   "date": "2026-11-17",
-  "purpose": "Reference values for independent Apple Photographic Style calibration from user's most recent screenshot batch. Observation register only; do not auto-apply to runtime before image-to-style association and validation.",
-  "selection_precedence": {
-    "rule": "If the same style is opened/selected twice, the second (later) capture wins. Ignore earlier position/palette for that style. Identical reuploads are duplicates, not additional measurements.",
-    "scope": "Within the user's latest batch, per style; newest explicit user correction wins.",
-    "palette_percent_not_normalized": true
+  "purpose": "Apply latest user video-first style entry position and palette values to YCam; this is UI/default-position calibration, not a measurement of Apple ISP color accuracy.",
+  "source_priority": "Latest 2026-11-17 18:37:52 screen recording > earlier screenshots. Repeated entry/adjustment of the SAME style: use the last visibly stable reading. Exact duplicates are not extra samples.",
+  "sample_source": {
+    "recording": "ScreenRecording_11-17-2026 18-37-52_1.mp4",
+    "duration_seconds": 61.73,
+    "screen_chart": "YCam_iPhone16Pro_4096_RGB_Calibration_2048.png",
+    "originals_not_redistributed": true
   },
-  "recognized_latest_screenshots": [
+  "applied_defaults": [
     {
       "style": "coolRose",
-      "display": "冷调玫瑰色 Cool Rose",
-      "style_page_image": "IMG_6705.png",
-      "custom_page_image": "IMG_6706.png",
-      "tone": 100,
-      "color": 100,
-      "intensity_percent": 75,
-      "status": "observable UI values; user says latest opening/second click overrides prior",
-      "photo_color_target_confirmed": false
+      "title": "冷调玫瑰色",
+      "tone": 35,
+      "color": -10,
+      "palette_percent": 75,
+      "source": "video ~3s",
+      "overrides": "IMG_6706.png showed +100/+100/75"
     },
     {
-      "style": "roseGold",
-      "display": "玫瑰金色 Rose Gold",
-      "style_page_image": "IMG_6734.png",
-      "custom_page_image": "IMG_6725.png",
-      "tone": 8,
-      "color": -1,
-      "intensity_percent": 100,
-      "status": "style association inferred from batch sequence; confirm before applying runtime default",
-      "photo_color_target_confirmed": false
-    },
-    {
-      "style": "amber",
-      "display": "琥珀色 Amber",
-      "style_page_image": "IMG_6727.png",
-      "custom_page_image": "IMG_6728.png",
-      "tone": 100,
-      "color": 100,
-      "intensity_percent": 100,
-      "status": "style association inferred from batch sequence; confirm before applying runtime default",
-      "photo_color_target_confirmed": false
+      "style": "pearl",
+      "title": "珠光",
+      "tone": 18,
+      "color": 0,
+      "palette_percent": 100,
+      "source": "video ~7s",
+      "note": "The existing Pearl color response, photo recipe and LUT complement were not modified"
     },
     {
       "style": "gold",
-      "display": "金色 Gold",
-      "style_page_image": "IMG_6726.png",
-      "custom_page_image": null,
-      "tone": null,
-      "color": null,
-      "intensity_percent": null,
-      "status": "style selection only; no numerical palette setting in this shot",
-      "photo_color_target_confirmed": false
+      "title": "金色",
+      "tone": 20,
+      "color": 10,
+      "palette_percent": 85,
+      "source": "video ~19s; last visible stable reading after repeated entries"
+    },
+    {
+      "style": "roseGold",
+      "title": "玫瑰金色",
+      "tone": -20,
+      "color": -20,
+      "palette_percent": 75,
+      "source": "video ~25s",
+      "overrides": "IMG_6725.png showed +8/-1/100"
+    },
+    {
+      "style": "amber",
+      "title": "琥珀色",
+      "tone": 100,
+      "color": 100,
+      "palette_percent": 100,
+      "source": "IMG_6727.png (style name) + IMG_6728.png (palette numbers); no later same-style value verified in recording"
+    },
+    {
+      "style": "vibrant",
+      "title": "鲜明",
+      "tone": -30,
+      "color": 33,
+      "palette_percent": 100,
+      "source": "video ~29-31s; later than earlier +100/-100/100"
+    },
+    {
+      "style": "neutral",
+      "title": "自然",
+      "tone": -70,
+      "color": -15,
+      "palette_percent": 100,
+      "source": "video ~35s; later than +10/-16/100"
+    },
+    {
+      "style": "radiant",
+      "title": "耀目",
+      "tone": 35,
+      "color": 30,
+      "palette_percent": 100,
+      "source": "video ~38-40s; later than -45/-20/100"
+    },
+    {
+      "style": "warm",
+      "title": "温馨",
+      "tone": -75,
+      "color": -20,
+      "palette_percent": 100,
+      "source": "video ~49-50s; later than +100/-100/100"
     }
   ],
-  "mixed_batch_cautions": [
-    "Other screenshots show Pearl or unlabeled custom panels; do not assign them to Cool Rose.",
-    "Several color-chart photos show different style/intensity appearances but have no reliable one-to-one style/position labels; retain as unmatched captures.",
-    "Source RGB PNG is the common chart, not a camera output baseline. A photographed Standard reference shot from the same session is needed for quantitative fitting.",
-    "Apple scene-adaptive photographic processing cannot be fully reproduced by screen-chart LUT alone."
+  "unchanged_neutral_defaults": [
+    "standard",
+    "cool",
+    "ethereal",
+    "dramatic",
+    "luminous",
+    "monochrome",
+    "fuji400",
+    "kodak800",
+    "fujiCyan",
+    "kodakWarmYellow",
+    "fujiProvia",
+    "fujiVelvia",
+    "fujiAstia",
+    "fujiRealaAce",
+    "fujiClassicChrome",
+    "fujiClassicNeg",
+    "fujiProNeg",
+    "fujiEterna",
+    "fujiEternaBB"
   ],
-  "runtime_changes": false
+  "unmatched_or_unconfirmed_from_video": [
+    {
+      "observed_title": "中性",
+      "time": "~5s",
+      "reason": "No unambiguous same-title YCam case. Do not confuse with YCam '自然'"
+    },
+    {
+      "observed_title": "反差色",
+      "time": "~41-44s",
+      "last_observed": {
+        "tone": -76,
+        "color": 19,
+        "palette_percent": 100
+      },
+      "reason": "No same-title YCam case"
+    },
+    {
+      "observed_title": "安静",
+      "time": "~45-46s",
+      "reason": "No same-title YCam case"
+    },
+    {
+      "observed_title": "缥缈",
+      "time": "~52-54s",
+      "last_observed": {
+        "tone": 68,
+        "color": -15,
+        "palette_percent": 100
+      },
+      "reason": "No same-title YCam case. May differ from YCam 空灵"
+    },
+    {
+      "observed_title": "暗色黑白",
+      "time": "~55-58s",
+      "last_observed": {
+        "tone": -100,
+        "color": 0,
+        "palette_percent": 50
+      },
+      "reason": "Do not equate with generic YCam 黑白"
+    },
+    {
+      "observed_title": "黑白对比",
+      "time": "~59-61s",
+      "reason": "No same-title YCam case"
+    }
+  ],
+  "quality_and_scope": {
+    "all_uploaded_chart_images_are_shared_RGB_chart": true,
+    "some_chart_photos_have_4096_identifiable_patches": true,
+    "chart_photos_have_NO_verified_pairing_to_style_control_per_frame": true,
+    "measured_screen_photography_not_apple_isp": true,
+    "changes_to_PhotoStyleResponse": false,
+    "changes_to_LookRecipe": false,
+    "changes_to_UI_layout": false,
+    "changes_to_LUT_assets": false,
+    "unmatched_photo_pixels_are_not_used_to_fit_style_specific_color_luts": true
+  }
 }

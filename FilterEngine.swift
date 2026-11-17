@@ -120,9 +120,10 @@ final class FilterEngine {
         return Snapshot(settings: s, recipe: recipe, cube: cube)
     }
 
-    /// 用户调整始终以 (色调 0, 颜色 0) 为中性原点，强度初始 100。
-    /// 不把历史截图里的 45/90/100 等读数写入任何风格的默认值。
-    /// Apple 摄影风格的专有算法未公开，YCam 的系数是经参考照片校准的独立实现。
+    /// 色调/颜色算法以 (0,0) 为数学中性点；各风格的首次进入
+    /// UI 位置/调色板强度由 StyleSettings.restoreStyleControls() 决定。
+    /// 这些截图测得的 UI 默认值不等同于 Apple 专有 ISP 系数；
+    /// 不改动独立风格配方或已校准的 Pearl 色彩曲线。
     static func effectiveRecipe(for s: StyleSettings) -> LookRecipe {
         let k = Float(min(1, max(0, s.intensity)))
         // Keep Apple-style traditional filters and YCam's 28 Photographic
