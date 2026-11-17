@@ -10,6 +10,8 @@ on:
       - ".github/workflows/calibrate-photos-5min.yml"
       - "tools/ycam_50m_photo_proxy.py"
       - "calibration/iphone16pro_50m_sufficient_stats.json"
+      - "calibration/iphone16pro_recovered_113_photo_samples.b85"
+      - "tools/ycam_each_image_10m.py"
 
 concurrency:
   group: ycam-iphone16pro-50m-five-minute
@@ -44,12 +46,18 @@ jobs:
           OMP_NUM_THREADS: "1"
         run: python tools/ycam_50m_photo_proxy.py --target 50000000 --seconds 155
 
+      - name: Verify 10 million fast color-proxy candidates for each recovered source image in this batch
+        env:
+          OPENBLAS_NUM_THREADS: "1"
+          OMP_NUM_THREADS: "1"
+        run: python tools/ycam_each_image_10m.py --images-per-run 10 --seconds 120
+
       - name: Upload auditable real-count surrogate color check report
         if: always()
         uses: actions/upload-artifact@v6
         with:
           name: ycam-iphone16pro-50m
-          path: reports/iphone16pro_50m/latest.json
+          path: reports/iphone16pro_50m/
           if-no-files-found: warn
           retention-days: 3
 
@@ -68,6 +76,9 @@ jobs:
           fi
 
 # The old workflow that fetched Wikimedia Commons photos has been replaced.
-# Only derived parameters computed from user's iPhone16Pro RGB chart photos are used.
+# Only derived RGB sample statistics from user's iPhone16Pro photos/screenshots are used.
 # 50 million means first-order quadratic candidate SCORES, not actual Apple
 # camera photo renders. This workflow never edits Styles.swift or publishes IPA.
+
+# Per-image 10M test: 10 unique photos per five-minute run, rotating through
+# 113 distinct recovered files. Checks are not full renders and do not change filters.
