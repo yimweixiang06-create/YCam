@@ -1,0 +1,96 @@
+{
+  "schema": 1,
+  "date": "2026-11-17",
+  "source": "Only user-shot iPhone 16 Pro Apple Camera RGB chart photos and screenshots/recording for style controls; NOT Apple-issued imagery",
+  "trials_requested": 1000000,
+  "actual_candidate_screenings": 1000000,
+  "per_style_candidate_screenings": 500000,
+  "candidate_screening": "Quadratic six-parameter first-order CIELAB color response SURROGATE derived from all 3072 training patches for each style; 1M cheap parameter comparisons, NOT 1M Core Image full renders",
+  "actual_full_nonlinear_CPU_checks": 132,
+  "color_chart_total_per_image": 4096,
+  "training_patch_positions_per_style": 3072,
+  "validation_patch_positions_per_style": 1024,
+  "validation_note": "Different RGB patch indices held out for this round, BUT the source photographs were consulted in prior rounds; NOT independent same-scene camera validation.",
+  "source_association": "Cool Rose IMG_6707.jpg with nearby Apple Camera screenshot; Amber IMG_6729.jpg with nearby screenshot; point associations inferred, not verified from photo metadata.",
+  "display_target_limit": "Standard reference from earlier photo session, no fixed AE/AWB or calibrated screen. Objective is CIELAB DeltaE76 PHOTO proxy, not official Apple ISP or DeltaE2000.",
+  "reproducibility": {
+    "fixed_seed": 202611172139,
+    "reproducible": true,
+    "zip_filename": "YCam_iPhone16Pro_1Million_Verification_Kit.zip",
+    "zip_sha256": "63f3603a78e3a95dec76c0e9076190cc3f6bbe726ba133bc658e77f80d77dfe9",
+    "full_report_sha256": "266419491ca37fe9a1ad0a469ab0a8196d56036d463549ad3aed9b304f46be11",
+    "reproducer_note": "Small ZIP provided in the ChatGPT conversation, includes derived 4096 RGB arrays and executable Python; complete raw user photos/video not redistributed."
+  },
+  "results": {
+    "coolRose": {
+      "photo": "IMG_6707.jpg",
+      "point": [
+        100,
+        100
+      ],
+      "strength_percent": 75,
+      "screened": 500000,
+      "accepted": true,
+      "validation_dE76_proxy_before": 15.14301,
+      "validation_dE76_proxy_after": 15.04116,
+      "validation_improvement_percent": 0.6726,
+      "train_before": 14.985,
+      "train_after": 14.89442,
+      "full_color_groups_ok": true,
+      "boundary_fraction_before": 0.628418,
+      "boundary_fraction_after": 0.625,
+      "before": {
+        "exposure": 0.00957,
+        "contrast": 0.05699,
+        "saturation": 0.95261,
+        "temperature": -0.15735,
+        "tint": 0.15183,
+        "whiteRoll": 0.11416
+      },
+      "after": {
+        "exposure": 0.01006,
+        "contrast": 0.05399,
+        "saturation": 0.94761,
+        "temperature": -0.16335,
+        "tint": 0.14949,
+        "whiteRoll": 0.11627
+      }
+    },
+    "amber": {
+      "photo": "IMG_6729.jpg",
+      "point": [
+        100,
+        100
+      ],
+      "strength_percent": 100,
+      "screened": 500000,
+      "accepted": false,
+      "reason": "Improvement of 0.06821 dE76 proxy is below the declared 0.07 absolute improvement acceptance cutoff, preserve distinction from Gold.",
+      "validation_dE76_proxy_before": 24.38113,
+      "validation_dE76_proxy_candidate": 24.31292,
+      "validation_improvement_percent": 0.2798,
+      "boundary_fraction_before": 0.481201,
+      "boundary_fraction_candidate": 0.476562,
+      "all_color_groups_ok": true,
+      "unchanged": {
+        "exposure": -0.01762,
+        "contrast": 0.09485,
+        "saturation": 1.06519,
+        "temperature": 0.31284,
+        "tint": 0.10681,
+        "whiteRoll": 0.09285
+      }
+    }
+  },
+  "protected": [
+    "pearl color recipe",
+    "gold",
+    "amber",
+    "other photographic styles",
+    "traditional filters",
+    "UI",
+    "video pipeline"
+  ],
+  "all_37_recipe_regression": "Separate all 4096 RGB chart color regression for every recipe in GitHub Actions, not 1M measured full-color camera ISP images.",
+  "claim_limit": "No measured absolute percent Apple faithfulness; screenshot/recording data cannot supply Apple hidden ISP or remove screen/camera metrology error."
+}
