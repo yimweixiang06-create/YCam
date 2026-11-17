@@ -16,7 +16,7 @@ for name,info,rec_key in [("coolRose",x["results"]["coolRose"],"new_recipe"),("a
     row=next((v for v in s.splitlines() if v.strip().startswith("case ."+name+": return LookRecipe(")),None)
     assert row is not None,name
     for k,v in info[rec_key].items():
-        m=re.search(r"\\b"+k+r":\\s*(-?[0-9.]+)",row)
+        m=re.search(r"\b"+k+r":\s*(-?[0-9.]+)",row)
         assert m and abs(float(m.group(1))-v)<.000001,(name,k,v)
 assert "case .pearl: return LookRecipe(" in s
 assert "case .gold: return LookRecipe(" in s
