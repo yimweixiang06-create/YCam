@@ -1,0 +1,108 @@
+{
+  "schema": 1,
+  "date": "2026-11-17",
+  "title": "iPhone16Pro same-phone chart photo, 1,000 candidate trials per style",
+  "scope": "Round-three color recipe refinement ONLY for chart-associated Cool Rose and Amber; all other 26 photographic styles and 10 traditional filters untouched; existing control positions/UI untouched",
+  "source_order": "Latest user iPhone 16 Pro camera screenshots and photos. Same-style repeated UI entries use latest known one. The 61.73s video shows UI/control values and a web browser in the viewfinder, NOT a 4096-card chart, therefore it was not used as a per-patch color target.",
+  "actual_trials_per_style": 1000,
+  "actual_trial_total": 2000,
+  "random_seed": 20261117,
+  "loss": "CIELAB D65 DeltaE76 proxy using Python port of FilterEngine baked recipe + approximate Core Image palette transform; 384 training and 256 held-out patch RGB triplets, with bounded parameters and regularization. NOT a YCam phone capture; NOT DeltaE2000; NOT a verified Apple camera similarity score.",
+  "source_files": [
+    {
+      "name": "pearl_alignment_standard.jpg",
+      "role": "User explicitly confirmed Standard capture in earlier round; different session (not a colorimeter measurement)",
+      "sha256": "5097c95d4c1961f585509e4adfb8216d0ed7ff5e75f1b3c5ccaf3773bcf4d161"
+    },
+    {
+      "name": "IMG_6707.jpg",
+      "role": "Cool Rose associated with neighboring IMG_6705/IMG_6706; point association inferred, not EXIF",
+      "sha256": "1b6b08150839b8bc268d76a1492b884556d8012bac19f5086670179956d7fe68"
+    },
+    {
+      "name": "IMG_6729.jpg",
+      "role": "Amber associated with neighboring IMG_6727/IMG_6728; one fiducial inferred, moderate alignment",
+      "sha256": "b0ed7cd04222e0ba036667f83c4ef8ace296b0b64527883e95d9660660d8ac01"
+    },
+    {
+      "name": "ScreenRecording_11-17-2026 18-37-52_1.mp4",
+      "role": "Style names, initial/second click controls only; not per-RGB chart matching",
+      "sha256": "a705deced5cf1100849e03e9d70afff2dfc22b8a5ba61665c1f5eaddd877bb01"
+    }
+  ],
+  "model_limits": [
+    "Monitor white point, automatic exposure and automatic white balance vary between sessions",
+    "Only CPU proxy for CIToneCurve/CIVibrance/CIColorControls, no exact Core Image/GPU validation",
+    "JPEG captures and partial fiducial recovery limit pixel accuracy",
+    "No scene-matched native-vs-YCam iPhone photo pairs and no real iOS device ΔE2000 evaluation",
+    "The strongest full-model solution was blended conservatively before deployment"
+  ],
+  "results": {
+    "coolRose": {
+      "sample": "IMG_6707.jpg",
+      "point": {
+        "tone": 100,
+        "color": 100,
+        "palette": 75
+      },
+      "trial_count": 1000,
+      "training_patches": 384,
+      "heldout_patches": 256,
+      "holdout_dE76_proxy_before": 15.471,
+      "holdout_dE76_proxy_best_unblended": 14.065,
+      "holdout_dE76_proxy_deployed": 14.741,
+      "holdout_proxy_reduction_percent": 4.72,
+      "blend_strength": 0.55,
+      "old": {
+        "exposure": 0.005,
+        "contrast": 0.085,
+        "saturation": 1.015,
+        "temperature": -0.13,
+        "tint": 0.16,
+        "whiteRoll": 0.1
+      },
+      "new": {
+        "exposure": 0.00702,
+        "contrast": 0.06292,
+        "saturation": 0.97375,
+        "temperature": -0.13966,
+        "tint": 0.15302,
+        "whiteRoll": 0.11364
+      }
+    },
+    "amber": {
+      "sample": "IMG_6729.jpg",
+      "point": {
+        "tone": 100,
+        "color": 100,
+        "palette": 100
+      },
+      "trial_count": 1000,
+      "training_patches": 384,
+      "heldout_patches": 256,
+      "holdout_dE76_proxy_before": 18.581,
+      "holdout_dE76_proxy_best_unblended": 18.243,
+      "holdout_dE76_proxy_deployed": 18.392,
+      "holdout_proxy_reduction_percent": 1.02,
+      "blend_strength": 0.5,
+      "old": {
+        "exposure": -0.03,
+        "contrast": 0.1,
+        "saturation": 1.08,
+        "temperature": 0.32,
+        "tint": 0.11,
+        "whiteRoll": 0.09
+      },
+      "new": {
+        "exposure": -0.00937,
+        "contrast": 0.09141,
+        "saturation": 1.05532,
+        "temperature": 0.30807,
+        "tint": 0.10468,
+        "whiteRoll": 0.09475
+      }
+    }
+  },
+  "excluded_candidates": "IMG_6708/IMG_6729 have incomplete fiducial geometry; IMG_6709/IMG_6723/IMG_6732 low-chroma captures lack trusted exact style/point association and were not treated as labels for other recipes. All other Apple/YCam style formulas are protected pending unequivocal reference image mapping.",
+  "cross_validation": "An untouched quarter of eligible RGB patches was used to evaluate the fitted candidate. Improves proxy objective, but no guarantee on real-world photographs."
+}
