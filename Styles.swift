@@ -242,8 +242,8 @@ enum CameraStyle: String, CaseIterable, Identifiable {
         switch self {
         case .standard: return LookRecipe()
         case .pearl: return LookRecipe(exposure: -0.015, contrast: 0.065, saturation: 1.01, vibrance: 0.04, temperature: 0.01, tint: 0.035, shadowTint: rgb(0.014, -0.005, 0.017), highlightTint: rgb(0.001, 0.001, 0.001), whiteRoll: 0.10)
-        case .amber: return LookRecipe(exposure: -0.030, contrast: 0.090, saturation: 1.06, temperature: 0.30, tint: 0.09, highlightTint: rgb(0.016, 0.002, -0.010), whiteRoll: 0.09)
-        case .gold: return LookRecipe(exposure: 0.005, contrast: 0.085, saturation: 0.99, temperature: 0.22, tint: -0.075, highlightTint: rgb(0.007, 0.008, -0.009), blackLift: 0.008, whiteRoll: 0.10)
+        case .amber: return LookRecipe(exposure: -0.030, contrast: 0.10, saturation: 1.08, temperature: 0.32, tint: 0.11, highlightTint: rgb(0.019, 0.002, -0.012), whiteRoll: 0.09)
+        case .gold: return LookRecipe(exposure: 0.012, contrast: 0.075, saturation: 0.97, temperature: 0.17, tint: -0.10, highlightTint: rgb(0.007, 0.009, -0.006), blackLift: 0.008, whiteRoll: 0.10)
         case .roseGold: return LookRecipe(exposure: -0.025, contrast: 0.055, saturation: 1.015, temperature: 0.145, tint: 0.17, highlightTint: rgb(0.008, 0.001, 0.008), whiteRoll: 0.08)
         case .coolRose: return LookRecipe(exposure: 0.005, contrast: 0.085, saturation: 1.015, temperature: -0.13, tint: 0.16, highlightTint: rgb(0.006, 0.000, 0.010), whiteRoll: 0.10)
         case .cool: return LookRecipe(exposure: -0.03, contrast: 0.08, saturation: 1.00, temperature: -0.28, tint: -0.03, highlightTint: rgb(-0.003, 0.004, 0.011))
