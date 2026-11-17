@@ -1,0 +1,63 @@
+{
+  "schema": 1,
+  "date": "2026-11-17",
+  "purpose": "Reference values for independent Apple Photographic Style calibration from user's most recent screenshot batch. Observation register only; do not auto-apply to runtime before image-to-style association and validation.",
+  "selection_precedence": {
+    "rule": "If the same style is opened/selected twice, the second (later) capture wins. Ignore earlier position/palette for that style. Identical reuploads are duplicates, not additional measurements.",
+    "scope": "Within the user's latest batch, per style; newest explicit user correction wins.",
+    "palette_percent_not_normalized": true
+  },
+  "recognized_latest_screenshots": [
+    {
+      "style": "coolRose",
+      "display": "冷调玫瑰色 Cool Rose",
+      "style_page_image": "IMG_6705.png",
+      "custom_page_image": "IMG_6706.png",
+      "tone": 100,
+      "color": 100,
+      "intensity_percent": 75,
+      "status": "observable UI values; user says latest opening/second click overrides prior",
+      "photo_color_target_confirmed": false
+    },
+    {
+      "style": "roseGold",
+      "display": "玫瑰金色 Rose Gold",
+      "style_page_image": "IMG_6734.png",
+      "custom_page_image": "IMG_6725.png",
+      "tone": 8,
+      "color": -1,
+      "intensity_percent": 100,
+      "status": "style association inferred from batch sequence; confirm before applying runtime default",
+      "photo_color_target_confirmed": false
+    },
+    {
+      "style": "amber",
+      "display": "琥珀色 Amber",
+      "style_page_image": "IMG_6727.png",
+      "custom_page_image": "IMG_6728.png",
+      "tone": 100,
+      "color": 100,
+      "intensity_percent": 100,
+      "status": "style association inferred from batch sequence; confirm before applying runtime default",
+      "photo_color_target_confirmed": false
+    },
+    {
+      "style": "gold",
+      "display": "金色 Gold",
+      "style_page_image": "IMG_6726.png",
+      "custom_page_image": null,
+      "tone": null,
+      "color": null,
+      "intensity_percent": null,
+      "status": "style selection only; no numerical palette setting in this shot",
+      "photo_color_target_confirmed": false
+    }
+  ],
+  "mixed_batch_cautions": [
+    "Other screenshots show Pearl or unlabeled custom panels; do not assign them to Cool Rose.",
+    "Several color-chart photos show different style/intensity appearances but have no reliable one-to-one style/position labels; retain as unmatched captures.",
+    "Source RGB PNG is the common chart, not a camera output baseline. A photographed Standard reference shot from the same session is needed for quantitative fitting.",
+    "Apple scene-adaptive photographic processing cannot be fully reproduced by screen-chart LUT alone."
+  ],
+  "runtime_changes": false
+}
