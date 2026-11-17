@@ -22,7 +22,7 @@ expected = {
 observed = {
     name: (int(tone), int(color), float(intensity))
     for name, tone, color, intensity in re.findall(
-        r"case \\.(\\w+): return \\(\\s*(-?\\d+)\\s*,\\s*(-?\\d+)\\s*,\\s*([0-9.]+)\\s*\\)", body
+        r"case \.(\w+): return \(\s*(-?\d+)\s*,\s*(-?\d+)\s*,\s*([0-9.]+)\s*\)", body
     )
 }
 assert observed == expected, (observed, expected)
