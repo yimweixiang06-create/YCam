@@ -1,0 +1,88 @@
+{
+  "schema": 1,
+  "date": "2026-11-17",
+  "trial_count_total": 10000,
+  "per_style_trials": 5000,
+  "calibration_device": "User's iPhone 16 Pro only",
+  "method": "6-parameter bounded stochastic training search, 384 sampled patches for training, 256 disjoint patches from same image held out for testing; conservative predetermined parameter blending",
+  "seed_base": 20261117005,
+  "measurement": "CIELAB DeltaE76 color-chart photograph PROXY; not Apple-native-vs-YCam matched shots, not device-validation, not DeltaE2000 or percentage fidelity",
+  "source_images": {
+    "standard": "User earlier-session photographed Standard iPhone16Pro RGB chart",
+    "coolRose": "IMG_6707.jpg, point inferred from adjacent screenshot (100,100,75)",
+    "amber": "IMG_6729.jpg, point inferred from adjacent screenshot (100,100,100)"
+  },
+  "models": {
+    "coolRose": {
+      "evaluations": 5000,
+      "training_patches": 384,
+      "heldout_patches": 256,
+      "train_loss_start": 14.86424,
+      "train_loss_best": 14.11897,
+      "heldout_loss_before": 14.96137,
+      "heldout_loss_candidate_full": 14.16175,
+      "heldout_loss_selected": 14.70733,
+      "heldout_improvement_percent": 1.698,
+      "accepted_candidate_updates": 19,
+      "blend": 0.3,
+      "applied": true,
+      "starting_recipe": {
+        "exposure": 0.00702,
+        "contrast": 0.06292,
+        "saturation": 0.97375,
+        "temperature": -0.13966,
+        "tint": 0.15302,
+        "whiteRoll": 0.11364
+      },
+      "new_recipe": {
+        "exposure": 0.00922,
+        "contrast": 0.0596,
+        "saturation": 0.95811,
+        "temperature": -0.15266,
+        "tint": 0.15248,
+        "whiteRoll": 0.11341
+      }
+    },
+    "amber": {
+      "evaluations": 5000,
+      "training_patches": 384,
+      "heldout_patches": 256,
+      "train_loss_start": 22.26564,
+      "train_loss_best": 22.13443,
+      "heldout_loss_before": 20.04985,
+      "heldout_loss_candidate_full": 19.71601,
+      "heldout_loss_selected": 19.98063,
+      "heldout_improvement_percent": 0.345,
+      "accepted_candidate_updates": 10,
+      "blend": 0.2,
+      "applied": false,
+      "reason": "Proxy gain too small compared with separate-session uncertainty and reduces distinction from Gold: synthetic Amber vs Gold mean DeltaE76 ~4.075 to ~4.025, close to 4.0 minimum.",
+      "starting_recipe": {
+        "exposure": -0.01762,
+        "contrast": 0.09485,
+        "saturation": 1.06519,
+        "temperature": 0.31284,
+        "tint": 0.10681,
+        "whiteRoll": 0.09285
+      },
+      "candidate_recipe": {
+        "exposure": -0.01301,
+        "contrast": 0.08907,
+        "saturation": 1.06503,
+        "temperature": 0.3121,
+        "tint": 0.10716,
+        "whiteRoll": 0.09396
+      }
+    }
+  },
+  "protected": "Pearl original colors, Gold, Amber, all other photographic styles, all traditional filters, all UI and video recording code",
+  "limits": [
+    "Different Standard vs style capture sessions; automatic white balance and exposure uncalibrated",
+    "No Apple/YCam matched real scene and no iOS Core Image GPU round-trip",
+    "RGB chart photographed on monitor is not a device-independent target",
+    "Photo/style position inferred from adjacent screenshots, not verified photo metadata",
+    "Held-out patch test tests colors in the same session/photo, not generalization to other scenes"
+  ],
+  "repro_bundle": "YCam_iPhone16Pro_5000_Optimization.zip; SHA256 971d0b28616000c49435e44a093a1a651b2c235dd5f4bb7b077504dc7573be73; contains raw extracted RGB NPZ input arrays and runnable Python optimizer",
+  "score_assessment": "Around 65/100 subjective PRELIMINARY, no measured Apple-faithfulness rating possible"
+}

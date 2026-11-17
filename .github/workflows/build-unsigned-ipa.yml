@@ -244,6 +244,7 @@ jobs:
           python3 tools/static_check.py
           python3 tools/verify_neutral_controls.py
           python3 tools/verify_iphone16pro_1000.py
+          python3 tools/verify_iphone16pro_5000.py
           python3 tools/verify_user_layout_max.py
           python3 tools/verify_palette_screenshot_refs.py
           python3 tools/verify_photographic_style_scene_refs.py
