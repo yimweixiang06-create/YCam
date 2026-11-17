@@ -245,7 +245,7 @@ enum CameraStyle: String, CaseIterable, Identifiable {
         case .amber: return LookRecipe(exposure: -0.01762, contrast: 0.09485, saturation: 1.06519, temperature: 0.31284, tint: 0.10681, highlightTint: rgb(0.019, 0.002, -0.012), whiteRoll: 0.09285)
         case .gold: return LookRecipe(exposure: 0.012, contrast: 0.075, saturation: 0.97, temperature: 0.17, tint: -0.10, highlightTint: rgb(0.007, 0.009, -0.006), blackLift: 0.008, whiteRoll: 0.10)
         case .roseGold: return LookRecipe(exposure: -0.025, contrast: 0.055, saturation: 1.015, temperature: 0.145, tint: 0.17, highlightTint: rgb(0.008, 0.001, 0.008), whiteRoll: 0.08)
-        case .coolRose: return LookRecipe(exposure: 0.01006, contrast: 0.05399, saturation: 0.94761, temperature: -0.16335, tint: 0.14949, highlightTint: rgb(0.006, 0.000, 0.010), whiteRoll: 0.11627)
+        case .coolRose: return LookRecipe(exposure: 0.01065, contrast: 0.05335, saturation: 0.93634, temperature: -0.16683, tint: 0.14898, highlightTint: rgb(0.006, 0.000, 0.010), whiteRoll: 0.11645)
         case .cool: return LookRecipe(exposure: -0.03, contrast: 0.08, saturation: 1.00, temperature: -0.28, tint: -0.03, highlightTint: rgb(-0.003, 0.004, 0.011))
         case .radiant: return LookRecipe(exposure: 0.015, contrast: 0.10, saturation: 1.045, vibrance: 0.12, shadowTint: rgb(-0.004, 0.004, 0.008), highlightTint: rgb(0.006, 0.001, 0.006), whiteRoll: 0.16)
         case .neutral: return LookRecipe(exposure: 0.00, contrast: 0.015, saturation: 0.995, temperature: -0.025, whiteRoll: 0.06)

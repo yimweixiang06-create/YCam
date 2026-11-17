@@ -20,6 +20,10 @@ assert not d["results"]["amber"]["accepted"]
 for name,details in d["results"].items():
     line=next((l for l in swift.splitlines() if l.strip().startswith("case ."+name+": return LookRecipe(")),None)
     assert line is not None,name
+    # Historical one-million screening is not the live recipe for Cool Rose;
+    # its later independently held-out calibration has its own regression guard.
+    if name == "coolRose":
+        continue
     recipe=details["after"] if details["accepted"] else details["unchanged"]
     for k,v in recipe.items():
         assert f"{k}: {v}" in line,(name,k,v)

@@ -1,0 +1,140 @@
+{
+  "schema": 1,
+  "date": "2026-11-18",
+  "intent": "Apply measured, held-out improvement to a real YCam color formula after auditing 113 user-uploaded iPhone16Pro photos and screenshots.",
+  "source_material": {
+    "distinct_images_reviewed": 113,
+    "Apple_camera_whitepaper_screenshots": 75,
+    "Apple_camera_RGB_chart_screenshots": 9,
+    "RGB_chart_photo_captures": 21,
+    "other_app_UI_screenshots": 8,
+    "matched_style_chart_for_fit": [
+      "IMG_6707.jpg (Cool Rose, label adjacent; assumed tone 100, color 100, palette 75)",
+      "IMG_6729.jpg (Amber, label adjacent; assumed tone 100, color 100, palette 100)"
+    ],
+    "standard_reference": "pearl_alignment_standard.jpg (different session)",
+    "warning": "Only two source charts can be linked to a given photographic style position; 113-image proxy similarity is not an Apple-to-YCam target per style."
+  },
+  "method": "CPU NumPy port of YCam LookRecipe + approximate CI palette. Powell optimize 6 independent parameters with narrow bounds, stratified blue-channel heldout RGB patches not in fit. Evaluate every nonclipped captured patch across lightness, chroma and R/G/B groups. No Apple ISP fidelity claim.",
+  "results": {
+    "coolRose": {
+      "applied": true,
+      "source": "IMG_6707.jpg",
+      "valid_color_patches": 2054,
+      "fit_patches": 827,
+      "heldout_patches": 400,
+      "heldout_mixed_proxy_error_before": 14.46143,
+      "heldout_mixed_proxy_error_after": 14.28981,
+      "heldout_reduction_percent": 1.1868,
+      "all_valid_patches_mean_deltaE76_proxy_before": 15.1749,
+      "all_valid_patches_mean_deltaE76_proxy_after": 15.0143,
+      "all_valid_color_proxy_improvement_percent": 1.058,
+      "percentage_of_patches_better": 76.97,
+      "groups": {
+        "dark": {
+          "n": 567,
+          "before": 19.74,
+          "after": 19.5352
+        },
+        "midtone": {
+          "n": 1230,
+          "before": 14.3275,
+          "after": 14.1788
+        },
+        "highlight": {
+          "n": 257,
+          "before": 9.1584,
+          "after": 9.0389
+        },
+        "low_chroma": {
+          "n": 448,
+          "before": 14.6618,
+          "after": 14.5738
+        },
+        "high_chroma": {
+          "n": 321,
+          "before": 13.9746,
+          "after": 13.8877
+        },
+        "red_dominant": {
+          "n": 782,
+          "before": 18.6545,
+          "after": 18.4727
+        },
+        "green_dominant": {
+          "n": 703,
+          "before": 11.5281,
+          "after": 11.3875
+        },
+        "blue_dominant": {
+          "n": 569,
+          "before": 14.8983,
+          "after": 14.7422
+        }
+      },
+      "previous_recipe": {
+        "exposure": 0.01006,
+        "contrast": 0.05399,
+        "saturation": 0.94761,
+        "temperature": -0.16335,
+        "tint": 0.14949,
+        "whiteRoll": 0.11627
+      },
+      "new_recipe": {
+        "exposure": 0.01065,
+        "contrast": 0.05335,
+        "saturation": 0.93634,
+        "temperature": -0.16683,
+        "tint": 0.14898,
+        "whiteRoll": 0.11645
+      }
+    },
+    "amber": {
+      "applied": false,
+      "source": "IMG_6729.jpg",
+      "valid_color_patches": 2473,
+      "fit_patches": 1002,
+      "heldout_patches": 470,
+      "heldout_proxy_before": 20.75791,
+      "heldout_candidate": 20.69836,
+      "heldout_reduction_percent": 0.2869,
+      "amber_vs_gold_24color_style_deltaE76_current": 4.594,
+      "amber_vs_gold_candidate": 4.385,
+      "reason": "Too little held-out gain to justify reducing independence from Gold. Keep shipped recipe.",
+      "unchanged_recipe": {
+        "exposure": -0.01762,
+        "contrast": 0.09485,
+        "saturation": 1.06519,
+        "temperature": 0.31284,
+        "tint": 0.10681,
+        "whiteRoll": 0.09285
+      }
+    }
+  },
+  "guardrails": {
+    "color_recipes_modified": [
+      "coolRose"
+    ],
+    "untouched": [
+      "pearl",
+      "gold",
+      "roseGold",
+      "amber",
+      "neutral",
+      "vibrant",
+      "warm",
+      "radiant",
+      "all other photographic styles",
+      "traditional filters",
+      "UI"
+    ],
+    "possible_apple_native_fidelity_claim": false,
+    "device_level_measured_deltaE2000": false
+  },
+  "limitations": [
+    "Source photographs lack controlled paired Apple-native vs YCam output",
+    "Reference standard is older session; screen-white balance and exposure not locked",
+    "Different color grid positions are held out but image/session is not independent",
+    "Model approximates Core Image; on-phone output needs real shooting comparison"
+  ]
+}
