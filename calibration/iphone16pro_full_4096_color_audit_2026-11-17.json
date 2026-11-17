@@ -1,0 +1,282 @@
+{
+  "schema": 1,
+  "date": "2026-11-17",
+  "device": "User's iPhone 16 Pro; no external filter recipes",
+  "patches_per_photo": 4096,
+  "photo_quality": [
+    {
+      "filename": "IMG_6707.jpg",
+      "total_patches": 4096,
+      "reliable_patches": 2054,
+      "unreliable_patches": 2042,
+      "mean_rgb_delta_255": [
+        24.55,
+        29.59,
+        41.18
+      ],
+      "mean_absolute_rgb_delta_255": 39.19
+    },
+    {
+      "filename": "IMG_6708.jpg",
+      "total_patches": 4096,
+      "reliable_patches": 2112,
+      "unreliable_patches": 1984,
+      "mean_rgb_delta_255": [
+        -22.85,
+        -15.38,
+        -6.85
+      ],
+      "mean_absolute_rgb_delta_255": 36.16
+    },
+    {
+      "filename": "IMG_6709.jpg",
+      "total_patches": 4096,
+      "reliable_patches": 3150,
+      "unreliable_patches": 946,
+      "mean_rgb_delta_255": [
+        2.68,
+        5.26,
+        18.49
+      ],
+      "mean_absolute_rgb_delta_255": 41.96
+    },
+    {
+      "filename": "IMG_6723.jpg",
+      "total_patches": 4096,
+      "reliable_patches": 3212,
+      "unreliable_patches": 884,
+      "mean_rgb_delta_255": [
+        51.16,
+        49.94,
+        59.94
+      ],
+      "mean_absolute_rgb_delta_255": 57.86
+    },
+    {
+      "filename": "IMG_6724.jpg",
+      "total_patches": 4096,
+      "reliable_patches": 2056,
+      "unreliable_patches": 2040,
+      "mean_rgb_delta_255": [
+        5.15,
+        10.53,
+        18.56
+      ],
+      "mean_absolute_rgb_delta_255": 25.67
+    },
+    {
+      "filename": "IMG_6729.jpg",
+      "total_patches": 4096,
+      "reliable_patches": 2473,
+      "unreliable_patches": 1623,
+      "mean_rgb_delta_255": [
+        36.28,
+        30.93,
+        31.5
+      ],
+      "mean_absolute_rgb_delta_255": 45.33
+    },
+    {
+      "filename": "IMG_6730.jpg",
+      "total_patches": 4096,
+      "reliable_patches": 2330,
+      "unreliable_patches": 1766,
+      "mean_rgb_delta_255": [
+        10.28,
+        0.03,
+        -4.26
+      ],
+      "mean_absolute_rgb_delta_255": 18.61
+    },
+    {
+      "filename": "IMG_6731.jpg",
+      "total_patches": 4096,
+      "reliable_patches": 1705,
+      "unreliable_patches": 2391,
+      "mean_rgb_delta_255": [
+        -3.54,
+        -9.42,
+        -9.14
+      ],
+      "mean_absolute_rgb_delta_255": 26.23
+    },
+    {
+      "filename": "IMG_6732.jpg",
+      "total_patches": 4096,
+      "reliable_patches": 3129,
+      "unreliable_patches": 967,
+      "mean_rgb_delta_255": [
+        16.48,
+        8.61,
+        12.13
+      ],
+      "mean_absolute_rgb_delta_255": 41.65
+    },
+    {
+      "filename": "IMG_6736.jpg",
+      "total_patches": 4096,
+      "reliable_patches": 1518,
+      "unreliable_patches": 2578,
+      "mean_rgb_delta_255": [
+        -1.32,
+        -5.12,
+        -3.38
+      ],
+      "mean_absolute_rgb_delta_255": 26.31
+    }
+  ],
+  "source_standard": "standard_iphone16pro_reextract_v3.npz (older session)",
+  "train_patches_per_labeled_style": 3072,
+  "heldout_patches_per_labeled_style": 1024,
+  "color_group_sizes": {
+    "dark": 833,
+    "midtone": 2217,
+    "highlight": 1046,
+    "low_chroma": 274,
+    "high_chroma": 1848,
+    "red_dominant": 1015,
+    "green_dominant": 1015,
+    "blue_dominant": 1015
+  },
+  "style_fit": {
+    "coolRose": {
+      "all_4096_evaluated": true,
+      "image": "IMG_6707.jpg",
+      "strength": 75,
+      "point": [
+        100,
+        100
+      ],
+      "point_confidence": "inferred from adjacent screenshot",
+      "opt_function_evaluations": 163,
+      "holdout_before": 15.265,
+      "holdout_after": 15.1743,
+      "holdout_proxy_improvement_percent": 0.594,
+      "applied": true,
+      "old_recipe": {
+        "exposure": 0.00922,
+        "contrast": 0.0596,
+        "saturation": 0.95811,
+        "temperature": -0.15266,
+        "tint": 0.15248,
+        "whiteRoll": 0.11341
+      },
+      "chosen_recipe": {
+        "exposure": 0.00957,
+        "contrast": 0.05699,
+        "saturation": 0.95261,
+        "temperature": -0.15735,
+        "tint": 0.15183,
+        "whiteRoll": 0.11416
+      },
+      "group_errors": {
+        "dark": {
+          "before": 20.956,
+          "after": 20.858
+        },
+        "midtone": {
+          "before": 15.729,
+          "after": 15.633
+        },
+        "highlight": {
+          "before": 10.679,
+          "after": 10.603
+        },
+        "low_chroma": {
+          "before": 15.27,
+          "after": 15.224
+        },
+        "high_chroma": {
+          "before": 14.294,
+          "after": 14.238
+        },
+        "red_dominant": {
+          "before": 20.851,
+          "after": 20.725
+        },
+        "green_dominant": {
+          "before": 11.617,
+          "after": 11.517
+        },
+        "blue_dominant": {
+          "before": 17.597,
+          "after": 17.501
+        }
+      }
+    },
+    "amber": {
+      "all_4096_evaluated": true,
+      "image": "IMG_6729.jpg",
+      "strength": 100,
+      "point": [
+        100,
+        100
+      ],
+      "point_confidence": "inferred from adjacent screenshot",
+      "opt_function_evaluations": 312,
+      "holdout_before": 25.1936,
+      "holdout_after": 25.1296,
+      "holdout_proxy_improvement_percent": 0.254,
+      "applied": false,
+      "reason": "Improvement below 0.08 DeltaE76 proxy threshold and separate photo session; preserve existing Amber/Gold distinction.",
+      "old_recipe": {
+        "exposure": -0.01762,
+        "contrast": 0.09485,
+        "saturation": 1.06519,
+        "temperature": 0.31284,
+        "tint": 0.10681,
+        "whiteRoll": 0.09285
+      },
+      "chosen_recipe": {
+        "exposure": -0.01762,
+        "contrast": 0.09485,
+        "saturation": 1.06519,
+        "temperature": 0.31284,
+        "tint": 0.10681,
+        "whiteRoll": 0.09285
+      },
+      "group_errors": {
+        "dark": {
+          "before": 29.998,
+          "after": 29.975
+        },
+        "midtone": {
+          "before": 23.795,
+          "after": 23.73
+        },
+        "highlight": {
+          "before": 35.968,
+          "after": 35.845
+        },
+        "low_chroma": {
+          "before": 27.428,
+          "after": 27.367
+        },
+        "high_chroma": {
+          "before": 29.873,
+          "after": 29.807
+        },
+        "red_dominant": {
+          "before": 26.078,
+          "after": 25.988
+        },
+        "green_dominant": {
+          "before": 37.718,
+          "after": 37.605
+        },
+        "blue_dominant": {
+          "before": 23.288,
+          "after": 23.232
+        }
+      }
+    }
+  },
+  "method": "All RGB patch positions evaluated, with black/white clipped or misregistered patches included at weight 0.15 rather than weight 1.0. scipy Powell bounded 6-parameter CPU Core Image approximation. Heldout colors never fitted. CIELAB D65 DeltaE76 proxy; NOT ΔE2000, NOT official Apple camera fidelity.",
+  "note": "Style-unknown photos are fully audited as color-patch data but NOT assigned to specific camera style. Shipped color recipe changed only for Cool Rose. Other photographic styles and UI untouched.",
+  "limitations": [
+    "Baseline and reference photos taken in different sessions, automatic white balance and exposure not controlled",
+    "Cropped images may have inaccurate pixel-to-patch registration",
+    "Hardware monitor spectral/color profile unknown",
+    "CPU proxy not Core Image GPU, no same-scene YCam vs Apple photo comparison"
+  ]
+}

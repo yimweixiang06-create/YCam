@@ -17,6 +17,10 @@ for key,info in data["models"].items():
     assert info["heldout_patches"]==256 and info["heldout_loss_selected"]<info["heldout_loss_before"]
     line=next((s for s in source.splitlines() if s.strip().startswith(f"case .{key}: return LookRecipe(")),None)
     assert line is not None, key
+    # The original 5,000-trial Cool Rose snapshot remains immutable history;
+    # a later full-4,096-patch calibration updates only that style's live recipe.
+    if key=="coolRose":
+        continue
     expected=info["new_recipe"] if info["applied"] else info["starting_recipe"]
     for parameter,value in expected.items():
         assert f"{parameter}: {value}" in line,(key,parameter,value)
