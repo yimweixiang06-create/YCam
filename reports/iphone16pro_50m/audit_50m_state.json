@@ -1,0 +1,806 @@
+{
+  "schema": 2,
+  "created_utc": "2026-11-18T09:43:09.767034+00:00",
+  "updated_utc": "2026-11-18T09:43:19.209668+00:00",
+  "source": "calibration/iphone16pro_recovered_113_photo_samples.b85",
+  "reference_format": "nine 3x3 RGB samples per user-derived image, not full original photos",
+  "unique_image_count": 113,
+  "minimum_complete_pass_per_image": 50000000,
+  "target_complete_passes_per_image": 2,
+  "real_Apple_YCam_matched_image_pairs": 0,
+  "verified_full_CoreImage_renders": 0,
+  "videos_audited": 0,
+  "styles_swift_edited": false,
+  "ipa_published": false,
+  "limitations": [
+    "One candidate comparison = one six-parameter quadratic RGB proxy score.",
+    "No pixels of original full-size images are rendered.",
+    "Nine recovered RGB samples per ID are not sufficient for actual Apple camera fidelity.",
+    "Group median is not a matched Apple native/YCam capture pair.",
+    "Video files and reference Apple/YCam paired renders are not included in this dataset.",
+    "This ledger must not be interpreted as 100% Apple reproduction."
+  ],
+  "images": {
+    "82dce7db797c": {
+      "category": "RGB_chart_screen_photo",
+      "completed_50m_passes": [
+        {
+          "image_id": "82dce7db797c",
+          "category": "RGB_chart_screen_photo",
+          "pass_number": 1,
+          "status": "COMPLETE",
+          "actual_candidate_comparisons": 50000000,
+          "required_for_one_pass": 50000000,
+          "training_rgb_proxy_sse_before": 1.15724721,
+          "training_rgb_proxy_sse_after": 1.09232605,
+          "heldout_rgb_proxy_sse_before": 0.5711188,
+          "heldout_rgb_proxy_sse_after": 0.52984757,
+          "heldout_proxy_improved": true,
+          "suggested_delta_NOT_APPLIED": [
+            0.018,
+            -0.026,
+            0.03,
+            -0.03,
+            -0.03,
+            -0.0
+          ],
+          "full_image_rendered": false,
+          "official_Apple_fidelity_verified": false,
+          "elapsed_seconds": 4.628,
+          "run_key": "44278523098-1"
+        }
+      ],
+      "attempts": [
+        {
+          "run_key": "44278523098-1",
+          "pass_number": 1,
+          "status": "COMPLETE",
+          "actual_candidate_comparisons": 50000000
+        }
+      ],
+      "actual_candidate_comparisons": 50000000
+    },
+    "e3c63b348ef9": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [
+        {
+          "image_id": "e3c63b348ef9",
+          "category": "Apple_screenshot_whitepaper",
+          "pass_number": 1,
+          "status": "COMPLETE",
+          "actual_candidate_comparisons": 50000000,
+          "required_for_one_pass": 50000000,
+          "training_rgb_proxy_sse_before": 0.03653979,
+          "training_rgb_proxy_sse_after": 0.02637017,
+          "heldout_rgb_proxy_sse_before": 0.01024221,
+          "heldout_rgb_proxy_sse_after": 0.00608357,
+          "heldout_proxy_improved": true,
+          "suggested_delta_NOT_APPLIED": [
+            -0.01799027,
+            0.02453223,
+            0.01887176,
+            -0.02992893,
+            0.02991618,
+            -0.02298027
+          ],
+          "full_image_rendered": false,
+          "official_Apple_fidelity_verified": false,
+          "elapsed_seconds": 4.8,
+          "run_key": "44278523098-1"
+        }
+      ],
+      "attempts": [
+        {
+          "run_key": "44278523098-1",
+          "pass_number": 1,
+          "status": "COMPLETE",
+          "actual_candidate_comparisons": 50000000
+        }
+      ],
+      "actual_candidate_comparisons": 50000000
+    },
+    "eb23964dce78": {
+      "category": "RGB_chart_screen_photo",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "6fefb5757ddf": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "4c073cc908f3": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "6044cb69705f": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "331faeb0b4ea": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "72a3a1682cf6": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "06e68ce8e812": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "c3fbcea3b2d0": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "33cc8140a2c5": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "df858f1f89e1": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "d053929f16f7": {
+      "category": "RGB_chart_screen_photo",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "38a3c427e9aa": {
+      "category": "RGB_chart_screen_photo",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "76ebbb5b25bd": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "f92e6c0f8de5": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "d5903ead74e7": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "03fb3b466d98": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "14561b63a834": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "9f42926ce734": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "551e805fc225": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "c3a87fe907fd": {
+      "category": "Apple_screenshot_RGB_chart",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "7654e7f08352": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "3b4482e3f8dc": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "9ee129694ee6": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "fbd6b4320303": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "85837bbd5f66": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "e346dbb0a5b0": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "973815038552": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "8bf286078c28": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "ad876f6b0d6b": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "2edfcb068bd9": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "1a8796d3acfd": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "26e1d2a46314": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "47ee8cc7d61b": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "639070f02f37": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "0b5d7281da75": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "0cceaf18591f": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "a33b53d4c7aa": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "0a60e3d71581": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "e6e86a8527a7": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "cf87dc881f1a": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "0855a1d12317": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "ff7a68befb4f": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "0ac691d55d36": {
+      "category": "RGB_chart_screen_photo",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "39bdfa7cd8a0": {
+      "category": "YCam_app_UI",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "56faf23d7d1e": {
+      "category": "YCam_app_UI",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "85974c7dfffd": {
+      "category": "YCam_app_UI",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "58c89cc9ebb2": {
+      "category": "YCam_app_UI",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "d3e2c294e771": {
+      "category": "YCam_app_UI",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "b22f66b6dd7b": {
+      "category": "YCam_app_UI",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "1dd583e7cb12": {
+      "category": "YCam_app_UI",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "ab54bd3056ba": {
+      "category": "YCam_app_UI",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "e66cc35d3cb4": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "079305534fdc": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "8fb96a0e10ea": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "e2842826dd8f": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "7bbf42ddac5c": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "10306e546f03": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "403b24fdb3e1": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "0976c0f9444a": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "badb1627cfe9": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "ed7a1695aaa0": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "5b6cf4de4ddc": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "4024a9c5248f": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "24579aba0ddd": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "d4e26026f2fc": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "24ef2f6c7a70": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "895cd398da75": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "b3bd120d459d": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "c45235a43b69": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "ba1d46de082d": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "04c5338b8093": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "c0e82190546f": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "fd317a733056": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "8f07184beebc": {
+      "category": "Apple_screenshot_RGB_chart",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "73758ad19af5": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "736b2cb22045": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "08f2427a44c1": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "3ef0f0b1f972": {
+      "category": "RGB_chart_screen_photo",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "c5ca94d3a395": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "70b89bfb2edf": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "96ed9294ebff": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "e5f3dd286ed5": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "467e49fe1318": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "2fc921d39ac0": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "1afb01f65005": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "994fb923f306": {
+      "category": "RGB_chart_screen_photo",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "eee521b278d2": {
+      "category": "RGB_chart_screen_photo",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "f502bd9754c8": {
+      "category": "Apple_screenshot_RGB_chart",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "468a02a5b38e": {
+      "category": "Apple_screenshot_RGB_chart",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "77be8625fdc8": {
+      "category": "Apple_screenshot_RGB_chart",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "1b6b08150839": {
+      "category": "RGB_chart_screen_photo",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "ac1a1f150dd3": {
+      "category": "RGB_chart_screen_photo",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "8c741f1848a6": {
+      "category": "RGB_chart_screen_photo",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "0b6ebb8b0c6c": {
+      "category": "RGB_chart_screen_photo",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "87c8ef64e664": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "a0d88024d3cf": {
+      "category": "RGB_chart_screen_photo",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "768c5f5f0761": {
+      "category": "RGB_chart_screen_photo",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "ef30feb0ebdf": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "e96c3ea7be63": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "7a3d792d3994": {
+      "category": "RGB_chart_screen_photo",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "7a70a52a7dc7": {
+      "category": "RGB_chart_screen_photo",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "c168d4a975fa": {
+      "category": "Apple_screenshot_RGB_chart",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "f25647b16d38": {
+      "category": "Apple_screenshot_whitepaper",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "8e55178cd51c": {
+      "category": "Apple_screenshot_RGB_chart",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "f16650aa02ff": {
+      "category": "Apple_screenshot_RGB_chart",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "b0ed7cd04222": {
+      "category": "RGB_chart_screen_photo",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "21b47d076d2a": {
+      "category": "RGB_chart_screen_photo",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "72d3546e45b9": {
+      "category": "RGB_chart_screen_photo",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "111d3f079dc3": {
+      "category": "RGB_chart_screen_photo",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "80893d98997a": {
+      "category": "Apple_screenshot_RGB_chart",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    },
+    "461eba925e06": {
+      "category": "RGB_chart_screen_photo",
+      "completed_50m_passes": [],
+      "attempts": [],
+      "actual_candidate_comparisons": 0
+    }
+  },
+  "summary": {
+    "total_unique_image_ids": 113,
+    "actual_candidate_comparisons": 100000000,
+    "unique_images_with_full_50m_pass": 2,
+    "unique_images_with_full_100m_passes": 0,
+    "categories": {
+      "Apple_screenshot_whitepaper": {
+        "total_ids": 75,
+        "complete_50m_distinct": 1,
+        "complete_100m_distinct": 0,
+        "heldout_proxy_sse_before_average_among_completed": 0.01024221,
+        "heldout_proxy_sse_after_average_among_completed": 0.00608357
+      },
+      "Apple_screenshot_RGB_chart": {
+        "total_ids": 9,
+        "complete_50m_distinct": 0,
+        "complete_100m_distinct": 0,
+        "heldout_proxy_sse_before_average_among_completed": null,
+        "heldout_proxy_sse_after_average_among_completed": null
+      },
+      "RGB_chart_screen_photo": {
+        "total_ids": 21,
+        "complete_50m_distinct": 1,
+        "complete_100m_distinct": 0,
+        "heldout_proxy_sse_before_average_among_completed": 0.5711188,
+        "heldout_proxy_sse_after_average_among_completed": 0.52984757
+      },
+      "YCam_app_UI": {
+        "total_ids": 8,
+        "complete_50m_distinct": 0,
+        "complete_100m_distinct": 0,
+        "heldout_proxy_sse_before_average_among_completed": null,
+        "heldout_proxy_sse_after_average_among_completed": null
+      }
+    },
+    "target_met": false
+  }
+}
