@@ -1,0 +1,132 @@
+name: YCam UNRELEASED Xcode and Core Image validation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/ycam-final-unreleased-validation.yml"
+  workflow_dispatch:
+
+# Strictly an audit build. It NEVER triggers the publish-release.yml workflow,
+# which listens only to "Build YCam for Sideloadly".
+permissions:
+  contents: read
+
+concurrency:
+  group: ycam-unreleased-validation
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: macos-26
+    timeout-minutes: 35
+    steps:
+      - name: Checkout exact YCam source commit
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Identify real Apple SDK and tools
+        run: |
+          set -euo pipefail
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+          swift --version
+          python3 --version
+
+      - name: Python deterministic style checks
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet --disable-pip-version-check numpy pillow scipy
+          python3 tools/static_check.py
+          python3 tools/verify_neutral_controls.py
+          python3 tools/verify_style_independence.py
+          python3 tools/verify_filter_separation.py
+          python3 tools/verify_traditional_filter_refs.py
+          python3 tools/verify_all_photographic_styles_4096.py
+          python3 tools/verify_iphone16pro_113_live_recipe.py
+
+      - name: Actually execute Core Image pipeline on synthetic source pixels
+        run: |
+          set -euo pipefail
+          swift - <<'SWIFT'
+          import Foundation
+          import CoreGraphics
+          import CoreImage
+          import CoreImage.CIFilterBuiltins
+          let source = CIImage(color: CIColor(red: 0.45, green: 0.32, blue: 0.20))
+              .cropped(to: CGRect(x: 0, y: 0, width: 64, height: 64))
+          let filter = CIFilter.colorControls()
+          filter.inputImage = source
+          filter.saturation = 1.1
+          filter.contrast = 1.05
+          filter.brightness = 0.02
+          guard let out = filter.outputImage,
+                let cg = CIContext().createCGImage(out, from: source.extent),
+                cg.width == 64, cg.height == 64 else {
+              fatalError("Core Image pipeline failed")
+          }
+          print("PASS: macOS Core Image synthetic 64x64 render")
+          print("NOT an iOS device capture, NOT YCam style fidelity, NOT an Apple native pairing")
+          SWIFT
+
+      - name: Compile actual YCam Swift source for iPhone
+        run: |
+          set -euo pipefail
+          mkdir -p output/logs
+          xcodebuild -project YCam.xcodeproj -scheme YCam -configuration Release \
+            -sdk iphoneos -destination 'generic/platform=iOS' \
+            -derivedDataPath "$RUNNER_TEMP/ycam_derived" \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO \
+            COMPILER_INDEX_STORE_ENABLE=NO build \
+            > output/logs/xcodebuild.log 2>&1 || {
+              tail -n 180 output/logs/xcodebuild.log
+              exit 1
+            }
+          tail -n 30 output/logs/xcodebuild.log
+
+      - name: Package and verify UNRELEASED unsigned candidate IPA
+        run: |
+          set -euo pipefail
+          APP="$RUNNER_TEMP/ycam_derived/Build/Products/Release-iphoneos/YCam.app"
+          test -d "$APP"
+          test -s "$APP/YCam"
+          lipo -archs "$APP/YCam" | grep -qw arm64
+          mkdir -p output/package/Payload
+          ditto "$APP" output/package/Payload/YCam.app
+          (cd output/package && zip -qry ../YCam-UNRELEASED-validation-only-unsigned.ipa Payload)
+          python3 - <<'PY'
+          import hashlib, plistlib, zipfile
+          from pathlib import Path
+          p=Path('output/YCam-UNRELEASED-validation-only-unsigned.ipa')
+          assert p.stat().st_size > 100000
+          with zipfile.ZipFile(p) as z:
+              assert z.testzip() is None
+              names=set(z.namelist())
+              assert 'Payload/YCam.app/YCam' in names
+              d=plistlib.loads(z.read('Payload/YCam.app/Info.plist'))
+              assert d.get('CFBundleIdentifier')=='com.ycam.camera'
+              print('IPA candidate package OK, declared version:',d.get('CFBundleShortVersionString'),d.get('CFBundleVersion'))
+          print('Candidate SHA256',hashlib.sha256(p.read_bytes()).hexdigest())
+          print('WARNING: unreleased, unsigned, not real device tested, not color-calibrated against Apple.')
+          PY
+
+      - name: Upload candidate only, NOT GitHub Release
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: YCam-UNRELEASED-unsigned-candidate
+          path: output/YCam-UNRELEASED-validation-only-unsigned.ipa
+          retention-days: 7
+
+      - name: Upload build logs for failure audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: YCam-UNRELEASED-Xcode-logs
+          path: output/logs/
+          if-no-files-found: warn
+          retention-days: 7
+
+# Release blocked until original photos/videos, matched Apple/YCam images, and
+# independent full-resolution iOS render comparisons verify real style fidelity.
