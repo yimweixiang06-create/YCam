@@ -1,7 +1,7 @@
 {
   "schema": 2,
   "created_utc": "2026-11-18T09:43:09.767034+00:00",
-  "updated_utc": "2026-11-18T09:50:39.698805+00:00",
+  "updated_utc": "2026-11-18T09:51:15.043902+00:00",
   "source": "calibration/iphone16pro_recovered_113_photo_samples.b85",
   "reference_format": "nine 3x3 RGB samples per user-derived image, not full original photos",
   "unique_image_count": 113,
@@ -1037,15 +1037,81 @@
     },
     "85837bbd5f66": {
       "category": "Apple_screenshot_whitepaper",
-      "completed_50m_passes": [],
-      "attempts": [],
-      "actual_candidate_comparisons": 0
+      "completed_50m_passes": [
+        {
+          "image_id": "85837bbd5f66",
+          "category": "Apple_screenshot_whitepaper",
+          "pass_number": 1,
+          "status": "COMPLETE",
+          "actual_candidate_comparisons": 50000000,
+          "required_for_one_pass": 50000000,
+          "training_rgb_proxy_sse_before": 0.06220684,
+          "training_rgb_proxy_sse_after": 0.03706393,
+          "heldout_rgb_proxy_sse_before": 0.00956555,
+          "heldout_rgb_proxy_sse_after": 0.0043662,
+          "heldout_proxy_improved": true,
+          "suggested_delta_NOT_APPLIED": [
+            -0.01795568,
+            -0.02263797,
+            0.02662987,
+            0.02982807,
+            -0.02149212,
+            0.01735574
+          ],
+          "full_image_rendered": false,
+          "official_Apple_fidelity_verified": false,
+          "elapsed_seconds": 5.66,
+          "run_key": "44279726256-1"
+        }
+      ],
+      "attempts": [
+        {
+          "run_key": "44279726256-1",
+          "pass_number": 1,
+          "status": "COMPLETE",
+          "actual_candidate_comparisons": 50000000
+        }
+      ],
+      "actual_candidate_comparisons": 50000000
     },
     "e346dbb0a5b0": {
       "category": "Apple_screenshot_whitepaper",
-      "completed_50m_passes": [],
-      "attempts": [],
-      "actual_candidate_comparisons": 0
+      "completed_50m_passes": [
+        {
+          "image_id": "e346dbb0a5b0",
+          "category": "Apple_screenshot_whitepaper",
+          "pass_number": 1,
+          "status": "COMPLETE",
+          "actual_candidate_comparisons": 50000000,
+          "required_for_one_pass": 50000000,
+          "training_rgb_proxy_sse_before": 0.02611303,
+          "training_rgb_proxy_sse_after": 0.01981732,
+          "heldout_rgb_proxy_sse_before": 0.0013687,
+          "heldout_rgb_proxy_sse_after": 0.00029302,
+          "heldout_proxy_improved": true,
+          "suggested_delta_NOT_APPLIED": [
+            0.00423024,
+            0.026,
+            0.03,
+            0.03,
+            -0.03,
+            0.024
+          ],
+          "full_image_rendered": false,
+          "official_Apple_fidelity_verified": false,
+          "elapsed_seconds": 5.701,
+          "run_key": "44279726256-1"
+        }
+      ],
+      "attempts": [
+        {
+          "run_key": "44279726256-1",
+          "pass_number": 1,
+          "status": "COMPLETE",
+          "actual_candidate_comparisons": 50000000
+        }
+      ],
+      "actual_candidate_comparisons": 50000000
     },
     "973815038552": {
       "category": "Apple_screenshot_whitepaper",
@@ -1560,16 +1626,16 @@
   },
   "summary": {
     "total_unique_image_ids": 113,
-    "actual_candidate_comparisons": 1300000000,
-    "unique_images_with_full_50m_pass": 26,
+    "actual_candidate_comparisons": 1400000000,
+    "unique_images_with_full_50m_pass": 28,
     "unique_images_with_full_100m_passes": 0,
     "categories": {
       "Apple_screenshot_whitepaper": {
         "total_ids": 75,
-        "complete_50m_distinct": 21,
+        "complete_50m_distinct": 23,
         "complete_100m_distinct": 0,
-        "heldout_proxy_sse_before_average_among_completed": 0.19882316,
-        "heldout_proxy_sse_after_average_among_completed": 0.16932196
+        "heldout_proxy_sse_before_average_among_completed": 0.18200959,
+        "heldout_proxy_sse_after_average_among_completed": 0.15480088
       },
       "Apple_screenshot_RGB_chart": {
         "total_ids": 9,
