@@ -1,7 +1,7 @@
 {
   "schema": 2,
   "created_utc": "2026-11-18T09:43:09.767034+00:00",
-  "updated_utc": "2026-11-18T10:47:17.882862+00:00",
+  "updated_utc": "2026-11-18T10:47:57.830685+00:00",
   "source": "calibration/iphone16pro_recovered_113_photo_samples.b85",
   "reference_format": "nine 3x3 RGB samples per user-derived image, not full original photos",
   "unique_image_count": 113,
@@ -7608,6 +7608,31 @@
           "official_Apple_fidelity_verified": false,
           "elapsed_seconds": 6.73,
           "run_key": "44283508454-1"
+        },
+        {
+          "image_id": "21b47d076d2a",
+          "category": "RGB_chart_screen_photo",
+          "pass_number": 2,
+          "status": "COMPLETE",
+          "actual_candidate_comparisons": 50000000,
+          "required_for_one_pass": 50000000,
+          "training_rgb_proxy_sse_before": 0.82466744,
+          "training_rgb_proxy_sse_after": 0.78588871,
+          "heldout_rgb_proxy_sse_before": 0.53697809,
+          "heldout_rgb_proxy_sse_after": 0.51214579,
+          "heldout_proxy_improved": true,
+          "suggested_delta_NOT_APPLIED": [
+            -0.01798051,
+            0.02292229,
+            0.02829602,
+            0.02974116,
+            0.02686191,
+            -0.02049975
+          ],
+          "full_image_rendered": false,
+          "official_Apple_fidelity_verified": false,
+          "elapsed_seconds": 5.497,
+          "run_key": "44288682425-1"
         }
       ],
       "attempts": [
@@ -7616,9 +7641,15 @@
           "pass_number": 1,
           "status": "COMPLETE",
           "actual_candidate_comparisons": 50000000
+        },
+        {
+          "run_key": "44288682425-1",
+          "pass_number": 2,
+          "status": "COMPLETE",
+          "actual_candidate_comparisons": 50000000
         }
       ],
-      "actual_candidate_comparisons": 50000000
+      "actual_candidate_comparisons": 100000000
     },
     "72d3546e45b9": {
       "category": "RGB_chart_screen_photo",
@@ -7647,6 +7678,31 @@
           "official_Apple_fidelity_verified": false,
           "elapsed_seconds": 6.684,
           "run_key": "44283508454-1"
+        },
+        {
+          "image_id": "72d3546e45b9",
+          "category": "RGB_chart_screen_photo",
+          "pass_number": 2,
+          "status": "COMPLETE",
+          "actual_candidate_comparisons": 50000000,
+          "required_for_one_pass": 50000000,
+          "training_rgb_proxy_sse_before": 1.39577086,
+          "training_rgb_proxy_sse_after": 1.30542366,
+          "heldout_rgb_proxy_sse_before": 0.3552326,
+          "heldout_rgb_proxy_sse_after": 0.3548847,
+          "heldout_proxy_improved": true,
+          "suggested_delta_NOT_APPLIED": [
+            -0.01792787,
+            0.02584462,
+            0.0295998,
+            -0.00949268,
+            0.02958156,
+            -0.00683822
+          ],
+          "full_image_rendered": false,
+          "official_Apple_fidelity_verified": false,
+          "elapsed_seconds": 5.541,
+          "run_key": "44288682425-1"
         }
       ],
       "attempts": [
@@ -7655,9 +7711,15 @@
           "pass_number": 1,
           "status": "COMPLETE",
           "actual_candidate_comparisons": 50000000
+        },
+        {
+          "run_key": "44288682425-1",
+          "pass_number": 2,
+          "status": "COMPLETE",
+          "actual_candidate_comparisons": 50000000
         }
       ],
-      "actual_candidate_comparisons": 50000000
+      "actual_candidate_comparisons": 100000000
     },
     "111d3f079dc3": {
       "category": "RGB_chart_screen_photo",
@@ -7779,9 +7841,9 @@
   },
   "summary": {
     "total_unique_image_ids": 113,
-    "actual_candidate_comparisons": 11050000000,
+    "actual_candidate_comparisons": 11150000000,
     "unique_images_with_full_50m_pass": 113,
-    "unique_images_with_full_100m_passes": 108,
+    "unique_images_with_full_100m_passes": 110,
     "categories": {
       "Apple_screenshot_whitepaper": {
         "total_ids": 75,
@@ -7800,9 +7862,9 @@
       "RGB_chart_screen_photo": {
         "total_ids": 21,
         "complete_50m_distinct": 21,
-        "complete_100m_distinct": 17,
+        "complete_100m_distinct": 19,
         "heldout_proxy_sse_before_average_among_completed": 0.43943831,
-        "heldout_proxy_sse_after_average_among_completed": 0.41346451
+        "heldout_proxy_sse_after_average_among_completed": 0.41350427
       },
       "YCam_app_UI": {
         "total_ids": 8,
