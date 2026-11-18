@@ -2,9 +2,10 @@ name: YCam UNRELEASED Xcode and Core Image validation
 
 on:
   push:
-    branches: [main]
+    branches: [main, pearl-calibration-20261118]
     paths:
       - ".github/workflows/ycam-final-unreleased-validation.yml"
+      - "Styles.swift"
   workflow_dispatch:
 
 # Strictly an audit build. It NEVER triggers the publish-release.yml workflow,
