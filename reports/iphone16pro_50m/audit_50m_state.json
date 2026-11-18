@@ -1,7 +1,7 @@
 {
   "schema": 2,
   "created_utc": "2026-11-18T09:43:09.767034+00:00",
-  "updated_utc": "2026-11-18T09:55:55.739675+00:00",
+  "updated_utc": "2026-11-18T09:56:30.346277+00:00",
   "source": "calibration/iphone16pro_recovered_113_photo_samples.b85",
   "reference_format": "nine 3x3 RGB samples per user-derived image, not full original photos",
   "unique_image_count": 113,
@@ -1817,15 +1817,81 @@
     },
     "56faf23d7d1e": {
       "category": "YCam_app_UI",
-      "completed_50m_passes": [],
-      "attempts": [],
-      "actual_candidate_comparisons": 0
+      "completed_50m_passes": [
+        {
+          "image_id": "56faf23d7d1e",
+          "category": "YCam_app_UI",
+          "pass_number": 1,
+          "status": "COMPLETE",
+          "actual_candidate_comparisons": 50000000,
+          "required_for_one_pass": 50000000,
+          "training_rgb_proxy_sse_before": 0.02303345,
+          "training_rgb_proxy_sse_after": 0.01783209,
+          "heldout_rgb_proxy_sse_before": 0.00999616,
+          "heldout_rgb_proxy_sse_after": 0.00721943,
+          "heldout_proxy_improved": true,
+          "suggested_delta_NOT_APPLIED": [
+            -0.00349626,
+            0.01932,
+            0.02991063,
+            0.02986583,
+            0.02076331,
+            -0.017037
+          ],
+          "full_image_rendered": false,
+          "official_Apple_fidelity_verified": false,
+          "elapsed_seconds": 5.699,
+          "run_key": "44280534763-1"
+        }
+      ],
+      "attempts": [
+        {
+          "run_key": "44280534763-1",
+          "pass_number": 1,
+          "status": "COMPLETE",
+          "actual_candidate_comparisons": 50000000
+        }
+      ],
+      "actual_candidate_comparisons": 50000000
     },
     "85974c7dfffd": {
       "category": "YCam_app_UI",
-      "completed_50m_passes": [],
-      "attempts": [],
-      "actual_candidate_comparisons": 0
+      "completed_50m_passes": [
+        {
+          "image_id": "85974c7dfffd",
+          "category": "YCam_app_UI",
+          "pass_number": 1,
+          "status": "COMPLETE",
+          "actual_candidate_comparisons": 50000000,
+          "required_for_one_pass": 50000000,
+          "training_rgb_proxy_sse_before": 0.03836601,
+          "training_rgb_proxy_sse_after": 0.01459155,
+          "heldout_rgb_proxy_sse_before": 0.0257747,
+          "heldout_rgb_proxy_sse_after": 0.0098896,
+          "heldout_proxy_improved": true,
+          "suggested_delta_NOT_APPLIED": [
+            0.01792942,
+            0.02557188,
+            -0.02976763,
+            -0.02955241,
+            0.02897389,
+            -0.00962876
+          ],
+          "full_image_rendered": false,
+          "official_Apple_fidelity_verified": false,
+          "elapsed_seconds": 5.784,
+          "run_key": "44280534763-1"
+        }
+      ],
+      "attempts": [
+        {
+          "run_key": "44280534763-1",
+          "pass_number": 1,
+          "status": "COMPLETE",
+          "actual_candidate_comparisons": 50000000
+        }
+      ],
+      "actual_candidate_comparisons": 50000000
     },
     "58c89cc9ebb2": {
       "category": "YCam_app_UI",
@@ -2220,8 +2286,8 @@
   },
   "summary": {
     "total_unique_image_ids": 113,
-    "actual_candidate_comparisons": 2300000000,
-    "unique_images_with_full_50m_pass": 46,
+    "actual_candidate_comparisons": 2400000000,
+    "unique_images_with_full_50m_pass": 48,
     "unique_images_with_full_100m_passes": 0,
     "categories": {
       "Apple_screenshot_whitepaper": {
@@ -2247,10 +2313,10 @@
       },
       "YCam_app_UI": {
         "total_ids": 8,
-        "complete_50m_distinct": 1,
+        "complete_50m_distinct": 3,
         "complete_100m_distinct": 0,
-        "heldout_proxy_sse_before_average_among_completed": 0.01743945,
-        "heldout_proxy_sse_after_average_among_completed": 0.00299382
+        "heldout_proxy_sse_before_average_among_completed": 0.01773677,
+        "heldout_proxy_sse_after_average_among_completed": 0.00670095
       }
     },
     "target_met": false
