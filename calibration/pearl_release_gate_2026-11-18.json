@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "style": "Pearl",
+  "as_of": "2026-11-18",
+  "user_requested": "Apply the lowest available Pearl color calibration to the main style recipe, but do not claim iPhone equivalence before same-scene verification.",
+  "source_pair_provenance": "Probable Apple and YCam JPEG pair; camera app attribution not authenticated by EXIF",
+  "apple_source_sha256": "eb60baccadf3051c1ef228fdcf841f09e7b277c9b9e34c071496270119f187bc",
+  "ycam_source_sha256": "969d5dba80e0e3bb3a6719b4d04c9a880b1f0c1bac236c1bc88a64024a8fd408",
+  "minimum_locked_white_paper_rgb_mae_percent": 0.5684251318,
+  "corresponding_model": "round9_global_linquad",
+  "unseen_bottom_white_paper_rgb_mae_percent": 1.3187478046,
+  "full_white_paper_rgb_mae_percent": 0.9404419407,
+  "model_not_safe_to_transfer": true,
+  "model_transfer_reason": "The polynomial fitted only to one white-paper JPEG, extrapolates low/strong colors to nearly white, and is not equivalent to the YCam Core Image LookRecipe pipeline.",
+  "shippable_pearl_approximation": {
+    "kind": "constrained neutral-white correction, conservative camera-wide parameters",
+    "exposure": -0.015,
+    "contrast": 0.065,
+    "saturation": 1.01,
+    "vibrance": 0.04,
+    "temperature": -0.09,
+    "tint": 0.035,
+    "shadowTint": [
+      0.014,
+      -0.005,
+      0.017
+    ],
+    "highlightTint": [
+      0,
+      0.001,
+      0.013
+    ],
+    "whiteRoll": 0.1
+  },
+  "evidence_for_approximation": "Prior photographed white-paper controlled-region offline approximation improved neutral chroma MAE from 1.728% to 0.813%; full RGB MAE 4.237% -> 3.682% on that different heldout protocol. Does not prove sub-1% full image.",
+  "ios_full_frame_compared": false,
+  "independent_scene_holdout_pass": false,
+  "user_acceptance": false,
+  "official_Apple_fidelity_claim": false,
+  "ipa_release_allowed": false
+}
