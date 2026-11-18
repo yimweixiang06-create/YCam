@@ -241,7 +241,14 @@ enum CameraStyle: String, CaseIterable, Identifiable {
     var recipe: LookRecipe {
         switch self {
         case .standard: return LookRecipe()
-        case .pearl: return LookRecipe(exposure: -0.015, contrast: 0.065, saturation: 1.01, vibrance: 0.04, temperature: 0.01, tint: 0.035, shadowTint: rgb(0.014, -0.005, 0.017), highlightTint: rgb(0.001, 0.001, 0.001), whiteRoll: 0.10)
+                // Pearl neutral-white correction from real paired JPEG evidence.
+        // The lowest round-9 white-paper RGB fit (0.5684% in a small heldout
+        // patch) is NOT the camera recipe: its unconstrained quadratic RGB
+        // mapping severely miscolors dark and saturated scenes. Preserve a
+        // bounded, non-spatial, Pearl-only temperature/highlight correction
+        // instead; do not claim <1% full-frame/iOS fidelity from this source.
+        // Audit and release gate: calibration/pearl_release_gate_2026-11-18.json
+        case .pearl: return LookRecipe(exposure: -0.015, contrast: 0.065, saturation: 1.01, vibrance: 0.04, temperature: -0.09, tint: 0.035, shadowTint: rgb(0.014, -0.005, 0.017), highlightTint: rgb(0.000, 0.001, 0.013), whiteRoll: 0.10)
         case .amber: return LookRecipe(exposure: -0.01762, contrast: 0.09485, saturation: 1.06519, temperature: 0.31284, tint: 0.10681, highlightTint: rgb(0.019, 0.002, -0.012), whiteRoll: 0.09285)
         case .gold: return LookRecipe(exposure: 0.012, contrast: 0.075, saturation: 0.97, temperature: 0.17, tint: -0.10, highlightTint: rgb(0.007, 0.009, -0.006), blackLift: 0.008, whiteRoll: 0.10)
         case .roseGold: return LookRecipe(exposure: -0.025, contrast: 0.055, saturation: 1.015, temperature: 0.145, tint: 0.17, highlightTint: rgb(0.008, 0.001, 0.008), whiteRoll: 0.08)
