@@ -1,0 +1,100 @@
+{
+  "run_key": "44279084525-1",
+  "workflow_sha": "629132f7f427b51a3c5c48eea931d1149f6a8543",
+  "started_utc": "2026-11-18T09:46:59.211160+00:00",
+  "finished_utc": "2026-11-18T09:47:10.083363+00:00",
+  "selected_unique_image_ids": [
+    "d053929f16f7",
+    "38a3c427e9aa"
+  ],
+  "per_image": [
+    {
+      "image_id": "d053929f16f7",
+      "category": "RGB_chart_screen_photo",
+      "pass_number": 1,
+      "status": "COMPLETE",
+      "actual_candidate_comparisons": 50000000,
+      "required_for_one_pass": 50000000,
+      "training_rgb_proxy_sse_before": 0.65251826,
+      "training_rgb_proxy_sse_after": 0.60194912,
+      "heldout_rgb_proxy_sse_before": 0.3257055,
+      "heldout_rgb_proxy_sse_after": 0.29103678,
+      "heldout_proxy_improved": true,
+      "suggested_delta_NOT_APPLIED": [
+        -0.01793153,
+        -0.02592944,
+        -0.02998251,
+        -0.02827248,
+        0.01380784,
+        -0.020682
+      ],
+      "full_image_rendered": false,
+      "official_Apple_fidelity_verified": false,
+      "elapsed_seconds": 5.395,
+      "run_key": "44279084525-1"
+    },
+    {
+      "image_id": "38a3c427e9aa",
+      "category": "RGB_chart_screen_photo",
+      "pass_number": 1,
+      "status": "COMPLETE",
+      "actual_candidate_comparisons": 50000000,
+      "required_for_one_pass": 50000000,
+      "training_rgb_proxy_sse_before": 1.32387543,
+      "training_rgb_proxy_sse_after": 1.19154502,
+      "heldout_rgb_proxy_sse_before": 0.22831219,
+      "heldout_rgb_proxy_sse_after": 0.20249819,
+      "heldout_proxy_improved": true,
+      "suggested_delta_NOT_APPLIED": [
+        0.018,
+        -0.026,
+        -0.03,
+        -0.03,
+        -0.00822135,
+        -0.01296767
+      ],
+      "full_image_rendered": false,
+      "official_Apple_fidelity_verified": false,
+      "elapsed_seconds": 5.435,
+      "run_key": "44279084525-1"
+    }
+  ],
+  "proxy_only_not_full_image_render": true,
+  "summary_after_run": {
+    "total_unique_image_ids": 113,
+    "actual_candidate_comparisons": 700000000,
+    "unique_images_with_full_50m_pass": 14,
+    "unique_images_with_full_100m_passes": 0,
+    "categories": {
+      "Apple_screenshot_whitepaper": {
+        "total_ids": 75,
+        "complete_50m_distinct": 10,
+        "complete_100m_distinct": 0,
+        "heldout_proxy_sse_before_average_among_completed": 0.07625836,
+        "heldout_proxy_sse_after_average_among_completed": 0.05340068
+      },
+      "Apple_screenshot_RGB_chart": {
+        "total_ids": 9,
+        "complete_50m_distinct": 0,
+        "complete_100m_distinct": 0,
+        "heldout_proxy_sse_before_average_among_completed": null,
+        "heldout_proxy_sse_after_average_among_completed": null
+      },
+      "RGB_chart_screen_photo": {
+        "total_ids": 21,
+        "complete_50m_distinct": 4,
+        "complete_100m_distinct": 0,
+        "heldout_proxy_sse_before_average_among_completed": 0.33330642,
+        "heldout_proxy_sse_after_average_among_completed": 0.30332726
+      },
+      "YCam_app_UI": {
+        "total_ids": 8,
+        "complete_50m_distinct": 0,
+        "complete_100m_distinct": 0,
+        "heldout_proxy_sse_before_average_among_completed": null,
+        "heldout_proxy_sse_after_average_among_completed": null
+      }
+    },
+    "target_met": false
+  }
+}
