@@ -1,0 +1,95 @@
+name: YCam all 113 independent image RGB checks - 50M each pass
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/ycam-all-images-50m.yml
+  schedule:
+    - cron: "*/15 * * * *"
+
+# One writer for the persistent audit branch at any time.
+concurrency:
+  group: ycam-113-photos-50m-audit
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  audit-each-image:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout YCam source (no Swift modifications)
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Checkout durable audit history branch
+        uses: actions/checkout@v4
+        with:
+          ref: ycam-calibration-audit
+          path: audit
+          persist-credentials: true
+
+      - name: Install numerical environment
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install NumPy
+        run: python -m pip install --disable-pip-version-check --quiet numpy
+
+      - name: Score 50 million ACTUAL mathematical candidates per selected distinct image
+        env:
+          OPENBLAS_NUM_THREADS: "1"
+          OMP_NUM_THREADS: "1"
+        run: |
+          python tools/ycam_all_images_50m.py --ledger-root audit --images-per-run 2 --seconds-per-image 420
+
+      - name: Save per-image progress and immutable per-run audit files to GitHub
+        if: always()
+        run: |
+          if [ ! -f audit/reports/iphone16pro_50m/audit_50m_state.json ]; then
+            echo "No ledger produced."
+            exit 1
+          fi
+          git -C audit config user.name "github-actions[bot]"
+          git -C audit config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git -C audit add reports/iphone16pro_50m/
+          if ! git -C audit diff --cached --quiet; then
+            git -C audit commit -m "Record measured 50M/image proxy run ${GITHUB_RUN_ID} attempt ${GITHUB_RUN_ATTEMPT} [skip ci]"
+            git -C audit push origin HEAD:ycam-calibration-audit
+          fi
+
+      - name: Upload audit artifact separately from permanent branch history
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ycam-113-images-50m-audit-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            audit/reports/iphone16pro_50m/audit_50m_state.json
+            audit/reports/iphone16pro_50m/runs/
+          if-no-files-found: warn
+          retention-days: 90
+
+      - name: Keep executing until all 113 images have two complete 50M passes
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if python tools/ycam_all_images_50m.py --ledger-root audit --needs-more; then
+            echo "Remaining independent images; dispatching next batch."
+            gh api -X POST "repos/$GITHUB_REPOSITORY/actions/workflows/ycam-all-images-50m.yml/dispatches" -f ref=main
+          else
+            echo "All 113 recovered image samples reached two verified 50M proxy passes. Disable scheduled workflow."
+            gh api -X PUT "repos/$GITHUB_REPOSITORY/actions/workflows/ycam-all-images-50m.yml/disable"
+          fi
+
+# No released IPA and no style-recipe changes.
+# Only 3x3 recovered image RGB statistics exist in this data file, not real full-size photos/videos.
+# The workflow's proxy scores do NOT demonstrate Apple native rendering fidelity.
+# 50M unique-image milestone first; second 50M pass for 100M/image final target.
