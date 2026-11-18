@@ -1,7 +1,7 @@
 {
   "schema": 2,
   "created_utc": "2026-11-18T09:43:09.767034+00:00",
-  "updated_utc": "2026-11-18T10:38:06.595295+00:00",
+  "updated_utc": "2026-11-18T10:38:45.084134+00:00",
   "source": "calibration/iphone16pro_recovered_113_photo_samples.b85",
   "reference_format": "nine 3x3 RGB samples per user-derived image, not full original photos",
   "unique_image_count": 113,
@@ -5368,6 +5368,31 @@
           "official_Apple_fidelity_verified": false,
           "elapsed_seconds": 5.489,
           "run_key": "44281916884-1"
+        },
+        {
+          "image_id": "73758ad19af5",
+          "category": "Apple_screenshot_whitepaper",
+          "pass_number": 2,
+          "status": "COMPLETE",
+          "actual_candidate_comparisons": 50000000,
+          "required_for_one_pass": 50000000,
+          "training_rgb_proxy_sse_before": 0.03594002,
+          "training_rgb_proxy_sse_after": 0.02581426,
+          "heldout_rgb_proxy_sse_before": 0.00061515,
+          "heldout_rgb_proxy_sse_after": 0.00110467,
+          "heldout_proxy_improved": false,
+          "suggested_delta_NOT_APPLIED": [
+            -0.018,
+            0.026,
+            0.03,
+            0.03,
+            -0.03,
+            0.024
+          ],
+          "full_image_rendered": false,
+          "official_Apple_fidelity_verified": false,
+          "elapsed_seconds": 5.576,
+          "run_key": "44287272984-1"
         }
       ],
       "attempts": [
@@ -5376,9 +5401,15 @@
           "pass_number": 1,
           "status": "COMPLETE",
           "actual_candidate_comparisons": 50000000
+        },
+        {
+          "run_key": "44287272984-1",
+          "pass_number": 2,
+          "status": "COMPLETE",
+          "actual_candidate_comparisons": 50000000
         }
       ],
-      "actual_candidate_comparisons": 50000000
+      "actual_candidate_comparisons": 100000000
     },
     "736b2cb22045": {
       "category": "Apple_screenshot_whitepaper",
@@ -5407,6 +5438,31 @@
           "official_Apple_fidelity_verified": false,
           "elapsed_seconds": 5.571,
           "run_key": "44281916884-1"
+        },
+        {
+          "image_id": "736b2cb22045",
+          "category": "Apple_screenshot_whitepaper",
+          "pass_number": 2,
+          "status": "COMPLETE",
+          "actual_candidate_comparisons": 50000000,
+          "required_for_one_pass": 50000000,
+          "training_rgb_proxy_sse_before": 0.22731257,
+          "training_rgb_proxy_sse_after": 0.17612944,
+          "heldout_rgb_proxy_sse_before": 0.00183007,
+          "heldout_rgb_proxy_sse_after": 0.00633762,
+          "heldout_proxy_improved": false,
+          "suggested_delta_NOT_APPLIED": [
+            -0.01794528,
+            -0.02549956,
+            -0.0114235,
+            -0.02782333,
+            -0.02638489,
+            0.02262574
+          ],
+          "full_image_rendered": false,
+          "official_Apple_fidelity_verified": false,
+          "elapsed_seconds": 5.612,
+          "run_key": "44287272984-1"
         }
       ],
       "attempts": [
@@ -5415,9 +5471,15 @@
           "pass_number": 1,
           "status": "COMPLETE",
           "actual_candidate_comparisons": 50000000
+        },
+        {
+          "run_key": "44287272984-1",
+          "pass_number": 2,
+          "status": "COMPLETE",
+          "actual_candidate_comparisons": 50000000
         }
       ],
-      "actual_candidate_comparisons": 50000000
+      "actual_candidate_comparisons": 100000000
     },
     "08f2427a44c1": {
       "category": "Apple_screenshot_whitepaper",
@@ -6787,16 +6849,16 @@
   },
   "summary": {
     "total_unique_image_ids": 113,
-    "actual_candidate_comparisons": 9450000000,
+    "actual_candidate_comparisons": 9550000000,
     "unique_images_with_full_50m_pass": 113,
-    "unique_images_with_full_100m_passes": 76,
+    "unique_images_with_full_100m_passes": 78,
     "categories": {
       "Apple_screenshot_whitepaper": {
         "total_ids": 75,
         "complete_50m_distinct": 75,
-        "complete_100m_distinct": 61,
+        "complete_100m_distinct": 63,
         "heldout_proxy_sse_before_average_among_completed": 0.13785508,
-        "heldout_proxy_sse_after_average_among_completed": 0.11466634
+        "heldout_proxy_sse_after_average_among_completed": 0.11466808
       },
       "Apple_screenshot_RGB_chart": {
         "total_ids": 9,
