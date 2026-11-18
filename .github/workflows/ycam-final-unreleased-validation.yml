@@ -34,10 +34,15 @@ jobs:
           swift --version
           python3 --version
 
+      - name: Set up isolated Python for deterministic tests
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
       - name: Python deterministic style checks
         run: |
           set -euo pipefail
-          python3 -m pip install --quiet --disable-pip-version-check numpy pillow scipy
+          python -m pip install --quiet --disable-pip-version-check numpy pillow scipy
           python3 tools/static_check.py
           python3 tools/verify_neutral_controls.py
           python3 tools/verify_style_independence.py
