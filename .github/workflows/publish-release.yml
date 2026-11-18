@@ -23,11 +23,10 @@ concurrency:
 
 jobs:
   publish:
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event.workflow_run.conclusion == 'success' &&
-       github.event.workflow_run.head_branch == 'main' &&
-       github.event.workflow_run.event == 'push')
+    # Color calibration is NOT release-certified. Normal source pushes may
+    # build an unsigned TEST candidate, but must never auto-publish a release.
+    # Manual dispatch is still blocked by the explicit gate file below.
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - name: Read repository sources and release tags
@@ -36,6 +35,13 @@ jobs:
           ref: main
           fetch-depth: 0
           persist-credentials: false
+
+      - name: Block release until independently verified Pearl iOS fidelity
+        run: |
+          set -euo pipefail
+          test -f calibration/pearl_release_gate_2026-11-18.json
+          jq -e '.ios_full_frame_compared == true and .independent_scene_holdout_pass == true and .user_acceptance == true' calibration/pearl_release_gate_2026-11-18.json
+          echo "All Pearl release evidence gates passed."
 
       - name: Verify successful current-source iOS build with meaningful app changes
         id: source
