@@ -1,7 +1,7 @@
 {
   "schema": 2,
   "created_utc": "2026-11-18T09:43:09.767034+00:00",
-  "updated_utc": "2026-11-18T10:13:19.597353+00:00",
+  "updated_utc": "2026-11-18T10:13:53.889323+00:00",
   "source": "calibration/iphone16pro_recovered_113_photo_samples.b85",
   "reference_format": "nine 3x3 RGB samples per user-derived image, not full original photos",
   "unique_image_count": 113,
@@ -4079,15 +4079,81 @@
     },
     "f25647b16d38": {
       "category": "Apple_screenshot_whitepaper",
-      "completed_50m_passes": [],
-      "attempts": [],
-      "actual_candidate_comparisons": 0
+      "completed_50m_passes": [
+        {
+          "image_id": "f25647b16d38",
+          "category": "Apple_screenshot_whitepaper",
+          "pass_number": 1,
+          "status": "COMPLETE",
+          "actual_candidate_comparisons": 50000000,
+          "required_for_one_pass": 50000000,
+          "training_rgb_proxy_sse_before": 0.59923106,
+          "training_rgb_proxy_sse_after": 0.51746698,
+          "heldout_rgb_proxy_sse_before": 0.01970012,
+          "heldout_rgb_proxy_sse_after": 0.01855255,
+          "heldout_proxy_improved": true,
+          "suggested_delta_NOT_APPLIED": [
+            0.01795169,
+            0.02564654,
+            -0.02478936,
+            0.02632724,
+            0.02942369,
+            -0.02068366
+          ],
+          "full_image_rendered": false,
+          "official_Apple_fidelity_verified": false,
+          "elapsed_seconds": 6.887,
+          "run_key": "44283323573-1"
+        }
+      ],
+      "attempts": [
+        {
+          "run_key": "44283323573-1",
+          "pass_number": 1,
+          "status": "COMPLETE",
+          "actual_candidate_comparisons": 50000000
+        }
+      ],
+      "actual_candidate_comparisons": 50000000
     },
     "8e55178cd51c": {
       "category": "Apple_screenshot_RGB_chart",
-      "completed_50m_passes": [],
-      "attempts": [],
-      "actual_candidate_comparisons": 0
+      "completed_50m_passes": [
+        {
+          "image_id": "8e55178cd51c",
+          "category": "Apple_screenshot_RGB_chart",
+          "pass_number": 1,
+          "status": "COMPLETE",
+          "actual_candidate_comparisons": 50000000,
+          "required_for_one_pass": 50000000,
+          "training_rgb_proxy_sse_before": 0.46186851,
+          "training_rgb_proxy_sse_after": 0.42649046,
+          "heldout_rgb_proxy_sse_before": 0.22920415,
+          "heldout_rgb_proxy_sse_after": 0.21637856,
+          "heldout_proxy_improved": true,
+          "suggested_delta_NOT_APPLIED": [
+            -0.018,
+            -0.026,
+            0.00754471,
+            -0.03,
+            -0.03,
+            -0.02085462
+          ],
+          "full_image_rendered": false,
+          "official_Apple_fidelity_verified": false,
+          "elapsed_seconds": 7.07,
+          "run_key": "44283323573-1"
+        }
+      ],
+      "attempts": [
+        {
+          "run_key": "44283323573-1",
+          "pass_number": 1,
+          "status": "COMPLETE",
+          "actual_candidate_comparisons": 50000000
+        }
+      ],
+      "actual_candidate_comparisons": 50000000
     },
     "f16650aa02ff": {
       "category": "Apple_screenshot_RGB_chart",
@@ -4134,23 +4200,23 @@
   },
   "summary": {
     "total_unique_image_ids": 113,
-    "actual_candidate_comparisons": 5200000000,
-    "unique_images_with_full_50m_pass": 104,
+    "actual_candidate_comparisons": 5300000000,
+    "unique_images_with_full_50m_pass": 106,
     "unique_images_with_full_100m_passes": 0,
     "categories": {
       "Apple_screenshot_whitepaper": {
         "total_ids": 75,
-        "complete_50m_distinct": 74,
+        "complete_50m_distinct": 75,
         "complete_100m_distinct": 0,
-        "heldout_proxy_sse_before_average_among_completed": 0.13945177,
-        "heldout_proxy_sse_after_average_among_completed": 0.11595793
+        "heldout_proxy_sse_before_average_among_completed": 0.13785508,
+        "heldout_proxy_sse_after_average_among_completed": 0.11465919
       },
       "Apple_screenshot_RGB_chart": {
         "total_ids": 9,
-        "complete_50m_distinct": 6,
+        "complete_50m_distinct": 7,
         "complete_100m_distinct": 0,
-        "heldout_proxy_sse_before_average_among_completed": 0.42023068,
-        "heldout_proxy_sse_after_average_among_completed": 0.41543006
+        "heldout_proxy_sse_before_average_among_completed": 0.39294118,
+        "heldout_proxy_sse_after_average_among_completed": 0.38699413
       },
       "RGB_chart_screen_photo": {
         "total_ids": 21,
