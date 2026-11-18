@@ -1,8 +1,8 @@
 name: YCam iPhone16Pro 50M five-minute color checks
 
 on:
-  schedule:
-    - cron: "*/5 * * * *"
+  # Scheduled runs ended at 2026-11-18 15:00 Asia/Kuala_Lumpur.
+  # Cron removed; historical Actions runs and artifacts are retained subject to GitHub retention.
   workflow_dispatch:
   push:
     branches: [main]
