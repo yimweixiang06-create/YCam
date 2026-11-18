@@ -4,14 +4,6 @@ on:
   # Scheduled runs ended at 2026-11-18 15:00 Asia/Kuala_Lumpur.
   # Cron removed; historical Actions runs and artifacts are retained subject to GitHub retention.
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - ".github/workflows/calibrate-photos-5min.yml"
-      - "tools/ycam_50m_photo_proxy.py"
-      - "calibration/iphone16pro_50m_sufficient_stats.json"
-      - "calibration/iphone16pro_recovered_113_photo_samples.b85"
-      - "tools/ycam_each_image_10m.py"
 
 concurrency:
   group: ycam-iphone16pro-50m-five-minute
