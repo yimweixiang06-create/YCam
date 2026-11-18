@@ -83,7 +83,8 @@ jobs:
             -sdk iphoneos -destination 'generic/platform=iOS' \
             -derivedDataPath "$RUNNER_TEMP/ycam_derived" \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO \
-            COMPILER_INDEX_STORE_ENABLE=NO build \
+            COMPILER_INDEX_STORE_ENABLE=NO \
+            MARKETING_VERSION=1.32 CURRENT_PROJECT_VERSION=120 build \
             > output/logs/xcodebuild.log 2>&1 || {
               tail -n 180 output/logs/xcodebuild.log
               exit 1
@@ -111,6 +112,8 @@ jobs:
               assert 'Payload/YCam.app/YCam' in names
               d=plistlib.loads(z.read('Payload/YCam.app/Info.plist'))
               assert d.get('CFBundleIdentifier')=='com.ycam.camera'
+              assert d.get('CFBundleShortVersionString')=='1.32', 'Candidate version mismatch'
+              assert str(d.get('CFBundleVersion'))=='120', 'Candidate build number mismatch'
               print('IPA candidate package OK, declared version:',d.get('CFBundleShortVersionString'),d.get('CFBundleVersion'))
           print('Candidate SHA256',hashlib.sha256(p.read_bytes()).hexdigest())
           print('WARNING: unreleased, unsigned, not real device tested, not color-calibrated against Apple.')
